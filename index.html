@@ -1406,87 +1406,52 @@ input,select,textarea{font-family:var(--sans);}
         <div style="font-size:11px;color:var(--tx4);margin-top:7px" id="lastRefreshTime">마지막 갱신: —</div>
       </div>
 
-      <!-- FMP API -->
+      <!-- 데이터 현황 (일반 사용자용) -->
       <div class="set-sec">
-        <div class="set-title">📊 FMP API — 종목 배치 수집</div>
-        <div style="display:flex;align-items:flex-start;gap:7px;padding:8px 11px;background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;font-size:11px;color:#92400e;margin-bottom:10px">
-          <span>🔒</span>
-          <span>API 키는 이 기기에만 암호화 저장돼요. 타인과 공유하거나 공용 PC에서 사용하지 마세요.</span>
-        </div>
-        <div style="background:var(--blue-bg);border:1px solid var(--blue-lt);border-radius:9px;padding:13px;margin-bottom:13px;font-size:12px;color:var(--tx2);line-height:1.8">
-          <b>배치 실행 시 수집 내용:</b><br>
-          🇺🇸 미국: FMP 스크리너 → NASDAQ·NYSE·AMEX 시총 상위 <b>~500종목</b><br>
-          🇰🇷 국내: Yahoo Finance → <b>코스피200 + 코스닥150 공식 구성종목</b> (KRX 지수 기준)<br>
-          📊 재무지표: FMP key-metrics → <b>ROE·FCF·PEG·ROIC</b> 보완<br>
-          📈 성장률: FMP income-growth → <b>매출 성장률</b> 보완<br>
-          💾 결과: 브라우저 로컬스토리지 캐시 저장 (재실행 전까지 유지)
-        </div>
-
-        <!-- 배치 상태 -->
-        <!-- 서버 연결 상태 -->
+        <div class="set-title">📊 데이터 현황</div>
         <div id="serverStatus" style="margin-bottom:8px"></div>
-
-        <!-- 서버 URL 설정 -->
-        <div style="margin-bottom:12px">
-          <label style="font-size:12px;font-weight:600;color:var(--tx3);display:block;margin-bottom:4px">서버 URL (Railway 배포 후 입력)</label>
-          <div style="display:flex;gap:7px">
-            <input id="serverUrlInp" type="text" placeholder="https://your-app.up.railway.app"
-              style="flex:1;padding:8px 11px;border:1.5px solid var(--bdr);border-radius:7px;font-size:12px"
-              value="">
-            <button class="btn btn-g" style="padding:7px 12px;font-size:12px" onclick="saveServerUrl()">저장</button>
-            <button class="btn btn-g" style="padding:7px 12px;font-size:12px" onclick="testServerUrl()">연결 테스트</button>
-          </div>
-          <div style="font-size:11px;color:var(--tx4);margin-top:3px">Railway 배포 시 자동 생성된 URL. 로컬이면 http://localhost:3001</div>
+        <div style="background:var(--surf);border-radius:9px;padding:13px;font-size:12px;color:var(--tx2);line-height:1.8">
+          • 종목 데이터는 서버에서 자동 수집돼요<br>
+          • 실시간 시세는 Yahoo Finance에서 가져와요 (15분 지연)<br>
+          • AI 분석은 Google Gemini를 사용해요
         </div>
-        <div id="batchStatus" style="margin-bottom:12px"></div>
+        <div id="batchStatus" style="margin-bottom:8px;margin-top:8px"></div>
 
-        <div class="set-field">
-          <label>FMP API Key</label>
-          <input type="password" id="fmpKeyInp" placeholder="FMP API 키 입력">
-        </div>
-        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
-          <button class="btn btn-g" onclick="testFmp()">🔌 연결 테스트</button>
-          <button class="btn btn-p" onclick="saveFmpKey()">💾 키 저장</button>
-          <button class="btn btn-p" onclick="runBatch()" style="background:#0d7c4a;border-color:#0d7c4a">
-            🚀 전체 배치 실행
-          </button>
-        </div>
-        <div id="fmpMsg" style="margin-top:6px"></div>
-
-        <!-- 배치 진행 -->
+        <!-- 배치 진행 상태 (읽기 전용) -->
         <div id="batchProgWrap" style="display:none;margin-top:12px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:12px;color:var(--tx3)">진행 중...</span>
+            <span style="font-size:12px;color:var(--tx3)">데이터 업데이트 중...</span>
             <span style="font-size:11px;color:var(--brand)" id="batchProgLbl">0%</span>
           </div>
           <div style="height:6px;background:var(--bdr);border-radius:3px;overflow:hidden">
             <div id="batchProg" style="height:100%;width:0%;background:var(--brand);border-radius:3px;transition:width .3s"></div>
           </div>
-          <div id="batchLog" style="margin-top:8px;max-height:140px;overflow-y:auto;font-size:10px;font-family:var(--mono);color:var(--tx3);background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:8px;line-height:1.7"></div>
         </div>
       </div>
 
-      <!-- Gemini AI -->
-      <div class="set-sec">
-        <div class="set-title">🤖 AI 분석 (Google Gemini)</div>
-        <div id="geminiGuide" style="background:var(--blue-bg);border:1px solid var(--blue-lt);border-radius:9px;padding:13px;margin-bottom:13px">
-          <div style="font-size:13px;font-weight:700;color:var(--brand);margin-bottom:4px">🔑 Gemini API 키 등록 방법</div>
-          <div style="font-size:12px;color:var(--tx2);line-height:1.8">
-            <b>1단계.</b> <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--brand)">aistudio.google.com</a> 접속<br>
-            <b>2단계.</b> [Get API Key] → [Create API key] 클릭<br>
-            <b>3단계.</b> 생성된 AIza... 키 복사<br>
-            <b>4단계.</b> 아래 붙여넣기 후 저장
-          </div>
+      <!-- 관리자 패널 (비밀번호 보호) -->
+      <div class="set-sec" id="adminPanel" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <div class="set-title" style="margin:0">🔧 관리자 패널</div>
+          <span style="font-size:10px;background:var(--up);color:#fff;padding:2px 7px;border-radius:10px;font-weight:700">ADMIN</span>
         </div>
-        <div class="set-field">
-          <label>Gemini API Key</label>
-          <input type="password" id="gkeyInp" placeholder="AIza... 형태의 키 입력">
+        <div style="background:var(--blue-bg);border:1px solid var(--blue-lt);border-radius:9px;padding:13px;margin-bottom:13px;font-size:12px;color:var(--tx2);line-height:1.8">
+          🇰🇷 KRX 전종목 + 🇺🇸 미국 FMP 스크리너 + 재무지표 수집<br>
+          소요 시간: 약 10~20분
         </div>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn btn-g" onclick="testGemini()">🔌 테스트</button>
-          <button class="btn btn-p" onclick="saveGKey()">💾 저장</button>
+        <div id="batchLog" style="display:none;margin-bottom:10px;max-height:140px;overflow-y:auto;font-size:10px;font-family:var(--mono);color:var(--tx3);background:var(--surf);border:1px solid var(--bdr);border-radius:6px;padding:8px;line-height:1.7"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-p" onclick="runBatch()" style="background:#0d7c4a;border-color:#0d7c4a">
+            🚀 전체 배치 실행
+          </button>
+          <button class="btn btn-g" onclick="testServerUrl()">🔌 서버 연결 확인</button>
         </div>
-        <div id="gkeyMsg"></div>
+        <div id="fmpMsg" style="margin-top:6px"></div>
+      </div>
+
+      <!-- 관리자 로그인 버튼 (숨겨진) -->
+      <div style="text-align:center;margin-top:8px">
+        <span id="adminLoginBtn" style="font-size:11px;color:var(--bdr2);cursor:pointer" onclick="showAdminLogin()">●●●</span>
       </div>
 
       <div class="set-sec">
@@ -2009,11 +1974,7 @@ const QUICK_FILTERS = [
 // ══════════════════════════════════════════════
 // 서버 설정 (로컬 서버 연동)
 // ══════════════════════════════════════════════
-// 서버 URL — 설정에서 변경 가능 (localStorage 저장)
-const SERVER_URL = (() => {
-  const saved = localStorage.getItem('sr_server_url');
-  return saved || 'http://localhost:3001';
-})();
+const SERVER_URL = 'https://stockradar-server-production.up.railway.app'; // Railway 서버 고정
 
 // 서버 연결 가능 여부 확인
 async function checkServer(){
@@ -3280,10 +3241,9 @@ function togCT(el,t){
 // GEMINI AI
 // ══════════════════════════════════════════════
 async function renderAI(id,m,d){
-  const gkey=gGKey(),cont=document.getElementById('aiContent');
-  if(!gkey){cont.innerHTML=`<div class="ai-nokey"><p>⚙️ 설정에서 Gemini API 키를 등록하면<br>AI 분석 요약을 받을 수 있어요!</p><button class="btn btn-p" onclick="go(null,'settings')">→ 설정에서 키 등록</button></div>`;return;}
+  const cont=document.getElementById('aiContent');
   cont.innerHTML=`<div style="text-align:center;padding:16px"><div class="spinner" style="margin:0 auto 8px"></div>AI 분석 중...</div>`;
-  const res=await callGemini(m,d,gkey);
+  const res=await callGemini(m,d);
   if(res){
     const stars='⭐'.repeat(res.score)+'☆'.repeat(5-res.score);
     const pos=(res.positives||[]).map(p=>`<div style="display:flex;gap:5px;margin-bottom:3px"><span style="color:var(--green)">✅</span><span style="font-size:12px">${p}</span></div>`).join('');
@@ -3294,34 +3254,42 @@ async function renderAI(id,m,d){
   }
 }
 
-async function callGemini(m,d,gkey){
-  const prompt=`주린이(주식 초보자)를 위한 친절한 주식 분석을 해주세요.
-종목: ${m.nm||'—'} (${m.sec||'—'})
-오늘 등락: ${d.changeRate?.toFixed(2)||'—'}%
-고점대비 하락: ${d.drop||m.drop||0}%
-ROE: ${m.roe||0}%, 배당: ${m.div||0}%
-특징: ${(m.tags||[]).join(',')}
-기관 매수: ${m.inst?'예':'아니오'}
-지정학 리스크 하락: ${m.geo?'예':'아니오'}
+async function callGemini(m,d){
+  // 서버 /api/ai 경유 — Gemini 키 클라이언트 노출 없음
+  const isKr=/^\d{6}$/.test(m.id);
+  const prompt=`당신은 주식 투자 분석 전문가입니다. 다음 종목을 분석해주세요.
 
-다음 JSON 형식으로만 응답 (다른 텍스트 금지):
-{"score":1~5,"summary":"2~3문장 쉬운 말 요약","positives":["긍정1","긍정2"],"negatives":["주의1"],"warning":"한줄 주의사항"}`;
-  try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':gkey},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:.7,maxOutputTokens:600}}),signal:AbortSignal.timeout(20000)});
-    const data=await res.json();
-    if(data.error)return null;
-    const txt=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    const match=txt.match(/\{[\s\S]*\}/);
-    return match?JSON.parse(match[0]):null;
-  }catch{return null;}
+종목: ${m.nm} (${m.id})
+시장: ${isKr?'한국 코스피/코스닥':'미국'}
+섹터: ${m.sec}
+현재가: ${d.price?fmtP(d.price,m.id):'데이터 없음'}
+오늘 등락: ${d.changeRate?d.changeRate.toFixed(2)+'%':'데이터 없음'}
+PER: ${d.pe||m.per||0}x
+ROE: ${m.roe||0}%
+매출성장률: ${m.rev||0}%
+52주 고점 대비: -${d.drop||m.drop||0}%
+배당수익률: ${d.div||m.div||0}%
+시가총액: ${d.mc||m.mc||0}백만달러
+
+아래 형식으로 한국어로 간결하게 분석해주세요 (총 250자 이내):
+✅ 강점: (2가지)
+⚠️ 주의: (1가지)
+💡 한줄 결론:`;
+  const res = await fetch(SERVER_URL+'/api/ai',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({prompt}),
+    signal:AbortSignal.timeout(25000),
+  });
+  if(!res.ok) throw new Error('서버 오류 '+res.status);
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  return data.result||'분석 결과 없음';
 }
 
 function saveGKey(){
-  const raw=document.getElementById('gkeyInp').value.trim();
-  if(!raw)return toast('API 키를 입력해주세요');
-  if(raw.startsWith('••'))return showMsg('gkeyMsg','기존 키가 유지됩니다. 변경하려면 새 키를 입력하세요','info');
-  const k=raw;
-  sGKey(k);document.getElementById('geminiGuide').style.display='none';showMsg('gkeyMsg','✅ 저장됐어요! 이제 AI 분석을 사용할 수 있어요','ok');toast('Gemini 키 저장됐어요 🤖');}
+  toast('Gemini 키는 서버에서 관리해요');
+  if(false){document.getElementById('geminiGuide').style.display='none';showMsg('gkeyMsg','✅ 저장됐어요! 이제 AI 분석을 사용할 수 있어요','ok');toast('Gemini 키 저장됐어요 🤖');}
 async function testGemini(){
   const k=document.getElementById('gkeyInp').value.trim()||gGKey();
   if(!k)return showMsg('gkeyMsg','API 키를 먼저 입력해주세요','err');
@@ -3332,12 +3300,8 @@ async function testGemini(){
 // FMP
 // ── FMP 키 저장 ────────────────────────────────────────
 function saveFmpKey(){
-  const raw = document.getElementById('fmpKeyInp').value.trim();
-  if(!raw) return toast('FMP 키를 입력해주세요');
-  // 마스킹된 값이면 저장 안 함 (기존 키 유지)
-  if(raw.startsWith('••')) return showMsg('fmpMsg','기존 키가 유지됩니다. 변경하려면 새 키를 입력하세요','info');
-  const k = raw;
-  sFmpKey(k);
+  // 서버에서 관리 — 클라이언트 키 불필요
+  toast('API 키는 서버에서 관리해요');
   showMsg('fmpMsg','✅ 저장됐어요! 아래 "전체 배치 실행"으로 5,000개+ 종목을 가져오세요','ok');
   toast('FMP 키 저장됐어요 📊');
   renderBatchStatus();
@@ -3800,13 +3764,7 @@ function buildTags(id, sector, industry){
   return tags.slice(0,3);
 }
 
-function saveServerUrl(){
-  const v = document.getElementById('serverUrlInp').value.trim().replace(/\/+$/,'');
-  if(!v) return toast('URL을 입력해주세요');
-  localStorage.setItem('sr_server_url', v);
-  toast('서버 URL 저장됐어요. 새로고침하면 적용돼요.');
-  showMsg('fmpMsg', `✅ 서버 URL 저장: ${v}`, 'ok');
-}
+function saveServerUrl(){ toast('서버 URL은 고정돼 있어요'); }
 
 async function testServerUrl(){
   const v = document.getElementById('serverUrlInp').value.trim() || localStorage.getItem('sr_server_url') || 'http://localhost:3001';
@@ -4206,10 +4164,7 @@ function showPage(page){
   if(page==='home')renderHome();
   if(page==='screener'){applyFilters();}
   if(page==='settings'){
-    // 키 존재 여부만 표시 (실제 값 노출 방지)
-    const _gk = gGKey(), _fk = gFmpKey();
-    document.getElementById('gkeyInp').value   = _gk  ? '••••••••••••••••' + _gk.slice(-4)  : '';
-    document.getElementById('fmpKeyInp').value = _fk  ? '••••••••••••••••' + _fk.slice(-4)  : '';
+    // 키는 서버에서 관리
     const gd = document.getElementById('geminiGuide');
     if(gd) gd.style.display = gGKey() ? 'none' : 'block';
     // 갱신 주기 복원
@@ -4754,6 +4709,153 @@ function migrateOldUser(){
     console.log('[보안] 구버전 계정 삭제됨. 재가입 필요.');
   }
 }
+
+// ══ 관리자 기능 ══════════════════════════════════════════
+const ADMIN_PW = 'stockradar2024admin';
+
+function openAdmin(){
+  om('adminOv');
+  if(sessionStorage.getItem('sr_admin')==='1'){
+    _showAdminPanel();
+  } else {
+    document.getElementById('adminAuth').style.display='flex';
+    document.getElementById('adminPanel').style.display='none';
+    setTimeout(()=>document.getElementById('adminPwInp')?.focus(),100);
+  }
+}
+
+function checkAdminPw(){
+  const pw=document.getElementById('adminPwInp').value;
+  if(pw===ADMIN_PW){
+    sessionStorage.setItem('sr_admin','1');
+    document.getElementById('adminPwInp').value='';
+    _showAdminPanel();
+  } else {
+    toast('비밀번호가 틀렸어요');
+  }
+}
+
+async function _showAdminPanel(){
+  document.getElementById('adminAuth').style.display='none';
+  document.getElementById('adminPanel').style.display='flex';
+  try{
+    const res=await fetch(`${SERVER_URL}/api/status`);
+    const d=await res.json();
+    document.getElementById('adminStatus').innerHTML=
+      `✅ 서버 연결됨 · 종목 <b>${d.stocks}개</b> · FMP: ${d.fmpKeySet?'✅':'❌'} · AI: ${d.geminiKeySet?'✅':'❌'}`+
+      (d.lastBatch?`<br>마지막 배치: ${new Date(d.lastBatch).toLocaleString('ko-KR')}`:'<br>배치 미실행');
+  } catch(e){
+    document.getElementById('adminStatus').innerHTML='❌ 서버 연결 실패: '+e.message;
+  }
+}
+
+async function adminRunBatch(){
+  const btn=document.getElementById('adminBatchBtn');
+  const sta=document.getElementById('adminBatchStatus');
+  const log=document.getElementById('adminBatchLog');
+  btn.disabled=true; btn.textContent='⏳ 실행 중...';
+  sta.textContent='배치 시작 중...'; log.style.display='block'; log.textContent='';
+  try{
+    const res=await fetch(`${SERVER_URL}/api/batch`,{method:'POST'});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.error);
+    sta.textContent='✅ 배치 시작! 10~20분 소요';
+    const poll=setInterval(async()=>{
+      try{
+        const sr=await fetch(`${SERVER_URL}/api/batch/status`);
+        const sd=await sr.json();
+        sta.textContent=`[${sd.pct}%] ${sd.msg}`;
+        log.textContent=(sd.log||[]).join('\n');
+        log.scrollTop=log.scrollHeight;
+        if(!sd.running){
+          clearInterval(poll);
+          btn.disabled=false; btn.textContent='🚀 전체 배치 실행';
+          sta.textContent=`✅ 완료! 총 ${sd.stocks}개 종목`;
+          toast('배치 완료! 🎉'); refreshAll();
+        }
+      }catch(_){}
+    },3000);
+  }catch(e){
+    sta.textContent=`❌ ${e.message}`;
+    btn.disabled=false; btn.textContent='🚀 전체 배치 실행';
+  }
+}
+
+function adminLogout(){
+  sessionStorage.removeItem('sr_admin');
+  cm('adminOv');
+  toast('관리자 로그아웃');
+}
 </script>
+
+<!-- 관리자 로그인 모달 -->
+<div class="overlay" id="adminOv" onclick="if(event.target===this)cm('adminOv')">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-hdr">
+      <div class="modal-title">🔧 관리자</div>
+      <button class="modal-x" onclick="cm('adminOv')">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="set-field">
+        <label>관리자 비밀번호</label>
+        <input type="password" id="adminPwInp" placeholder="비밀번호 입력"
+          onkeydown="if(event.key==='Enter')checkAdminPw()">
+      </div>
+      <button class="btn btn-p btn-full" onclick="checkAdminPw()">확인</button>
+      <div id="adminMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 관리자 모달 ══ -->
+<div class="overlay" id="adminOv" onclick="if(event.target===this)cm('adminOv')">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-hdr">
+      <div class="modal-title">🔧 관리자 설정</div>
+      <button class="modal-x" onclick="cm('adminOv')">✕</button>
+    </div>
+
+    <!-- 비밀번호 확인 -->
+    <div id="adminAuth" style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:13px;color:var(--tx3)">관리자 비밀번호를 입력하세요</div>
+      <div class="set-field">
+        <input id="adminPwInp" type="password" placeholder="관리자 비밀번호"
+          onkeydown="if(event.key==='Enter')checkAdminPw()">
+      </div>
+      <button class="btn btn-p btn-full" onclick="checkAdminPw()">확인</button>
+    </div>
+
+    <!-- 관리자 패널 (인증 후) -->
+    <div id="adminPanel" style="display:none;flex-direction:column;gap:14px">
+
+      <!-- 서버 상태 -->
+      <div style="padding:10px 12px;background:var(--surf);border-radius:9px;font-size:12px" id="adminStatus">
+        서버 상태 확인 중...
+      </div>
+
+      <!-- 배치 실행 -->
+      <div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">📦 데이터 배치</div>
+        <button class="btn btn-p btn-full" onclick="adminRunBatch()" id="adminBatchBtn">
+          🚀 전체 배치 실행 (KRX + Yahoo + FMP)
+        </button>
+        <div id="adminBatchStatus" style="font-size:11px;color:var(--tx4);margin-top:6px;line-height:1.6"></div>
+        <div id="adminBatchLog" style="font-size:10px;color:var(--tx4);margin-top:4px;max-height:120px;overflow-y:auto;font-family:monospace;background:var(--surf);padding:6px;border-radius:6px;display:none"></div>
+      </div>
+
+      <!-- 서버 URL -->
+      <div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px">🌐 서버 URL</div>
+        <div class="set-field">
+          <input id="adminServerUrl" type="text" placeholder="https://..." value="https://stockradar-server-production.up.railway.app">
+        </div>
+        <button class="btn btn-g" style="margin-top:6px;padding:7px 14px;font-size:12px" onclick="saveAdminServerUrl()">저장</button>
+      </div>
+
+      <!-- 로그아웃 -->
+      <button onclick="adminLogout()" style="background:none;border:none;font-size:12px;color:var(--tx4);cursor:pointer;text-align:left">관리자 로그아웃</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
