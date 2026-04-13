@@ -8378,6 +8378,7 @@ function showPage(page){
   const pg=document.getElementById(`pg-${page}`);
   if(pg)pg.classList.add('on');
   document.getElementById('topTitle').textContent=PAGE_TITLES[page]||'';
+  if (typeof trackEvent === 'function') trackEvent('page_view', page);
   if(page==='issue')renderIssue();
   if(page==='sector')setTimeout(renderSectorMap,50);
   if(page==='guide')renderGuide();
@@ -8790,7 +8791,7 @@ function onSmKey(e){
   if(e.key==='ArrowUp'){smSelIdx=Math.max(smSelIdx-1,0);_smSel(rows);e.preventDefault();}
   if(e.key==='Enter'){
     if(smSelIdx>=0&&rows[smSelIdx])rows[smSelIdx].click();
-    else{const q=document.getElementById('smInput').value.trim();if(q){goToScreenerWithSearch(q);closeSearchOverlay();}}
+    else{const q=document.getElementById('smInput').value.trim();if(q){trackEvent('search',q);goToScreenerWithSearch(q);closeSearchOverlay();}}
   }
 }
 function _smSel(rows){rows.forEach((r,i)=>r.style.background=i===smSelIdx?'var(--blue-bg)':'');if(rows[smSelIdx])rows[smSelIdx].scrollIntoView({block:'nearest'});}
@@ -9801,6 +9802,20 @@ async function loadNoticeBanners() {
     if (h > 0) document.body.style.paddingTop = h + 'px';
   } catch(_) { /* 조용히 무시 */ }
 }
+// ─── 사용자 행동 이벤트 트래킹 ───────────
+function trackEvent(type, target, meta) {
+  try {
+    fetch((window.SERVER_URL || '') + '/api/events', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, target: target || null, meta: meta || null }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch(_) {}
+}
+window.trackEvent = trackEvent;
+
 function dismissNotice(id, uat) {
   try {
     const arr = JSON.parse(localStorage.getItem('sr_dismissed_notices') || '[]');

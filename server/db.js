@@ -156,6 +156,25 @@ const migrations = [
       CREATE INDEX IF NOT EXISTS idx_notices_enabled ON notices(enabled);
     `);
   },
+  // v4 — 이벤트 로그 (조회/검색/분석 등 사용자 행동 트래킹)
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS events (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER,
+        type       TEXT NOT NULL,
+        target     TEXT,
+        meta       TEXT,
+        ip         TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
+      CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
+      CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
+      CREATE INDEX IF NOT EXISTS idx_events_target ON events(target);
+    `);
+  },
 ];
 
 function runMigrations() {
@@ -274,11 +293,33 @@ function logError({ level = 'error', source = null, message, stack = null, url =
   }
 }
 
+// ─── 이벤트 로그 헬퍼 ───────────────────────────
+//  조용히 실패 — 이벤트 로깅이 사용자 요청을 깨뜨리면 안 됨
+function logEvent({ userId = null, type, target = null, meta = null, ip = null }) {
+  try {
+    if (!type) return;
+    db.prepare(`
+      INSERT INTO events (user_id, type, target, meta, ip, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      userId,
+      String(type).slice(0, 40),
+      target ? String(target).slice(0, 200) : null,
+      meta ? JSON.stringify(meta).slice(0, 1000) : null,
+      ip,
+      Date.now(),
+    );
+  } catch (e) {
+    console.warn('[events] insert failed:', e.message);
+  }
+}
+
 module.exports = {
   db,
   logAudit,
   logAiUsage,
   logError,
+  logEvent,
   GEMINI_PRICING,
   DB_PATH,
 };

@@ -12,7 +12,7 @@ const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
 
 // DB + 라우트
-const { db, logAiUsage, logError } = require('./db');
+const { db, logAiUsage, logError, logEvent } = require('./db');
 const authRouter = require('./auth');
 const adminRouter = require('./admin');
 const { attachUser } = require('./middleware');
@@ -801,6 +801,7 @@ const fmpFetch = async (endpoint, params = {}) => {
 app.get('/api/profile/:symbol', async (req, res) => {
   try {
     const sym = req.params.symbol.toUpperCase();
+    logEvent({ userId: req.user?.id, type: 'view_profile', target: sym, ip: req.ip });
     const cacheKey = `fmp:profile:${sym}`;
     const cached = getCached(cacheKey, 60 * 60 * 1000); // 1시간 캐시
     if (cached) return res.json({ ...cached, cached: true });
@@ -1401,6 +1402,13 @@ ${formatBlock}`;
       completionTokens: usage?.completionTokens || 0,
       totalTokens: usage?.totalTokens || 0,
     });
+    logEvent({
+      userId: req.user?.id,
+      type: 'ai_analyze',
+      target: d.symbol || d.name,
+      meta: { name: d.name, market: isKR ? 'KR' : 'US' },
+      ip: req.ip,
+    });
     const result = {
       symbol: d.symbol,
       market: isKR ? 'KR' : 'US',
@@ -1529,6 +1537,23 @@ app.use(express.static(STATIC_ROOT, {
   extensions: ['html'],
   dotfiles: 'deny',
 }));
+
+// ─── 공개: 클라이언트 이벤트 수집 ───────────
+//  바디: { type, target?, meta? }
+//  레이트 리밋은 별도 미들웨어 없이 길이/타입 화이트리스트로 방어
+const EVENT_TYPES = new Set(['search', 'page_view', 'filter', 'chip_click', 'detail_open']);
+app.post('/api/events', (req, res) => {
+  const { type, target, meta } = req.body || {};
+  if (!type || !EVENT_TYPES.has(String(type))) return res.status(400).json({ ok: false, error: 'INVALID_TYPE' });
+  logEvent({
+    userId: req.user?.id,
+    type: String(type),
+    target: target ? String(target).slice(0, 200) : null,
+    meta: (meta && typeof meta === 'object') ? meta : null,
+    ip: req.ip,
+  });
+  res.json({ ok: true });
+});
 
 // ─── 공개: 활성 공지사항 (사용자 페이지 상단 배너용) ──
 app.get('/api/notices/active', (_req, res) => {

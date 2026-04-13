@@ -288,6 +288,7 @@ a{color:inherit;text-decoration:none;}
     </div>
     <nav class="nav">
       <div class="nav-item on" data-page="dashboard" onclick="navTo('dashboard')"><span class="nav-ico">📊</span>대시보드</div>
+      <div class="nav-item"    data-page="analytics" onclick="navTo('analytics')"><span class="nav-ico">📈</span>분석</div>
       <div class="nav-item"    data-page="users"     onclick="navTo('users')"><span class="nav-ico">👥</span>회원 관리</div>
       <div class="nav-item"    data-page="menus"     onclick="navTo('menus')"><span class="nav-ico">🧭</span>메뉴 관리</div>
       <div class="nav-item"    data-page="ai"        onclick="navTo('ai')"><span class="nav-ico">🤖</span>AI 사용량</div>
@@ -326,6 +327,62 @@ a{color:inherit;text-decoration:none;}
             <tbody id="recentTbody"></tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <!-- ─── 분석 ─── -->
+    <section class="page" id="page-analytics">
+      <div class="main-hdr">
+        <div>
+          <div class="main-title">📈 분석</div>
+          <div class="main-sub">DAU/MAU · 인기 종목 · 검색 키워드</div>
+        </div>
+        <button class="btn btn-d" onclick="loadAnalytics()">새로고침</button>
+      </div>
+      <div class="stat-grid" id="anaStatGrid"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div class="card" style="margin:0">
+          <div class="card-title">🔥 인기 종목 조회 Top 20 (30일)</div>
+          <div class="table-wrap" style="margin:0;box-shadow:none;border-radius:12px">
+            <table class="table">
+              <thead><tr><th>#</th><th>종목</th><th>조회</th><th>유저 수</th></tr></thead>
+              <tbody id="anaStocksTbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="card-title">🔍 인기 검색 키워드 Top 20 (30일)</div>
+          <div class="table-wrap" style="margin:0;box-shadow:none;border-radius:12px">
+            <table class="table">
+              <thead><tr><th>#</th><th>키워드</th><th>검색</th><th>유저 수</th></tr></thead>
+              <tbody id="anaKeywordsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div class="card" style="margin:0">
+          <div class="card-title">🤖 AI 분석 인기 종목 Top 10 (30일)</div>
+          <div class="table-wrap" style="margin:0;box-shadow:none;border-radius:12px">
+            <table class="table">
+              <thead><tr><th>#</th><th>종목</th><th>분석 요청</th><th>유저 수</th></tr></thead>
+              <tbody id="anaAiTbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="card-title">📊 이벤트 타입별 (30일)</div>
+          <div class="table-wrap" style="margin:0;box-shadow:none;border-radius:12px">
+            <table class="table">
+              <thead><tr><th>타입</th><th>건수</th></tr></thead>
+              <tbody id="anaTypesTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📅 일별 활성 사용자 (최근 30일)</div>
+        <div id="anaDailyBars" style="padding:8px 4px"></div>
       </div>
     </section>
 
@@ -713,7 +770,7 @@ async function doLogout(){
   try { await api('/api/auth/logout', { method:'POST' }); } catch{}
   location.reload();
 }
-const VALID_PAGES = ['dashboard','users','menus','ai','costs','errors','status','notices','logs','settings'];
+const VALID_PAGES = ['dashboard','analytics','users','menus','ai','costs','errors','status','notices','logs','settings'];
 function meLogin(user){
   $('meNick').textContent = user.nickname;
   $('meEmail').textContent = user.email;
@@ -745,6 +802,7 @@ function navTo(page, opts = {}){
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('on', el.dataset.page===page));
   document.querySelectorAll('.page').forEach(el=>el.classList.toggle('on', el.id===`page-${page}`));
   if(page==='dashboard') loadDashboard();
+  if(page==='analytics') loadAnalytics();
   if(page==='users')     loadUsers(1);
   if(page==='menus')     loadMenus();
   if(page==='ai')        loadAiUsage();
@@ -779,6 +837,7 @@ window.addEventListener('popstate', (e) => {
     document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('on', el.dataset.page===page));
     document.querySelectorAll('.page').forEach(el=>el.classList.toggle('on', el.id===`page-${page}`));
     if(page==='dashboard') loadDashboard();
+    else if(page==='analytics') loadAnalytics();
     else if(page==='users')   loadUsers(1);
     else if(page==='menus')   loadMenus();
     else if(page==='ai')      loadAiUsage();
@@ -1133,6 +1192,83 @@ async function loadCosts(){
         <td style="font-family:var(--mono);color:var(--warn);font-weight:700">${fmtCost(m.aiCost)}</td>
       </tr>
     `).join('');
+  } catch(e){ showErr(e); }
+}
+
+// ─── 분석 (Analytics) ─────────────────────
+async function loadAnalytics(){
+  try {
+    const d = await api('/api/admin/analytics');
+    const s = d.summary || {};
+    $('anaStatGrid').innerHTML = [
+      { lbl:'DAU',           val: fmtNum(s.dau), cls:'brand', sub:'최근 24시간' },
+      { lbl:'WAU',           val: fmtNum(s.wau), cls:'',      sub:'최근 7일' },
+      { lbl:'MAU',           val: fmtNum(s.mau), cls:'warn',  sub:'최근 30일' },
+      { lbl:'DAU/MAU 고착도', val: `${s.stickiness}%`, cls:'good', sub:'재방문율 지표' },
+      { lbl:'30일 이벤트',   val: fmtNum(s.totalEvents30d), cls:'', sub:'조회·검색·분석' },
+      { lbl:'30일 신규 가입', val: fmtNum(s.signups30d), cls:'', sub:'최근 한 달' },
+    ].map(x => `
+      <div class="stat ${x.cls}">
+        <div class="stat-lbl">${x.lbl}</div>
+        <div class="stat-val">${x.val}</div>
+        <div class="stat-sub">${x.sub}</div>
+      </div>
+    `).join('');
+
+    const emptyRow = (cols, msg='데이터 없음') => `<tr><td colspan="${cols}" style="text-align:center;color:var(--tx4);padding:24px">${msg}</td></tr>`;
+
+    $('anaStocksTbody').innerHTML = (d.topStocks||[]).length
+      ? d.topStocks.map((r,i) => `
+        <tr>
+          <td style="color:var(--tx4);font-family:var(--mono)">${i+1}</td>
+          <td><b>${esc(r.symbol)}</b></td>
+          <td style="font-family:var(--mono)">${fmtNum(r.views)}</td>
+          <td style="font-family:var(--mono);color:var(--tx4)">${fmtNum(r.uniqueUsers)}</td>
+        </tr>`).join('')
+      : emptyRow(4);
+
+    $('anaKeywordsTbody').innerHTML = (d.topKeywords||[]).length
+      ? d.topKeywords.map((r,i) => `
+        <tr>
+          <td style="color:var(--tx4);font-family:var(--mono)">${i+1}</td>
+          <td><b>${esc(r.keyword)}</b></td>
+          <td style="font-family:var(--mono)">${fmtNum(r.count)}</td>
+          <td style="font-family:var(--mono);color:var(--tx4)">${fmtNum(r.uniqueUsers)}</td>
+        </tr>`).join('')
+      : emptyRow(4);
+
+    $('anaAiTbody').innerHTML = (d.topAiStocks||[]).length
+      ? d.topAiStocks.map((r,i) => `
+        <tr>
+          <td style="color:var(--tx4);font-family:var(--mono)">${i+1}</td>
+          <td><b>${esc(r.symbol)}</b></td>
+          <td style="font-family:var(--mono)">${fmtNum(r.count)}</td>
+          <td style="font-family:var(--mono);color:var(--tx4)">${fmtNum(r.uniqueUsers)}</td>
+        </tr>`).join('')
+      : emptyRow(4);
+
+    $('anaTypesTbody').innerHTML = (d.eventsByType||[]).length
+      ? d.eventsByType.map(r => `
+        <tr>
+          <td><b>${esc(r.type)}</b></td>
+          <td style="font-family:var(--mono)">${fmtNum(r.count)}</td>
+        </tr>`).join('')
+      : emptyRow(2);
+
+    // 일별 활성 사용자 — 간단 막대 그래프 (CSS만)
+    const daily = d.dailyActive || [];
+    const max = Math.max(1, ...daily.map(x => x.users));
+    $('anaDailyBars').innerHTML = daily.map(x => {
+      const pct = (x.users / max) * 100;
+      return `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;font-size:11px">
+          <div style="width:78px;font-family:var(--mono);color:var(--tx4)">${x.date}</div>
+          <div style="flex:1;background:var(--surf);border-radius:4px;height:14px;position:relative;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#4f46e5,#7c3aed);border-radius:4px;transition:width .3s"></div>
+          </div>
+          <div style="width:48px;text-align:right;font-family:var(--mono);font-weight:700">${fmtNum(x.users)}</div>
+        </div>`;
+    }).join('') || '<div style="text-align:center;color:var(--tx4);padding:24px">데이터 없음</div>';
   } catch(e){ showErr(e); }
 }
 

@@ -605,6 +605,115 @@ router.post('/change-email', async (req, res) => {
   res.json({ ok: true, email: newEmail });
 });
 
+// ─── GET /api/admin/analytics ────────────────
+//  MAU/DAU + 인기 종목/키워드 집계
+//  기준 데이터: events (사용자 행동) + ai_usage (AI 호출) + users.last_login
+router.get('/analytics', (_req, res) => {
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+
+  // 활성 사용자 정의: events 에 기록 있거나 해당 구간에 로그인한 user_id
+  const activeUsers = (sinceMs) => {
+    const row = db.prepare(`
+      SELECT COUNT(DISTINCT uid) AS c FROM (
+        SELECT user_id AS uid FROM events WHERE user_id IS NOT NULL AND created_at >= ?
+        UNION
+        SELECT id       AS uid FROM users  WHERE last_login IS NOT NULL AND last_login >= ?
+      )
+    `).get(sinceMs, sinceMs);
+    return row.c;
+  };
+
+  const dau = activeUsers(now - DAY);
+  const wau = activeUsers(now - 7 * DAY);
+  const mau = activeUsers(now - 30 * DAY);
+
+  // 일별 활성 사용자 추이 (최근 30일)
+  const dailyActive = [];
+  for (let i = 29; i >= 0; i--) {
+    const dayStart = new Date(now - i * DAY); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = dayStart.getTime() + DAY;
+    const row = db.prepare(`
+      SELECT COUNT(DISTINCT uid) AS c FROM (
+        SELECT user_id AS uid FROM events WHERE user_id IS NOT NULL AND created_at >= ? AND created_at < ?
+        UNION
+        SELECT id       AS uid FROM users  WHERE last_login IS NOT NULL AND last_login >= ? AND last_login < ?
+      )
+    `).get(dayStart.getTime(), dayEnd, dayStart.getTime(), dayEnd);
+    dailyActive.push({
+      date: dayStart.toISOString().slice(0, 10),
+      users: row.c,
+    });
+  }
+
+  // 최근 30일 Top 종목 조회
+  const since30 = now - 30 * DAY;
+  const topStocks = db.prepare(`
+    SELECT target AS symbol,
+           COUNT(*) AS views,
+           COUNT(DISTINCT user_id) AS uniqueUsers
+    FROM events
+    WHERE type = 'view_profile' AND target IS NOT NULL AND created_at >= ?
+    GROUP BY target
+    ORDER BY views DESC
+    LIMIT 20
+  `).all(since30);
+
+  // 최근 30일 Top 검색 키워드
+  const topKeywords = db.prepare(`
+    SELECT target AS keyword,
+           COUNT(*) AS count,
+           COUNT(DISTINCT user_id) AS uniqueUsers
+    FROM events
+    WHERE type = 'search' AND target IS NOT NULL AND created_at >= ?
+    GROUP BY target
+    ORDER BY count DESC
+    LIMIT 20
+  `).all(since30);
+
+  // 최근 30일 AI 분석 인기 종목
+  const topAiStocks = db.prepare(`
+    SELECT target AS symbol,
+           COUNT(*) AS count,
+           COUNT(DISTINCT user_id) AS uniqueUsers
+    FROM events
+    WHERE type = 'ai_analyze' AND target IS NOT NULL AND created_at >= ?
+    GROUP BY target
+    ORDER BY count DESC
+    LIMIT 10
+  `).all(since30);
+
+  // 이벤트 타입별 총 건수 (최근 30일)
+  const eventsByType = db.prepare(`
+    SELECT type, COUNT(*) AS count
+    FROM events
+    WHERE created_at >= ?
+    GROUP BY type
+    ORDER BY count DESC
+  `).all(since30);
+
+  // 총 이벤트 수
+  const totalEvents30d = db.prepare(`SELECT COUNT(*) AS c FROM events WHERE created_at >= ?`).get(since30).c;
+
+  // 가입 전환 (최근 30일 가입 수)
+  const signups30d = db.prepare(`SELECT COUNT(*) AS c FROM users WHERE created_at >= ?`).get(since30).c;
+
+  res.json({
+    ok: true,
+    summary: {
+      dau, wau, mau,
+      totalEvents30d,
+      signups30d,
+      stickiness: mau > 0 ? +(dau / mau * 100).toFixed(1) : 0,  // DAU/MAU ratio
+    },
+    dailyActive,
+    topStocks,
+    topKeywords,
+    topAiStocks,
+    eventsByType,
+  });
+});
+
 // ─── POST /api/admin/change-password ──────────
 //  현재 어드민 본인 비밀번호 변경 (시드 계정 changeme1234 교체용)
 router.post('/change-password', async (req, res) => {
