@@ -1500,19 +1500,20 @@ ${stockBlock}${historyBlock}${legacy}
 // ════════════════════════════════════════════════
 //  server/ 의 부모 디렉토리(프로젝트 루트)에 있는 HTML 을 같은 오리진에서 서빙
 //  → 배포 시 CORS 불필요, 쿠키 natively 동작
-const PROJECT_ROOT = path.join(__dirname, '..');
-app.get('/', (_req, res) => res.sendFile(path.join(PROJECT_ROOT, 'StockRadar_v5.html')));
-app.get('/admin', (_req, res) => res.sendFile(path.join(PROJECT_ROOT, 'admin.html')));
+// HTML 및 정적 자산은 server/ 안에 같이 위치 (Railway Root Directory=server 호환)
+const STATIC_ROOT = __dirname;
+app.get('/', (_req, res) => res.sendFile(path.join(STATIC_ROOT, 'StockRadar_v5.html')));
+app.get('/admin', (_req, res) => res.sendFile(path.join(STATIC_ROOT, 'admin.html')));
 
-// 🔐 민감 경로 차단 — server/ 폴더, DB 파일, node_modules, .env 등을 절대 노출하지 않음
-const BLOCKED_PATH = /^\/(server(\/|$)|node_modules(\/|$)|\.git(\/|$)|.*\.(env|db|db-wal|db-shm|db-journal|log)$|railway\.json$|package(-lock)?\.json$)/i;
+// 🔐 민감 경로 차단 — 서버 소스·DB·env·node_modules 절대 노출 금지
+const BLOCKED_PATH = /^\/(node_modules(\/|$)|\.git(\/|$))|\.(js|cjs|mjs|ts|json|toml|yml|yaml|env|db|db-wal|db-shm|db-journal|log|lock)$/i;
 app.use((req, res, next) => {
   if (BLOCKED_PATH.test(req.path)) return res.status(404).end();
   next();
 });
 
-// 정적 자산 — 루트의 이미지·favicon 등만. dotfiles/server 경로는 위 미들웨어가 차단.
-app.use(express.static(PROJECT_ROOT, {
+// 정적 자산 — HTML·이미지·favicon 등. dotfiles 자동 차단 + 위 미들웨어 추가 차단.
+app.use(express.static(STATIC_ROOT, {
   index: false,
   extensions: ['html'],
   dotfiles: 'deny',
