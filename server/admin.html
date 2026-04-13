@@ -713,12 +713,14 @@ async function doLogout(){
   try { await api('/api/auth/logout', { method:'POST' }); } catch{}
   location.reload();
 }
+const VALID_PAGES = ['dashboard','users','menus','ai','costs','errors','status','notices','logs','settings'];
 function meLogin(user){
   $('meNick').textContent = user.nickname;
   $('meEmail').textContent = user.email;
   $('loginOv').style.display = 'none';
   $('app').style.display = 'flex';
-  loadDashboard();
+  const initial = (location.hash.replace('#','') || 'dashboard');
+  navTo(VALID_PAGES.includes(initial) ? initial : 'dashboard', { replace: true });
 }
 async function bootstrap(){
   try {
@@ -730,8 +732,16 @@ async function bootstrap(){
 }
 bootstrap();
 
-// ─── 내비 ──────────────────────────────────
-function navTo(page){
+// ─── 내비 (history 기반 뒤로가기 지원) ────
+//  - navTo(page): 메뉴 클릭 시 사용. URL 해시 push + 페이지 로드
+//  - navTo(page, {replace:true}): 초기 부팅 시 replaceState
+//  - popstate: 브라우저 뒤로가기 → 해시 기준으로 재렌더 (push 안 함)
+let _curPage = null;
+function navTo(page, opts = {}){
+  if (!VALID_PAGES.includes(page)) page = 'dashboard';
+  // 드로어가 열려있으면 먼저 닫고, 페이지 전환은 그 다음
+  if (document.getElementById('userDrawer')?.classList.contains('on')) closeDrawer();
+  if (document.getElementById('noticeDrawer')?.classList.contains('on')) closeNoticeForm();
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('on', el.dataset.page===page));
   document.querySelectorAll('.page').forEach(el=>el.classList.toggle('on', el.id===`page-${page}`));
   if(page==='dashboard') loadDashboard();
@@ -743,7 +753,43 @@ function navTo(page){
   if(page==='status')    loadStatus();
   if(page==='notices')   loadNotices();
   if(page==='logs')      loadLogs(1);
+  // URL 해시 동기화
+  const targetHash = `#${page}`;
+  if (location.hash !== targetHash) {
+    if (opts.replace) history.replaceState({ page }, '', targetHash);
+    else              history.pushState({ page }, '', targetHash);
+  }
+  _curPage = page;
 }
+
+// 브라우저 뒤로/앞으로 버튼 처리
+window.addEventListener('popstate', (e) => {
+  // 드로어가 열려있으면 뒤로가기 = 드로어 닫기 (페이지 유지)
+  const drawerOpen = document.getElementById('userDrawer')?.classList.contains('on')
+                  || document.getElementById('noticeDrawer')?.classList.contains('on');
+  if (drawerOpen) {
+    closeDrawer();
+    closeNoticeForm();
+    // 해시는 popstate 가 이미 복원했으므로 추가 작업 불필요
+    return;
+  }
+  const page = (e.state && e.state.page) || location.hash.replace('#','') || 'dashboard';
+  if (VALID_PAGES.includes(page) && page !== _curPage) {
+    // pushState 없이 페이지만 렌더
+    document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('on', el.dataset.page===page));
+    document.querySelectorAll('.page').forEach(el=>el.classList.toggle('on', el.id===`page-${page}`));
+    if(page==='dashboard') loadDashboard();
+    else if(page==='users')   loadUsers(1);
+    else if(page==='menus')   loadMenus();
+    else if(page==='ai')      loadAiUsage();
+    else if(page==='costs')   loadCosts();
+    else if(page==='errors')  loadErrors(1);
+    else if(page==='status')  loadStatus();
+    else if(page==='notices') loadNotices();
+    else if(page==='logs')    loadLogs(1);
+    _curPage = page;
+  }
+});
 
 // ─── 대시보드 ─────────────────────────────
 async function loadDashboard(){
@@ -866,6 +912,10 @@ async function openUser(id){
     `;
     $('drawerOv').classList.add('on');
     $('userDrawer').classList.add('on');
+    // 뒤로가기 시 드로어 먼저 닫히도록 state 추가
+    if (!(history.state && history.state.drawer)) {
+      history.pushState({ page: _curPage, drawer: 'user' }, '', location.hash || '#users');
+    }
   } catch(e){ showErr(e); }
 }
 function closeDrawer(){
