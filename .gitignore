@@ -1,0 +1,20 @@
+node_modules/
+.DS_Store
+
+# 환경 변수 (절대 커밋 금지 — API key, SESSION_SECRET 등)
+.env
+.env.local
+.env.production
+
+# SQLite DB 파일 (유저 데이터·세션)
+server/data.db
+server/data.db-journal
+server/data.db-wal
+server/data.db-shm
+server/sessions.db
+server/sessions.db-journal
+server/sessions.db-wal
+server/sessions.db-shm
+
+# 로그
+*.log

@@ -1,0 +1,284 @@
+// ════════════════════════════════════════════════
+//  SQLite — better-sqlite3 기반 영구 저장소
+// ════════════════════════════════════════════════
+//  파일: server/data.db (자동 생성)
+//  동기 API라 try/catch 로 감싸거나 트랜잭션으로 사용
+//  배포 시엔 볼륨 마운트한 경로에 data.db 가 있어야 영구 저장됨
+// ════════════════════════════════════════════════
+
+const path = require('path');
+const fs = require('fs');
+const Database = require('better-sqlite3');
+
+// 영구 저장소 위치
+//  - 로컬: server/data.db
+//  - 배포(Railway 등): DATA_DIR 환경변수로 볼륨 경로 지정 → /data/data.db
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
+const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'data.db');
+const db = new Database(DB_PATH);
+
+// 권장 PRAGMA — 동시성/안정성 향상
+db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
+db.pragma('synchronous = NORMAL');
+
+// ─── 스키마 마이그레이션 ─────────────────────────
+//  user_version 을 이용한 단순 버전 기반 마이그레이션
+//  새 버전을 추가할 때 migrations 배열 끝에 함수 append 만 하면 됨
+const migrations = [
+  // v1 — 초기 스키마
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        email        TEXT UNIQUE NOT NULL,
+        pw_hash      TEXT,
+        nickname     TEXT NOT NULL,
+        role         TEXT NOT NULL DEFAULT 'user',
+        status       TEXT NOT NULL DEFAULT 'active',
+        provider     TEXT NOT NULL DEFAULT 'local',
+        provider_id  TEXT,
+        email_verified INTEGER NOT NULL DEFAULT 0,
+        created_at   INTEGER NOT NULL,
+        last_login   INTEGER,
+        login_count  INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(provider, provider_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+      CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+      CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+
+      CREATE TABLE IF NOT EXISTS user_keywords (
+        user_id    INTEGER NOT NULL,
+        keyword    TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY(user_id, keyword),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS user_favorites (
+        user_id    INTEGER NOT NULL,
+        stock_id   TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY(user_id, stock_id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER,
+        action     TEXT NOT NULL,
+        target     TEXT,
+        meta       TEXT,
+        ip         TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
+      CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);
+
+      CREATE TABLE IF NOT EXISTS menus (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        key        TEXT UNIQUE NOT NULL,
+        label      TEXT NOT NULL,
+        icon       TEXT,
+        order_idx  INTEGER NOT NULL,
+        enabled    INTEGER NOT NULL DEFAULT 1,
+        min_role   TEXT NOT NULL DEFAULT 'user',
+        updated_at INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS email_verifications (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        email      TEXT NOT NULL,
+        code       TEXT NOT NULL,
+        purpose    TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        consumed   INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_email_verif_email ON email_verifications(email);
+    `);
+  },
+  // v2 — AI 사용량 트래킹
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ai_usage (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id           INTEGER,
+        endpoint          TEXT NOT NULL,
+        model             TEXT NOT NULL,
+        prompt_tokens     INTEGER NOT NULL DEFAULT 0,
+        completion_tokens INTEGER NOT NULL DEFAULT 0,
+        total_tokens      INTEGER NOT NULL DEFAULT 0,
+        cost_usd          REAL NOT NULL DEFAULT 0,
+        created_at        INTEGER NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_ai_usage_user ON ai_usage(user_id);
+      CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage(created_at);
+    `);
+  },
+  // v3 — 에러 로그 + 공지사항
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS error_logs (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        level      TEXT NOT NULL DEFAULT 'error',
+        source     TEXT,
+        message    TEXT NOT NULL,
+        stack      TEXT,
+        url        TEXT,
+        method     TEXT,
+        status     INTEGER,
+        user_id    INTEGER,
+        ip         TEXT,
+        resolved   INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_error_logs_created ON error_logs(created_at);
+      CREATE INDEX IF NOT EXISTS idx_error_logs_resolved ON error_logs(resolved);
+      CREATE INDEX IF NOT EXISTS idx_error_logs_source ON error_logs(source);
+
+      CREATE TABLE IF NOT EXISTS notices (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        title      TEXT NOT NULL,
+        body       TEXT NOT NULL DEFAULT '',
+        level      TEXT NOT NULL DEFAULT 'info',
+        enabled    INTEGER NOT NULL DEFAULT 1,
+        starts_at  INTEGER,
+        ends_at    INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_notices_enabled ON notices(enabled);
+    `);
+  },
+];
+
+function runMigrations() {
+  const cur = db.pragma('user_version', { simple: true });
+  if (cur < migrations.length) {
+    const tx = db.transaction(() => {
+      for (let v = cur; v < migrations.length; v++) {
+        console.log(`[db] migrating v${v} → v${v + 1}`);
+        migrations[v](db);
+      }
+      db.pragma(`user_version = ${migrations.length}`);
+    });
+    tx();
+    console.log(`[db] schema now at v${migrations.length}`);
+  }
+}
+runMigrations();
+
+// ─── 기본 메뉴 시드 ───────────────────────────────
+// 페이지 key 는 프론트의 showPage() 가 받는 값과 일치해야 함
+const DEFAULT_MENUS = [
+  { key: 'home',     label: '홈',         icon: '🏠', order_idx: 1,  min_role: 'user' },
+  { key: 'screener', label: '종목 발굴',   icon: '🔍', order_idx: 2,  min_role: 'user' },
+  { key: 'sector',   label: '섹터 맵',     icon: '🗺',  order_idx: 3,  min_role: 'user' },
+  { key: 'issue',    label: '트렌드 트래커', icon: '🔥', order_idx: 4,  min_role: 'user' },
+  { key: 'guide',    label: '투자 가이드', icon: '📖', order_idx: 5,  min_role: 'user' },
+];
+
+function seedMenusIfEmpty() {
+  const row = db.prepare(`SELECT COUNT(*) AS c FROM menus`).get();
+  if (row.c > 0) return;
+  const ins = db.prepare(`
+    INSERT INTO menus (key, label, icon, order_idx, enabled, min_role, updated_at)
+    VALUES (?, ?, ?, ?, 1, ?, ?)
+  `);
+  const now = Date.now();
+  const tx = db.transaction((rows) => {
+    rows.forEach(r => ins.run(r.key, r.label, r.icon, r.order_idx, r.min_role, now));
+  });
+  tx(DEFAULT_MENUS);
+  console.log(`[db] seeded ${DEFAULT_MENUS.length} menus`);
+}
+seedMenusIfEmpty();
+
+// ─── 초기 어드민 계정 시드 ───────────────────────
+//  ENV 에 ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD 가 있으면
+//  서버 최초 실행 시 어드민 계정이 없을 때만 생성
+async function seedAdminIfNeeded() {
+  const email = process.env.ADMIN_SEED_EMAIL;
+  const password = process.env.ADMIN_SEED_PASSWORD;
+  if (!email || !password) return;
+
+  const exists = db.prepare(`SELECT id FROM users WHERE email = ?`).get(email);
+  if (exists) return;
+
+  const bcrypt = require('bcryptjs');
+  const pwHash = await bcrypt.hash(password, 12);
+  const now = Date.now();
+  db.prepare(`
+    INSERT INTO users (email, pw_hash, nickname, role, status, provider, email_verified, created_at)
+    VALUES (?, ?, ?, 'admin', 'active', 'local', 1, ?)
+  `).run(email, pwHash, 'Admin', now);
+  console.log(`[db] seeded admin account: ${email}`);
+}
+seedAdminIfNeeded().catch(e => console.warn('[db] admin seed failed:', e.message));
+
+// ─── 감사 로그 헬퍼 ──────────────────────────────
+function logAudit({ userId = null, action, target = null, meta = null, ip = null }) {
+  try {
+    db.prepare(`
+      INSERT INTO audit_logs (user_id, action, target, meta, ip, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(userId, action, target, meta ? JSON.stringify(meta) : null, ip, Date.now());
+  } catch (e) {
+    console.warn('[audit] insert failed:', e.message);
+  }
+}
+
+// ─── AI 사용량 기록 헬퍼 ────────────────────────
+// Gemini API 가격 (2026 기준, USD per 1M tokens)
+//  출처: ai.google.dev/pricing — 무료 플랜이라도 유료 전환 시 예상 비용 산출용
+const GEMINI_PRICING = {
+  'gemini-2.5-flash':      { in: 0.30,  out: 2.50 },
+  'gemini-2.5-flash-lite': { in: 0.10,  out: 0.40 },
+  'gemini-2.0-flash':      { in: 0.10,  out: 0.40 },
+  'gemini-2.0-flash-lite': { in: 0.075, out: 0.30 },
+};
+const DEFAULT_PRICING = { in: 0.10, out: 0.40 };
+
+function computeCost(model, promptTokens, completionTokens) {
+  const p = GEMINI_PRICING[model] || DEFAULT_PRICING;
+  return (promptTokens * p.in + completionTokens * p.out) / 1_000_000;
+}
+
+function logAiUsage({ userId = null, endpoint, model, promptTokens = 0, completionTokens = 0, totalTokens = 0 }) {
+  try {
+    const cost = computeCost(model, promptTokens, completionTokens);
+    db.prepare(`
+      INSERT INTO ai_usage (user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, cost_usd, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, endpoint, model, promptTokens, completionTokens, totalTokens || (promptTokens + completionTokens), cost, Date.now());
+  } catch (e) {
+    console.warn('[ai_usage] insert failed:', e.message);
+  }
+}
+
+// ─── 에러 로그 헬퍼 ──────────────────────────────
+function logError({ level = 'error', source = null, message, stack = null, url = null, method = null, status = null, userId = null, ip = null }) {
+  try {
+    db.prepare(`
+      INSERT INTO error_logs (level, source, message, stack, url, method, status, user_id, ip, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(level, source, String(message || '').slice(0, 2000), stack ? String(stack).slice(0, 4000) : null, url, method, status, userId, ip, Date.now());
+  } catch (e) {
+    console.warn('[error_log] insert failed:', e.message);
+  }
+}
+
+module.exports = {
+  db,
+  logAudit,
+  logAiUsage,
+  logError,
+  GEMINI_PRICING,
+  DB_PATH,
+};
