@@ -125,6 +125,10 @@ a{color:inherit;text-decoration:none;}
 .chip-banned{background:var(--bad-bg);color:var(--bad);}
 .chip-admin{background:#111;color:#fff;}
 .chip-user{background:var(--surf);color:var(--tx3);}
+.chip-local {background:#eef2ff;color:#4338ca;}
+.chip-google{background:#e8f0fe;color:#1a73e8;}
+.chip-kakao {background:#fef3c7;color:#78350f;}
+.chip-naver {background:#dcfce7;color:#166534;}
 
 /* ─── Inputs ─── */
 .inp{
@@ -323,7 +327,7 @@ a{color:inherit;text-decoration:none;}
         <div class="card-title">최근 가입 10명</div>
         <div class="table-wrap" style="margin:0;box-shadow:none;border-radius:12px">
           <table class="table">
-            <thead><tr><th>ID</th><th>이메일</th><th>닉네임</th><th>권한</th><th>상태</th><th>가입일</th></tr></thead>
+            <thead><tr><th>ID</th><th>이메일</th><th>닉네임</th><th>권한</th><th>상태</th><th>가입 경로</th><th>가입일</th></tr></thead>
             <tbody id="recentTbody"></tbody>
           </table>
         </div>
@@ -408,11 +412,18 @@ a{color:inherit;text-decoration:none;}
             <option value="user">일반</option>
             <option value="admin">어드민</option>
           </select>
+          <select class="sel" id="userProvider" onchange="loadUsers(1)">
+            <option value="">가입 경로: 전체</option>
+            <option value="local">이메일</option>
+            <option value="google">Google</option>
+            <option value="kakao">카카오</option>
+            <option value="naver">네이버</option>
+          </select>
           <button class="btn btn-p btn-sm" onclick="loadUsers(1)">검색</button>
         </div>
         <div class="table-wrap" style="margin:0;box-shadow:none;border-radius:12px">
           <table class="table">
-            <thead><tr><th>ID</th><th>이메일</th><th>닉네임</th><th>권한</th><th>상태</th><th>인증</th><th>로그인</th><th>가입</th></tr></thead>
+            <thead><tr><th>ID</th><th>이메일</th><th>닉네임</th><th>권한</th><th>상태</th><th>가입 경로</th><th>인증</th><th>로그인</th><th>가입</th></tr></thead>
             <tbody id="usersTbody"></tbody>
           </table>
         </div>
@@ -855,6 +866,9 @@ async function loadDashboard(){
   try {
     const d = await api('/api/admin/stats');
     const s = d.stats;
+    const prov = s.providers || {};
+    const socialCount = (prov.google || 0) + (prov.kakao || 0) + (prov.naver || 0);
+    const socialSub = ['google','kakao','naver'].map(k => prov[k] ? `${k[0].toUpperCase()+k.slice(1)} ${prov[k]}` : null).filter(Boolean).join(' · ') || '—';
     $('statGrid').innerHTML = [
       { lbl:'전체 회원', val: s.totalUsers, cls:'brand', sub:`어드민 ${s.adminUsers}명` },
       { lbl:'활성',     val: s.activeUsers, cls:'good', sub:'정상 사용 중' },
@@ -862,10 +876,12 @@ async function loadDashboard(){
       { lbl:'차단',     val: s.bannedUsers, cls:'bad', sub:'관리자 차단' },
       { lbl:'오늘 가입',  val: s.todaySignups, cls:'', sub:'신규 유입' },
       { lbl:'주간 로그인', val: s.weeklyActive, cls:'', sub:'최근 7일' },
+      { lbl:'이메일 가입', val: prov.local || 0, cls:'', sub:'비밀번호 방식' },
+      { lbl:'소셜 가입',   val: socialCount,    cls:'', sub: socialSub },
     ].map(x => `
       <div class="stat ${x.cls}">
         <div class="stat-lbl">${x.lbl}</div>
-        <div class="stat-val">${x.val.toLocaleString()}</div>
+        <div class="stat-val">${Number(x.val||0).toLocaleString()}</div>
         <div class="stat-sub">${x.sub}</div>
       </div>
     `).join('');
@@ -876,26 +892,34 @@ async function loadDashboard(){
         <td><b>${esc(u.nickname)}</b></td>
         <td>${roleChip(u.role)}</td>
         <td>${statusChip(u.status)}</td>
+        <td>${providerChip(u.provider)}</td>
         <td style="font-family:var(--mono);font-size:11px;color:var(--tx4)">${fmtDate(u.created_at)}</td>
       </tr>
-    `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--tx4)">—</td></tr>`;
+    `).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--tx4)">—</td></tr>`;
   } catch(e){ showErr(e); }
 }
 const esc = s => String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const statusChip = s => `<span class="chip chip-${s}">${ {active:'활성',pending:'대기',banned:'차단'}[s] || s }</span>`;
 const roleChip   = r => `<span class="chip chip-${r}">${r==='admin'?'ADMIN':'USER'}</span>`;
+const providerChip = p => {
+  const key = p || 'local';
+  const label = { local:'이메일', google:'Google', kakao:'카카오', naver:'네이버' }[key] || key;
+  return `<span class="chip chip-${key}">${label}</span>`;
+};
 
 // ─── 회원 관리 ────────────────────────────
 let _userPage = 1;
 async function loadUsers(page){
   _userPage = page || 1;
-  const q      = $('userQ').value.trim();
-  const status = $('userStatus').value;
-  const role   = $('userRole').value;
+  const q        = $('userQ').value.trim();
+  const status   = $('userStatus').value;
+  const role     = $('userRole').value;
+  const provider = $('userProvider').value;
   const qs = new URLSearchParams({ page: _userPage, pageSize: 20 });
-  if(q)      qs.set('q', q);
-  if(status) qs.set('status', status);
-  if(role)   qs.set('role', role);
+  if(q)        qs.set('q', q);
+  if(status)   qs.set('status', status);
+  if(role)     qs.set('role', role);
+  if(provider) qs.set('provider', provider);
   try {
     const d = await api(`/api/admin/users?${qs}`);
     $('usersTotal').textContent = d.total.toLocaleString();
@@ -907,11 +931,12 @@ async function loadUsers(page){
           <td><b>${esc(u.nickname)}</b></td>
           <td>${roleChip(u.role)}</td>
           <td>${statusChip(u.status)}</td>
+          <td>${providerChip(u.provider)}</td>
           <td>${u.email_verified ? '✓' : '—'}</td>
           <td style="font-family:var(--mono);font-size:11px;color:var(--tx4)">${fmtDate(u.last_login)}</td>
           <td style="font-family:var(--mono);font-size:11px;color:var(--tx4)">${fmtDate(u.created_at)}</td>
         </tr>`).join('')
-      : `<tr><td colspan="8" style="text-align:center;color:var(--tx4);padding:36px">결과 없음</td></tr>`;
+      : `<tr><td colspan="9" style="text-align:center;color:var(--tx4);padding:36px">결과 없음</td></tr>`;
     renderPager('usersPager', d.page, d.total, d.pageSize, loadUsers);
   } catch(e){ showErr(e); }
 }
@@ -962,7 +987,7 @@ async function openUser(id){
       <div style="border-top:1px solid var(--bdr);margin:20px 0;padding-top:16px">
         <div class="field-row"><div class="k">ID</div><div class="v">#${u.id}</div></div>
         <div class="field-row"><div class="k">이메일 인증</div><div class="v">${u.email_verified ? '✓ 완료' : '✗ 미인증'}</div></div>
-        <div class="field-row"><div class="k">가입 경로</div><div class="v">${u.provider}</div></div>
+        <div class="field-row"><div class="k">가입 경로</div><div class="v">${providerChip(u.provider)}</div></div>
         <div class="field-row"><div class="k">로그인 횟수</div><div class="v">${u.login_count}</div></div>
         <div class="field-row"><div class="k">마지막 로그인</div><div class="v">${fmtDate(u.last_login)}</div></div>
         <div class="field-row"><div class="k">가입일</div><div class="v">${fmtDate(u.created_at)}</div></div>

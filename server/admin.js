@@ -25,15 +25,21 @@ router.get('/stats', (req, res) => {
   const adminUsers     = db.prepare(`SELECT COUNT(*) AS c FROM users WHERE role='admin'`).get().c;
 
   const recent = db.prepare(`
-    SELECT id, email, nickname, role, status, created_at
+    SELECT id, email, nickname, role, status, provider, created_at
     FROM users ORDER BY id DESC LIMIT 10
   `).all();
+
+  const providerRows = db.prepare(`
+    SELECT provider, COUNT(*) AS c FROM users GROUP BY provider ORDER BY c DESC
+  `).all();
+  const providers = Object.fromEntries(providerRows.map(r => [r.provider || 'local', r.c]));
 
   res.json({
     ok: true,
     stats: {
       totalUsers, activeUsers, pendingUsers, bannedUsers,
       todaySignups, weeklyActive, adminUsers,
+      providers,
     },
     recent,
   });
@@ -45,6 +51,7 @@ router.get('/users', (req, res) => {
   const q        = (req.query.q || '').toString().trim();
   const status   = (req.query.status || '').toString();
   const role     = (req.query.role || '').toString();
+  const provider = (req.query.provider || '').toString();
   const page     = Math.max(1, parseInt(req.query.page) || 1);
   const pageSize = Math.min(100, Math.max(5, parseInt(req.query.pageSize) || 20));
 
@@ -61,6 +68,10 @@ router.get('/users', (req, res) => {
   if (role && ['user','admin'].includes(role)) {
     where.push(`role = ?`);
     args.push(role);
+  }
+  if (provider && ['local','google','kakao','naver'].includes(provider)) {
+    where.push(`provider = ?`);
+    args.push(provider);
   }
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
