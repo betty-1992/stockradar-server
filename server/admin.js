@@ -158,6 +158,32 @@ router.delete('/users/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── POST /api/admin/users/:id/hard-delete ────
+//  회원 계정을 DB에서 완전 삭제 (복구 불가)
+//  cascade: user_keywords·user_favorites 자동 삭제 / audit_logs·ai_usage·error_logs는 user_id SET NULL
+router.post('/users/:id/hard-delete', (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, error: 'INVALID_ID' });
+  if (id === req.user.id) return res.status(400).json({ ok: false, error: 'CANNOT_DELETE_SELF' });
+  const u = db.prepare(`SELECT id, email, nickname FROM users WHERE id = ?`).get(id);
+  if (!u) return res.status(404).json({ ok: false, error: 'USER_NOT_FOUND' });
+  // 다른 어드민을 삭제하려면 본인 이외의 어드민이 2명 이상 남는지 확인
+  const adminCount = db.prepare(`SELECT COUNT(*) AS c FROM users WHERE role='admin' AND status='active'`).get().c;
+  const target = db.prepare(`SELECT role, status FROM users WHERE id = ?`).get(id);
+  if (target.role === 'admin' && target.status === 'active' && adminCount <= 1) {
+    return res.status(400).json({ ok: false, error: 'LAST_ADMIN' });
+  }
+  const r = db.prepare(`DELETE FROM users WHERE id = ?`).run(id);
+  logAudit({
+    userId: req.user.id,
+    action: 'admin_hard_delete_user',
+    target: String(id),
+    meta: { email: u.email, nickname: u.nickname },
+    ip: clientIp(req),
+  });
+  res.json({ ok: true, deleted: r.changes });
+});
+
 // ─── GET /api/admin/menus ─────────────────────
 router.get('/menus', (req, res) => {
   const rows = db.prepare(`SELECT * FROM menus ORDER BY order_idx ASC, id ASC`).all();

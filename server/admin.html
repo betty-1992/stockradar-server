@@ -601,9 +601,10 @@ a{color:inherit;text-decoration:none;}
     <button class="drawer-x" onclick="closeDrawer()">✕</button>
   </div>
   <div class="drawer-body" id="drawerBody"></div>
-  <div class="drawer-foot">
+  <div class="drawer-foot" style="flex-wrap:wrap">
     <button class="btn btn-d" style="flex:1" onclick="drResetPw()">임시 비번 발급</button>
-    <button class="btn btn-bad" style="flex:1" onclick="drBan()">차단</button>
+    <button class="btn btn-bad" style="flex:1" onclick="drBan()">차단 (복구 가능)</button>
+    <button class="btn btn-bad" style="width:100%;background:#991b1b;color:#fff" onclick="drHardDelete()">⚠️ 강제 삭제 (복구 불가)</button>
   </div>
 </div>
 
@@ -896,13 +897,30 @@ async function drResetPw(){
 }
 async function drBan(){
   if(!_drUser) return;
-  if(!confirm(`${_drUser.email} 을(를) 차단할까요?`)) return;
+  if(!confirm(`${_drUser.email} 을(를) 차단할까요?\n(상태 변경만 되며 계정·데이터는 DB에 남아있어요)`)) return;
   try {
     await api(`/api/admin/users/${_drUser.id}`, { method:'DELETE' });
     toast('차단됐어요');
     closeDrawer();
     loadUsers(_userPage);
   } catch(e){ showErr(e); }
+}
+async function drHardDelete(){
+  if(!_drUser) return;
+  const email = _drUser.email;
+  const first = confirm(`⚠️ 경고: ${email} 계정을 DB에서 완전히 삭제합니다.\n\n- 즐겨찾기·관심 키워드가 함께 삭제돼요\n- 복구할 수 없어요\n- 같은 이메일로 재가입은 가능해요\n\n계속할까요?`);
+  if(!first) return;
+  const confirmText = prompt(`정말 삭제하려면 아래 이메일을 그대로 입력하세요:\n\n${email}`);
+  if(confirmText !== email) return toast('취소됨 (이메일 불일치)');
+  try {
+    await api(`/api/admin/users/${_drUser.id}/hard-delete`, { method:'POST' });
+    toast('완전 삭제됐어요');
+    closeDrawer();
+    loadUsers(_userPage);
+  } catch(e){
+    if(e?.payload?.error === 'LAST_ADMIN') return toast('마지막 어드민은 삭제할 수 없어요');
+    showErr(e);
+  }
 }
 
 // ─── 메뉴 관리 ────────────────────────────
