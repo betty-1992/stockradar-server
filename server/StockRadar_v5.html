@@ -7361,6 +7361,20 @@ function renderAiMarkdown(md, model){
 async function renderAI(id, m, d){
   const cont = document.getElementById('aiContent');
   if(!cont) return;
+  // 비로그인 — AI 분석 차단 CTA
+  if (!gUser()) {
+    cont.innerHTML = `
+      <div class="ai-nokey" style="text-align:center;padding:28px 20px">
+        <div style="font-size:32px;margin-bottom:8px">🔒</div>
+        <p style="font-size:14px;font-weight:700;margin-bottom:6px">AI 분석은 로그인 후 이용할 수 있어요</p>
+        <p style="font-size:12px;color:var(--tx4);margin-bottom:16px;line-height:1.5">
+          Google 계정으로 10초 안에 시작하세요.<br>
+          관심 종목·키워드·AI 분석이 모두 계정에 저장됩니다.
+        </p>
+        <button class="btn btn-p" onclick="om('loginOv')">로그인하고 분석 받기</button>
+      </div>`;
+    return;
+  }
   cont.innerHTML = `<div class="ai-loading"><div class="spinner"></div><span>AI 분석 중...</span></div>`;
 
   // 서버에 주가/펀더멘털 정보를 최대한 실어서 보냄
@@ -9325,6 +9339,12 @@ function _stockieInline(s){
 function toggleAiChat() {
   const p = document.getElementById('aiChatPanel');
   if (!p) return;
+  // 비로그인 — AI 챗봇 차단
+  if (!gUser()) {
+    toast('AI 챗봇은 로그인 후 사용할 수 있어요');
+    om('loginOv');
+    return;
+  }
   const isOpen = p.classList.toggle('on');
   // 플로팅 버튼 겹침 방지용 body 클래스
   document.body.classList.toggle('stockie-open', isOpen);
@@ -9428,6 +9448,12 @@ function stockieAskFaq(question){
 }
 
 async function sendAiChat() {
+  // 비로그인 차단
+  if (!gUser()) {
+    toast('로그인 후 이용할 수 있어요');
+    om('loginOv');
+    return;
+  }
   const inp  = document.getElementById('aiChatInp');
   const body = document.getElementById('aiChatBody');
   if (!inp || !body) return;

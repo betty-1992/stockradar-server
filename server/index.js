@@ -1315,6 +1315,7 @@ const callGemini = async (prompt) => {
 // 바디: { symbol, name, price, changePercent, per, pbr, roe, sector, ... }
 app.post('/api/ai-analysis', async (req, res) => {
   try {
+    if (!req.user) return res.status(401).json({ ok: false, error: 'AUTH_REQUIRED' });
     const d = req.body || {};
     if (!d.symbol && !d.name) {
       return res.status(400).json({ ok: false, error: 'symbol 또는 name이 필요해요' });
@@ -1439,6 +1440,7 @@ ${formatBlock}`;
 // }
 app.post('/api/ai-chat', async (req, res) => {
   try {
+    if (!req.user) return res.status(401).json({ ok: false, error: 'AUTH_REQUIRED' });
     const { question, stock, history, userName, context: legacyContext } = req.body || {};
     if (!question || typeof question !== 'string') {
       return res.status(400).json({ ok: false, error: 'question이 필요해요' });
