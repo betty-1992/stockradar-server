@@ -184,6 +184,10 @@ const migrations = [
     // 기존 로컬 가입자는 가입 시 약관 동의했으므로 created_at 으로 백필
     db.exec(`UPDATE users SET terms_accepted_at = created_at WHERE terms_accepted_at IS NULL`);
   },
+  // v6 — AI 호출 컨텍스트 (어떤 종목/질문인지)
+  (db) => {
+    db.exec(`ALTER TABLE ai_usage ADD COLUMN context TEXT`);
+  },
 ];
 
 function runMigrations() {
@@ -278,13 +282,20 @@ function computeCost(model, promptTokens, completionTokens) {
   return (promptTokens * p.in + completionTokens * p.out) / 1_000_000;
 }
 
-function logAiUsage({ userId = null, endpoint, model, promptTokens = 0, completionTokens = 0, totalTokens = 0 }) {
+function logAiUsage({ userId = null, endpoint, model, promptTokens = 0, completionTokens = 0, totalTokens = 0, context = null }) {
   try {
     const cost = computeCost(model, promptTokens, completionTokens);
     db.prepare(`
-      INSERT INTO ai_usage (user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, cost_usd, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(userId, endpoint, model, promptTokens, completionTokens, totalTokens || (promptTokens + completionTokens), cost, Date.now());
+      INSERT INTO ai_usage (user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, cost_usd, context, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      userId, endpoint, model,
+      promptTokens, completionTokens,
+      totalTokens || (promptTokens + completionTokens),
+      cost,
+      context ? JSON.stringify(context).slice(0, 1500) : null,
+      Date.now(),
+    );
   } catch (e) {
     console.warn('[ai_usage] insert failed:', e.message);
   }

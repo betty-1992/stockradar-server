@@ -478,6 +478,15 @@ a{color:inherit;text-decoration:none;}
           </table>
         </div>
       </div>
+      <div class="card">
+        <div class="card-title">📝 최근 AI 호출 로그 (50건)</div>
+        <div class="table-wrap" style="margin:0;box-shadow:none;border-radius:12px">
+          <table class="table">
+            <thead><tr><th>시각</th><th>유저</th><th>엔드포인트</th><th>내용</th><th>모델</th><th>토큰</th><th>비용</th></tr></thead>
+            <tbody id="aiRecentTbody"></tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <!-- ─── 비용 관리 ─── -->
@@ -1173,6 +1182,35 @@ async function loadAiUsage(){
           <td style="font-family:var(--mono);font-size:11px;color:var(--tx4)">${fmtDate(u.last_used)}</td>
         </tr>`).join('')
       : `<tr><td colspan="8" style="text-align:center;color:var(--tx4);padding:36px">사용 기록 없음</td></tr>`;
+
+    // 최근 호출 로그
+    const formatContext = (endpoint, ctxJson) => {
+      if (!ctxJson) return '<span style="color:var(--tx4)">—</span>';
+      let c;
+      try { c = typeof ctxJson === 'string' ? JSON.parse(ctxJson) : ctxJson; } catch { return esc(String(ctxJson).slice(0,80)); }
+      if (endpoint === 'ai-analysis') {
+        const sym = c.symbol || c.name || '—';
+        const nm = c.name && c.symbol ? ` · ${c.name}` : '';
+        return `<b>${esc(sym)}</b>${esc(nm)}<span style="color:var(--tx4);font-size:11px"> (${c.market || '—'})</span>`;
+      }
+      if (endpoint === 'ai-chat') {
+        const stock = c.stockSymbol ? `<span style="color:var(--tx4);font-size:11px"> [${esc(c.stockSymbol)}]</span>` : '';
+        return `<span style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(c.question || '')}${stock}</span>`;
+      }
+      return esc(JSON.stringify(c).slice(0, 100));
+    };
+    $('aiRecentTbody').innerHTML = (d.recent || []).length
+      ? d.recent.map(r => `
+        <tr ${r.user_id ? `onclick="openUser(${r.user_id})"` : ''}>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--tx4);white-space:nowrap">${fmtDate(r.created_at)}</td>
+          <td>${r.nickname ? `<b>${esc(r.nickname)}</b><br><span style="font-size:10px;color:var(--tx4);font-family:var(--mono)">${esc(r.email || '')}</span>` : '<span style="color:var(--tx4)">비로그인</span>'}</td>
+          <td><span class="chip" style="background:var(--surf);color:var(--tx2)">${esc(r.endpoint)}</span></td>
+          <td style="max-width:320px;font-size:12px">${formatContext(r.endpoint, r.context)}</td>
+          <td style="font-family:var(--mono);font-size:10px;color:var(--tx4)">${esc(r.model)}</td>
+          <td style="font-family:var(--mono)">${fmtNum(r.total_tokens)}</td>
+          <td style="font-family:var(--mono);color:var(--warn)">${fmtCost(r.cost_usd)}</td>
+        </tr>`).join('')
+      : `<tr><td colspan="7" style="text-align:center;color:var(--tx4);padding:36px">호출 기록 없음</td></tr>`;
   } catch(e){ showErr(e); }
 }
 

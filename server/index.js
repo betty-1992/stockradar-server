@@ -144,7 +144,7 @@ app.use(session({
     secure: IS_PROD,
     // 'lax' 가 OAuth redirect·top-level navigation 에 친화적. 'strict' 는 너무 공격적.
     sameSite: 'lax',
-    maxAge: 1000 * 60 * 60 * 24 * 14, // 14일
+    maxAge: 1000 * 60 * 60 * 24 * 30, // 30일 (rolling: 요청마다 갱신)
   },
 }));
 
@@ -1401,6 +1401,12 @@ ${formatBlock}`;
       promptTokens: usage?.promptTokens || 0,
       completionTokens: usage?.completionTokens || 0,
       totalTokens: usage?.totalTokens || 0,
+      context: {
+        symbol: d.symbol || null,
+        name: d.name || null,
+        market: isKR ? 'KR' : 'US',
+        sector: d.sector || null,
+      },
     });
     logEvent({
       userId: req.user?.id,
@@ -1507,6 +1513,11 @@ ${stockBlock}${historyBlock}${legacy}
       promptTokens: usage?.promptTokens || 0,
       completionTokens: usage?.completionTokens || 0,
       totalTokens: usage?.totalTokens || 0,
+      context: {
+        question: String(question).slice(0, 300),
+        stockSymbol: stock?.symbol || null,
+        stockName: stock?.name || null,
+      },
     });
     res.json({ ok: true, answer, model: usedModel });
   } catch (e) {

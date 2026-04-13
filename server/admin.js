@@ -342,8 +342,21 @@ router.get('/ai-usage', async (req, res) => {
     });
   }
 
+  // 최근 호출 50건 (컨텍스트 포함)
+  const recent = db.prepare(`
+    SELECT a.id, a.endpoint, a.model,
+           a.prompt_tokens, a.completion_tokens, a.total_tokens,
+           a.cost_usd, a.context, a.created_at,
+           a.user_id, u.email, u.nickname
+    FROM ai_usage a
+    LEFT JOIN users u ON u.id = a.user_id
+    WHERE a.created_at >= ?
+    ORDER BY a.id DESC
+    LIMIT 50
+  `).all(since);
+
   const fx = await getUsdKrwRate();
-  res.json({ ok: true, range, since, summary, byUser, byModel, byEndpoint, dailySeries, pricing: GEMINI_PRICING, fx });
+  res.json({ ok: true, range, since, summary, byUser, byModel, byEndpoint, dailySeries, recent, pricing: GEMINI_PRICING, fx });
 });
 
 // ─── USD → KRW 환율 캐시 (1시간) ─────────────
