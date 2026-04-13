@@ -383,4 +383,138 @@ router.put('/keywords', requireAuth, (req, res) => {
   res.json({ ok: true, count: list.length });
 });
 
+// ════════════════════════════════════════════════
+//  Google OAuth 2.0 — 소셜 로그인
+// ════════════════════════════════════════════════
+//  흐름:
+//   1) GET  /api/auth/google          → Google 인증 페이지로 리디렉션 (state 세션에 저장)
+//   2) GET  /api/auth/google/callback → code 받음 → token 교환 → userinfo 조회
+//                                       → provider='google', provider_id=sub 로 users 테이블 find-or-create
+//                                       → 세션 로그인 → 홈으로 리디렉션
+const crypto = require('crypto');
+
+const GOOGLE_AUTH_URL  = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const GOOGLE_USERINFO  = 'https://openidconnect.googleapis.com/v1/userinfo';
+
+function oauthBase(req) {
+  // 우선순위: env > 현재 요청 origin (로컬 개발 편의)
+  if (process.env.OAUTH_CALLBACK_BASE) return process.env.OAUTH_CALLBACK_BASE.replace(/\/$/, '');
+  const proto = req.protocol;
+  const host = req.get('host');
+  return `${proto}://${host}`;
+}
+
+function googleConfigured() {
+  return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
+// 1) 로그인 시작 — Google 동의 화면으로 보냄
+router.get('/google', (req, res) => {
+  if (!googleConfigured()) {
+    return res.status(500).send('Google OAuth not configured (missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)');
+  }
+  const state = crypto.randomBytes(16).toString('hex');
+  req.session.oauthState = state;
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    redirect_uri: `${oauthBase(req)}/api/auth/google/callback`,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    prompt: 'select_account',
+    access_type: 'online',
+  });
+  res.redirect(`${GOOGLE_AUTH_URL}?${params}`);
+});
+
+// 2) 콜백 — code → token → userinfo → 세션 로그인
+router.get('/google/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+  if (error) {
+    return res.redirect(`/?oauth_error=${encodeURIComponent(String(error))}`);
+  }
+  if (!code || !state || state !== req.session.oauthState) {
+    return res.redirect('/?oauth_error=state_mismatch');
+  }
+  delete req.session.oauthState;
+
+  try {
+    // Token 교환
+    const tokenBody = new URLSearchParams({
+      code: String(code),
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: `${oauthBase(req)}/api/auth/google/callback`,
+      grant_type: 'authorization_code',
+    });
+    const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenBody,
+    });
+    if (!tokenRes.ok) {
+      const txt = await tokenRes.text().catch(() => '');
+      throw new Error(`google token ${tokenRes.status}: ${txt.slice(0, 200)}`);
+    }
+    const { access_token } = await tokenRes.json();
+    if (!access_token) throw new Error('no access_token from google');
+
+    // Userinfo 조회
+    const uiRes = await fetch(GOOGLE_USERINFO, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    if (!uiRes.ok) throw new Error(`google userinfo ${uiRes.status}`);
+    const ui = await uiRes.json();
+    //  { sub, email, email_verified, name, given_name, family_name, picture, locale }
+    const sub = ui.sub;
+    const email = ui.email;
+    const nickname = (ui.name || (email && email.split('@')[0]) || 'User').slice(0, 40);
+    if (!sub || !email) throw new Error('google userinfo missing sub/email');
+
+    // 유저 find-or-create
+    //  1. provider+provider_id 매치되는 계정
+    //  2. 같은 이메일의 local 계정 있으면 링크 (email_verified=1 일 때만)
+    //  3. 없으면 신규 생성
+    let u = db.prepare(`SELECT * FROM users WHERE provider = 'google' AND provider_id = ?`).get(String(sub));
+    if (!u) {
+      const existing = db.prepare(`SELECT * FROM users WHERE email = ?`).get(email);
+      if (existing && ui.email_verified) {
+        // 기존 local 계정과 Google 연동 — provider 는 그대로 'local' 유지, provider_id 만 저장
+        //  (여러 소셜 연결 시에는 별도 테이블 필요하지만 지금은 단일 연결만 지원)
+        db.prepare(`
+          UPDATE users SET provider_id = ?, email_verified = 1, status = CASE WHEN status='pending' THEN 'active' ELSE status END
+          WHERE id = ?
+        `).run(String(sub), existing.id);
+        u = db.prepare(`SELECT * FROM users WHERE id = ?`).get(existing.id);
+        logAudit({ userId: u.id, action: 'oauth_link_google', target: email, ip: clientIp(req) });
+      } else if (existing && !ui.email_verified) {
+        return res.redirect('/?oauth_error=email_not_verified');
+      } else {
+        // 신규 생성 — pw_hash NULL, provider='google', email_verified=1
+        const now = Date.now();
+        const r = db.prepare(`
+          INSERT INTO users (email, pw_hash, nickname, role, status, provider, provider_id, email_verified, created_at, last_login, login_count)
+          VALUES (?, NULL, ?, 'user', 'active', 'google', ?, 1, ?, ?, 1)
+        `).run(email, nickname, String(sub), now, now);
+        u = db.prepare(`SELECT * FROM users WHERE id = ?`).get(r.lastInsertRowid);
+        logAudit({ userId: u.id, action: 'oauth_signup_google', target: email, ip: clientIp(req) });
+      }
+    } else {
+      // 차단된 계정 체크
+      if (u.status === 'banned') return res.redirect('/?oauth_error=banned');
+      db.prepare(`UPDATE users SET last_login = ?, login_count = login_count + 1 WHERE id = ?`).run(Date.now(), u.id);
+      logAudit({ userId: u.id, action: 'oauth_login_google', ip: clientIp(req) });
+    }
+
+    // 세션 고정 공격 방지용 regenerate
+    await regenerateSession(req);
+    req.session.userId = u.id;
+    res.redirect('/?oauth=google');
+  } catch (e) {
+    console.error('[oauth/google]', e);
+    res.redirect(`/?oauth_error=${encodeURIComponent(e.message.slice(0, 80))}`);
+  }
+});
+
 module.exports = router;
