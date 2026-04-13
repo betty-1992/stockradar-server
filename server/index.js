@@ -770,17 +770,28 @@ const fmpFetch = async (endpoint, params = {}) => {
     _fmpRateLimitedUntil = Date.now() + FMP_RATE_LIMIT_LOCK_MS;
     throw makeRateLimitError();
   }
+  // 402/403 = 무료 플랜에서 접근 불가한 프리미엄 엔드포인트/심볼
+  // → 빈 배열 반환해서 다른 데이터는 계속 로드되도록 함
+  if (r.status === 402 || r.status === 403) {
+    console.warn(`[fmp] ${endpoint} (${JSON.stringify(params)}) → ${r.status} premium, returning empty`);
+    return [];
+  }
   if (!r.ok) {
     const txt = await r.text().catch(() => '');
     throw new Error(`FMP ${endpoint} 오류 ${r.status}: ${txt.slice(0, 120)}`);
   }
   const body = await r.json();
   if (body && typeof body === 'object' && !Array.isArray(body) && typeof body['Error Message'] === 'string') {
-    if (/limit reach/i.test(body['Error Message'])) {
+    const msg = body['Error Message'];
+    if (/limit reach/i.test(msg)) {
       _fmpRateLimitedUntil = Date.now() + FMP_RATE_LIMIT_LOCK_MS;
       throw makeRateLimitError();
     }
-    throw new Error(`FMP ${endpoint}: ${body['Error Message'].slice(0, 120)}`);
+    if (/premium|exclusive|subscription|not available under your current/i.test(msg)) {
+      console.warn(`[fmp] ${endpoint} → premium-gated, returning empty: ${msg.slice(0, 120)}`);
+      return [];
+    }
+    throw new Error(`FMP ${endpoint}: ${msg.slice(0, 120)}`);
   }
   return body;
 };

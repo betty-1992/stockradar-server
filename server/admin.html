@@ -1106,18 +1106,18 @@ async function loadErrors(page){
           <td style="font-family:var(--mono)">${e.status||'—'}</td>
           <td>
             ${e.resolved
-              ? `<span class="chip chip-active">해결</span>`
-              : `<button class="btn btn-d btn-sm" onclick="resolveError(${e.id})">해결</button>`}
+              ? `<span class="chip chip-active" style="margin-right:6px">해결됨</span><button class="btn btn-d btn-sm" onclick="toggleError(${e.id}, 0)" title="미해결로 되돌리기">↩ 되돌리기</button>`
+              : `<button class="btn btn-d btn-sm" onclick="toggleError(${e.id}, 1)">해결 처리</button>`}
           </td>
         </tr>`).join('')
       : `<tr><td colspan="7" style="text-align:center;color:var(--tx4);padding:36px">에러 없음 🎉</td></tr>`;
     renderPager('errPager', d.page, d.total, d.pageSize, loadErrors);
   } catch(e){ showErr(e); }
 }
-async function resolveError(id){
+async function toggleError(id, next){
   try {
-    await api(`/api/admin/errors/${id}`, { method:'PATCH', body:{ resolved: 1 } });
-    toast('해결됨');
+    await api(`/api/admin/errors/${id}`, { method:'PATCH', body:{ resolved: next } });
+    toast(next ? '해결 처리됨' : '미해결로 되돌림');
     loadErrors(_errPage);
   } catch(e){ showErr(e); }
 }
