@@ -7,7 +7,7 @@ const { db } = require('./db');
 function attachUser(req, _res, next) {
   if (req.session?.userId) {
     const u = db.prepare(`
-      SELECT id, email, nickname, role, status, email_verified, created_at, last_login
+      SELECT id, email, nickname, role, status, email_verified, provider, terms_accepted_at, created_at, last_login
       FROM users WHERE id = ?
     `).get(req.session.userId);
     if (u && u.status === 'active') {

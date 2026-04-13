@@ -3796,9 +3796,13 @@ input,select,textarea{font-family:var(--sans);}
       -->
 
 
-      <div class="auth-divider">또는 이메일로 로그인</div>
+      <div style="text-align:center;font-size:12px;color:var(--tx4);line-height:1.6;margin-top:4px">
+        Google 계정으로 간편하게 시작하세요.<br>
+        카카오·네이버 로그인은 곧 지원될 예정이에요.
+      </div>
 
-      <!-- 이메일/비밀번호 -->
+      <!-- 이메일/비번 가입·로그인은 발신 도메인 확보 전까지 비활성화 (TODO)
+      <div class="auth-divider">또는 이메일로 로그인</div>
       <div class="set-field">
         <label>아이디 (이메일) <span class="req">*</span></label>
         <input id="lId" type="email" placeholder="이메일 입력" autocomplete="email">
@@ -3808,19 +3812,16 @@ input,select,textarea{font-family:var(--sans);}
         <input id="lPw" type="password" placeholder="비밀번호 입력" autocomplete="current-password"
           onkeydown="if(event.key==='Enter')doLogin()">
       </div>
-
       <button class="btn btn-p btn-full" onclick="doLogin()" style="margin-top:2px">로그인</button>
-
-      <!-- 계정 찾기 -->
       <div style="display:flex;justify-content:center;gap:16px;font-size:12px;color:var(--tx4)">
         <span style="cursor:pointer;text-decoration:underline" onclick="showFindAccount('id')">아이디 찾기</span>
         <span style="color:var(--bdr2)">|</span>
         <span style="cursor:pointer;text-decoration:underline" onclick="showFindAccount('pw')">비밀번호 찾기</span>
       </div>
-
       <div style="text-align:center;font-size:13px;color:var(--tx4)">
         계정 없으신가요? <span style="color:var(--brand);font-weight:600;cursor:pointer" onclick="showSignup()">회원가입</span>
       </div>
+      -->
     </div>
   </div>
 </div>
@@ -3915,6 +3916,51 @@ input,select,textarea{font-family:var(--sans);}
       <div style="text-align:center;font-size:13px;color:var(--tx4)">
         이미 계정이 있으신가요? <span style="color:var(--brand);font-weight:600;cursor:pointer" onclick="cm('signupOv');om('loginOv')">로그인</span>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 소셜 가입 후 간단 정보 입력 모달 ══ -->
+<div class="overlay" id="completeSignupOv">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-hdr">
+      <div class="modal-title">🎉 환영합니다!</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;padding-bottom:4px">
+      <div style="font-size:13px;color:var(--tx3);line-height:1.6">
+        간단한 정보만 입력하면 바로 시작할 수 있어요.
+      </div>
+      <div class="set-field">
+        <label>닉네임 <span class="req">*</span></label>
+        <input id="csNickname" type="text" maxlength="40" placeholder="서비스에서 표시될 이름">
+        <div style="font-size:11px;color:var(--tx4);margin-top:4px">
+          소셜 계정에서 가져온 이름이 자동으로 채워졌어요. 원하시면 수정하세요.
+        </div>
+      </div>
+      <div class="consent-block">
+        <div class="consent-item">
+          <input type="checkbox" id="csAgreeTerms">
+          <label for="csAgreeTerms">
+            <span class="req-tag">필수</span>
+            <a href="javascript:void(0)" onclick="openLegalOverlay('terms')">이용약관</a>에 동의합니다
+          </label>
+        </div>
+        <div class="consent-item">
+          <input type="checkbox" id="csAgreePrivacy">
+          <label for="csAgreePrivacy">
+            <span class="req-tag">필수</span>
+            <a href="javascript:void(0)" onclick="openLegalOverlay('privacy')">개인정보처리방침</a>에 동의합니다
+          </label>
+        </div>
+        <div class="consent-item">
+          <input type="checkbox" id="csAgreeMarketing">
+          <label for="csAgreeMarketing">
+            <span style="font-size:10px;color:var(--tx4);font-weight:700;padding:1px 5px;background:var(--surf);border-radius:4px;margin-right:6px">선택</span>
+            마케팅 정보 수신에 동의합니다
+          </label>
+        </div>
+      </div>
+      <button class="btn btn-p btn-full" onclick="doCompleteSignup()">시작하기</button>
     </div>
   </div>
 </div>
@@ -5319,9 +5365,43 @@ async function restoreSession(){
       _currentUser = d.user;
       await reloadUserData();
       updateUserUI();
+      // 소셜 가입 후 약관·닉네임 미완료 → 간단 정보 입력 모달
+      if (d.user.profileComplete === false) {
+        openCompleteSignupModal(d.user.nickname || '');
+      }
     }
   } catch(e){ /* 비로그인 상태면 무시 */ }
 }
+
+function openCompleteSignupModal(defaultNickname){
+  const ov = document.getElementById('completeSignupOv');
+  if (!ov) return;
+  const nickInp = document.getElementById('csNickname');
+  if (nickInp) nickInp.value = defaultNickname || '';
+  ['csAgreeTerms','csAgreePrivacy','csAgreeMarketing'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.checked = false;
+  });
+  ov.classList.add('on');
+}
+async function doCompleteSignup(){
+  const nickname = document.getElementById('csNickname').value.trim();
+  const terms    = document.getElementById('csAgreeTerms').checked;
+  const privacy  = document.getElementById('csAgreePrivacy').checked;
+  const marketing= document.getElementById('csAgreeMarketing').checked;
+  if (!nickname) return toast('닉네임을 입력해주세요');
+  if (!terms || !privacy) return toast('필수 약관에 동의해주세요');
+  try {
+    const d = await api('/api/auth/complete-signup', {
+      method:'POST',
+      body: { nickname, agreeTerms: terms, agreePrivacy: privacy, agreeMarketing: marketing },
+    });
+    _currentUser = d.user;
+    updateUserUI();
+    cm('completeSignupOv');
+    toast('환영합니다! 🎉');
+  } catch(e){ toast(e.message || '저장 실패'); }
+}
+window.doCompleteSignup = doCompleteSignup;
 
 function updateUserUI(){
   const u = gUser();

@@ -175,6 +175,15 @@ const migrations = [
       CREATE INDEX IF NOT EXISTS idx_events_target ON events(target);
     `);
   },
+  // v5 — 프로필 완료 플래그 (소셜 가입 후 약관/닉네임 확인 단계)
+  (db) => {
+    db.exec(`
+      ALTER TABLE users ADD COLUMN terms_accepted_at INTEGER;
+      ALTER TABLE users ADD COLUMN marketing_agreed  INTEGER NOT NULL DEFAULT 0;
+    `);
+    // 기존 로컬 가입자는 가입 시 약관 동의했으므로 created_at 으로 백필
+    db.exec(`UPDATE users SET terms_accepted_at = created_at WHERE terms_accepted_at IS NULL`);
+  },
 ];
 
 function runMigrations() {

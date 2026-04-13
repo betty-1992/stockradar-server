@@ -93,7 +93,9 @@ function publicUser(u) {
     nickname: u.nickname,
     role: u.role,
     status: u.status,
+    provider: u.provider,
     emailVerified: !!u.email_verified,
+    profileComplete: !!u.terms_accepted_at,
     createdAt: u.created_at,
   };
 }
@@ -381,6 +383,38 @@ router.put('/keywords', requireAuth, (req, res) => {
   });
   tx();
   res.json({ ok: true, count: list.length });
+});
+
+// ─── POST /api/auth/complete-signup ──────────
+//  소셜 가입 직후 간단 정보 입력 (닉네임 + 약관 동의)
+//  이 엔드포인트를 호출해야 user.profileComplete = true 가 됨
+const completeSignupSchema = z.object({
+  nickname: z.string().trim().min(1).max(40),
+  agreeTerms: z.boolean(),
+  agreePrivacy: z.boolean(),
+  agreeMarketing: z.boolean().optional().default(false),
+});
+router.post('/complete-signup', requireAuth, (req, res) => {
+  const parsed = completeSignupSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, error: 'INVALID_INPUT' });
+  const { nickname, agreeTerms, agreePrivacy, agreeMarketing } = parsed.data;
+  if (!agreeTerms || !agreePrivacy) return res.status(400).json({ ok: false, error: 'CONSENT_REQUIRED' });
+
+  const now = Date.now();
+  db.prepare(`
+    UPDATE users SET nickname = ?, terms_accepted_at = ?, marketing_agreed = ?
+    WHERE id = ?
+  `).run(nickname, now, agreeMarketing ? 1 : 0, req.user.id);
+
+  logAudit({
+    userId: req.user.id,
+    action: 'consents_agreed',
+    meta: { marketing: !!agreeMarketing, via: 'social' },
+    ip: clientIp(req),
+  });
+
+  const u = db.prepare(`SELECT * FROM users WHERE id = ?`).get(req.user.id);
+  res.json({ ok: true, user: publicUser(u) });
 });
 
 // ════════════════════════════════════════════════
