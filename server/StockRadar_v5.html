@@ -2949,38 +2949,46 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 [data-theme="dark"] canvas { filter: brightness(.95); }
 
 /* ══════════════════════════════════════════════
-   📱 모바일 반응형 (≤768px) — Toss 스타일 레이아웃
+   📱 모바일 반응형 (≤768px) — Toss 스타일 컴팩트
    ══════════════════════════════════════════════ */
 @media (max-width: 768px) {
+  html, body { overflow-x: hidden; }
   html { font-size: 15px; }
 
-  /* 스크롤 영역 패딩 축소 */
-  .scroll { padding: 16px 14px 60px !important; }
-  .main, .main-wrap { padding: 0 !important; }
+  /* 전역 여백 축소 */
+  .scroll { padding: 10px 10px 48px !important; }
+  .page { padding: 0 !important; }
+  .main, .main-wrap, .content { padding: 0 !important; }
 
-  /* 카드들 full-width + 둥근 모서리 유지 */
-  .card, .set-sec, .stat {
-    border-radius: var(--r-md);
-    padding: 16px;
+  /* 카드 공통: 패딩 컴팩트, 하단 간격 줄이기 */
+  .card, .set-sec, .chart-sec, .panel, .stat,
+  .core-cond-card, .crit-card, .concept-card, .blog-card {
+    padding: 14px !important;
+    margin-bottom: 10px !important;
+  }
+  .card .sh { margin-bottom: 10px !important; }
+  .card.section { padding: 14px !important; }
+
+  /* 홈/대시보드 그리드 단열화 + 간격 축소 */
+  .g2, .g3, .g4, .stat-grid, .info-grid, .blog-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
   }
 
-  /* 홈 히어로/통계 그리드 1열 */
-  .g2, .g3, .g4, .stat-grid { grid-template-columns: 1fr !important; }
+  /* 종목발굴 카드 1열 */
+  .stock-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
 
-  /* 종목발굴 — 카드 그리드 1열 */
-  .stock-grid { grid-template-columns: 1fr !important; }
-
-  /* 스크리너 필터 패널 — 드로어로 */
+  /* 스크리너 필터 패널 → 슬라이드 드로어 */
   .filter-panel.fp-open {
     position: fixed !important;
     top: 0; right: 0; bottom: 0;
-    width: 88% !important; max-width: 340px;
+    width: 86% !important; max-width: 320px;
     height: 100vh;
-    z-index: 600;
+    z-index: 700;
     transform: translateX(100%);
     transition: transform var(--trans-slow);
     border-left: 1px solid var(--bdr);
-    box-shadow: -12px 0 40px rgba(0,0,0,.15);
+    box-shadow: -10px 0 32px rgba(0,0,0,.18);
   }
   .filter-panel.fp-open.on { transform: translateX(0); }
   .scroll:has(#pg-screener.on) {
@@ -2989,45 +2997,108 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
   }
   .scroll:has(#pg-screener.on) .screener-right {
     overflow-y: visible !important;
-    padding: 14px !important;
+    padding: 0 !important;
   }
 
-  /* 상세 페이지 */
-  .detail-hero { padding: 18px 16px; border-radius: var(--r-md); }
-  .detail-hero-top { flex-direction: column; gap: 12px; }
+  /* 상세 페이지 — 헤더/버튼 컴팩트 */
+  .detail-back { margin-bottom: 8px !important; font-size: 12px; }
+  .detail-hero { padding: 14px 12px !important; border-radius: var(--r-md); }
+  .detail-hero-top { flex-direction: column; gap: 10px !important; }
   .detail-actions { flex-wrap: wrap; gap: 6px; }
-  .detail-px { font-size: 28px !important; }
-  .metrics-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .detail-actions .btn-fav,
+  .detail-actions .btn-ext { padding: 6px 10px !important; font-size: 11px !important; }
+  .detail-px { font-size: 26px !important; }
+  .metrics-bar {
+    display: flex !important;
+    overflow-x: auto;
+    gap: 8px !important;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
   .metrics-bar::-webkit-scrollbar { display: none; }
-  .metric-cell { flex: 0 0 auto; min-width: 90px; }
+  .metric-cell { flex: 0 0 auto; min-width: 88px; scroll-snap-align: start; }
 
-  /* 모달 — 풀스크린 느낌 */
+  /* 상세 2열 그리드 → 1열 */
+  #pg-detail div[style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* 차트 섹션 높이 축소 */
+  .chart-sec { padding: 12px !important; }
+  #chartArea { height: 220px !important; }
+
+  /* 체크리스트 카드 컴팩트 */
+  .stock-check-card .ck-summary { padding: 12px !important; gap: 10px !important; }
+  .stock-check-card .ck-grade { width: 46px; height: 46px; border-radius: 12px; }
+  .stock-check-card .ck-grade-lbl { font-size: 22px; }
+  .chk { padding: 10px 12px !important; gap: 10px !important; }
+  .chk-title { font-size: 12.5px !important; }
+  .chk-desc { font-size: 11px !important; }
+
+  /* 모달 — 바텀 시트 느낌 */
   .overlay .modal,
   .blog-ov .blog-modal {
     max-width: 100vw !important;
-    max-height: 92vh !important;
-    margin: 4vh auto;
-    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    width: calc(100vw - 16px) !important;
+    max-height: 90vh !important;
+    margin: 5vh auto !important;
+    border-radius: var(--r-lg) !important;
   }
-  .blog-modal-body { padding: 16px 18px 32px !important; }
+  .modal-hdr, .blog-modal-hdr { padding: 14px 16px !important; }
+  .blog-modal-body { padding: 16px 18px 28px !important; }
   .blog-article-title { font-size: 20px !important; }
 
   /* AI 챗 패널 */
-  .ai-chat-panel { width: calc(100vw - 16px) !important; right: 8px !important; }
+  .ai-chat-panel {
+    width: calc(100vw - 12px) !important;
+    right: 6px !important;
+    bottom: 72px !important;
+    max-height: 72vh !important;
+  }
+  .float-btns { right: 10px !important; bottom: 14px !important; }
 
-  /* 공지 배너 본문 paddingTop 자동 보정 */
-  #noticeBanners .notice-banner { padding: 8px 12px; font-size: 12px; }
+  /* 공지 배너 — 더 콤팩트 */
+  #noticeBanners .notice-banner { padding: 7px 12px; font-size: 12px; }
+
+  /* GNB / topbar */
+  .gnb, .topbar { padding: 0 10px !important; height: 50px !important; }
+  .topbar-title { font-size: 14px !important; }
+  .btn-refresh { padding: 6px 8px !important; }
+  .btn-refresh span { display: none !important; }
+
+  /* 섹터맵 토글 묶음 */
+  .tm-view-toggle { flex-shrink: 0; }
+  #pg-sector .sh { flex-wrap: wrap; gap: 8px !important; }
+
+  /* 가이드 블로그 */
+  .blog-cats { gap: 6px !important; margin-bottom: 12px !important; }
+  .blog-cat-btn { padding: 7px 13px !important; font-size: 12px !important; }
+  .blog-card-hero { height: 100px !important; font-size: 38px !important; }
+  .blog-card-body { padding: 12px 14px 14px !important; }
+  .blog-card-title { font-size: 14px !important; }
+  .guide-hero h2 { font-size: 19px !important; }
+  .guide-hero p { font-size: 12px !important; }
+
+  /* 어드민 회원 드로어 유사 처리 — 필터 드로어 크기 */
+  .drawer { width: 100vw !important; }
 }
 
 /* ══════════════════════════════════════════════
    📏 초소형 (≤420px) 추가 보정
    ══════════════════════════════════════════════ */
 @media (max-width: 420px) {
-  .scroll { padding: 14px 12px 60px !important; }
-  .detail-hero { padding: 16px 14px; }
+  .scroll { padding: 8px 8px 48px !important; }
+  .card, .set-sec, .chart-sec, .panel { padding: 12px !important; }
+  .detail-hero { padding: 12px !important; }
   .detail-px { font-size: 24px !important; }
-  .guide-hero h2 { font-size: 18px !important; }
+  .detail-ticker { font-size: 12px !important; }
+  .detail-name { font-size: 16px !important; }
+  .guide-hero h2 { font-size: 17px !important; }
   .modal-hdr, .blog-modal-hdr { padding: 12px 14px !important; }
+  .chk-title { font-size: 12px !important; }
+  .stock-check-card .ck-summary { padding: 10px !important; gap: 8px !important; }
+  .blog-card-hero { height: 90px !important; font-size: 34px !important; }
 }
 
 </style>
