@@ -1194,15 +1194,49 @@ input,select,textarea{font-family:var(--sans);}
 .info-lbl{font-size:10px;color:var(--tx4);font-weight:500;margin-bottom:3px;}
 .info-val{font-size:13px;font-weight:700;font-family:var(--mono);}
 
-/* CHECKLIST */
-.chk-list{display:flex;flex-direction:column;gap:6px;}
-.chk{display:flex;gap:9px;align-items:flex-start;padding:11px 12px;border-radius:10px;border:none;}
-.chk.pass{background:linear-gradient(135deg,#f0fdf4,#dcfce7);}
-.chk.fail{background:linear-gradient(135deg,#fffbeb,#fef3c7);}
-.chk.warn{background:linear-gradient(135deg,#f8faff,#eff6ff);}
-.chk-ico{font-size:16px;flex-shrink:0;}
-.chk-title{font-size:13px;font-weight:600;margin-bottom:2px;}
-.chk-desc{font-size:11px;color:var(--tx2);line-height:1.55;}
+/* CHECKLIST v2 — 지금 이 주식, 어때요? */
+.stock-check-card .ck-summary{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 16px;border-radius:var(--r-md);
+  background:var(--surf);
+}
+.stock-check-card .ck-grade{
+  width:52px;height:52px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  box-shadow:0 4px 12px rgba(16,24,40,.1);
+}
+.stock-check-card .ck-grade-lbl{
+  font-size:24px;font-weight:900;color:#fff;letter-spacing:-1px;line-height:1;
+}
+.stock-check-card .ck-summary-text{flex:1;min-width:0;}
+.stock-check-card .ck-summary-title{
+  font-size:14px;font-weight:800;color:var(--tx);margin-bottom:6px;letter-spacing:-.2px;
+}
+.stock-check-card .ck-summary-counts{
+  display:flex;gap:6px;flex-wrap:wrap;
+}
+.stock-check-card .ck-chip{
+  font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;
+}
+.stock-check-card .ck-chip-pass{background:#dcfce7;color:#15803d;}
+.stock-check-card .ck-chip-warn{background:#fef3c7;color:#92400e;}
+.stock-check-card .ck-chip-fail{background:#fee2e2;color:#b91c1c;}
+[data-theme="dark"] .stock-check-card .ck-chip-pass{background:#14311c;color:#86efac;}
+[data-theme="dark"] .stock-check-card .ck-chip-warn{background:#3a2a0a;color:#fcd34d;}
+[data-theme="dark"] .stock-check-card .ck-chip-fail{background:#3a1414;color:#fca5a5;}
+
+.chk-list{display:flex;flex-direction:column;gap:8px;}
+.chk{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:var(--r-md);border:1px solid var(--bdr-soft);background:var(--white);}
+.chk.chk-v2{transition:transform var(--trans),box-shadow var(--trans);}
+.chk.chk-v2:hover{transform:translateX(2px);box-shadow:var(--sh1);}
+.chk.pass{border-left:3px solid #16a34a;}
+.chk.warn{border-left:3px solid #d97706;}
+.chk.fail{border-left:3px solid #dc2626;}
+.chk-ico{font-size:20px;flex-shrink:0;line-height:1.2;}
+.chk-content{flex:1;min-width:0;}
+.chk-title{font-size:13px;font-weight:700;margin-bottom:3px;color:var(--tx);letter-spacing:-.15px;line-height:1.4;}
+.chk-desc{font-size:11.5px;color:var(--tx3);line-height:1.55;}
 .chk-val{font-size:11px;font-weight:700;font-family:var(--mono);margin-top:3px;}
 .pass .chk-val{color:var(--green);}
 .fail .chk-val{color:var(--up);}
@@ -3133,8 +3167,9 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
       <div class="panel">
         <div class="sh">
           <div class="st">💡 오늘 주목 종목</div>
-          <div class="sm" id="homeHLCriteria" style="font-size:10px;color:var(--tx4);font-weight:500;line-height:1.3;text-align:right"></div>
+          <div class="sm" onclick="goHomeHLMore()">더보기 →</div>
         </div>
+        <div id="homeHLCriteria" style="font-size:10px;color:var(--tx4);font-weight:500;line-height:1.3;margin-bottom:8px"></div>
         <div class="hl-tabs" id="hlTabs">
           <button class="hl-tab on" data-cat="all"    onclick="setHomeHLCat('all')">전체</button>
           <button class="hl-tab"    data-cat="surge"  onclick="setHomeHLCat('surge')">🔥 급등</button>
@@ -3580,8 +3615,12 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
           <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--tx)">🏢 기업 정보</div>
           <div class="info-grid" id="companyInfo"></div>
         </div>
-        <div class="chart-sec">
-          <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--tx)">🔍 지금 이 주식, 어때요?</div>
+        <div class="chart-sec stock-check-card">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+            <div style="font-size:14px;font-weight:800;color:var(--tx);letter-spacing:-.2px">🔍 지금 이 주식, 어때요?</div>
+            <div style="font-size:11px;color:var(--tx4)">8개 체크 기준</div>
+          </div>
+          <div id="ckSummary" style="margin-bottom:14px"></div>
           <div class="chk-list" id="ckList"></div>
         </div>
       </div>
@@ -3665,10 +3704,18 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
           <div class="st">🗺 섹터 · 토픽 트리맵</div>
           <div style="font-size:11px;color:var(--tx4);margin-top:3px" id="treemapLegend">크기=종목 수 · 색=평균 등락</div>
         </div>
-        <!-- 뷰 토글: 섹터(Yahoo 분류) vs 토픽(테마) -->
-        <div class="tm-view-toggle">
-          <button class="tm-view-btn on" id="tmView-sector" onclick="setTreemapView('sector')">섹터</button>
-          <button class="tm-view-btn" id="tmView-topic" onclick="setTreemapView('topic')">토픽</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <!-- 시장 필터: 전체/국내/해외 -->
+          <div class="tm-view-toggle" id="tmMarketToggle">
+            <button class="tm-view-btn on" data-mkt="all" onclick="setTreemapMarket('all')">전체</button>
+            <button class="tm-view-btn"    data-mkt="kr"  onclick="setTreemapMarket('kr')">🇰🇷 국내</button>
+            <button class="tm-view-btn"    data-mkt="us"  onclick="setTreemapMarket('us')">🇺🇸 해외</button>
+          </div>
+          <!-- 뷰 토글: 섹터 vs 토픽 -->
+          <div class="tm-view-toggle">
+            <button class="tm-view-btn on" id="tmView-sector" onclick="setTreemapView('sector')">섹터</button>
+            <button class="tm-view-btn" id="tmView-topic" onclick="setTreemapView('topic')">토픽</button>
+          </div>
         </div>
       </div>
       <div class="treemap" id="treemap"></div>
@@ -6812,7 +6859,43 @@ async function openDetail(id){
     {ico:(m.tags||[]).includes('종전수혜')?'✅':'⚠️',t:'종전·이벤트 직접 수혜 종목인가요?',desc:(m.tags||[]).includes('종전수혜')?'종전 시 직접 이익 받는 종목':'직접 수혜는 아닌 편',val:'',cls:(m.tags||[]).includes('종전수혜')?'pass':'warn'},
     {ico:m.score>=6?'✅':m.score>=4?'⚠️':'❌',t:`전체 체크리스트: ${m.score}/10점`,desc:m.score>=6?'많은 기준 충족':m.score>=4?'일부 충족, 추가 검토 권장':'기준 충족도 낮음',val:`${m.score}개 기준 충족`,cls:m.score>=6?'pass':m.score>=4?'warn':'fail'},
   ];
-  document.getElementById('ckList').innerHTML=ckItems.map(c=>`<div class="chk ${c.cls}"><div class="chk-ico">${c.ico}</div><div><div class="chk-title">${c.t}</div><div class="chk-desc">${c.desc}</div>${c.val?`<div class="chk-val">${c.val}</div>`:''}</div></div>`).join('');
+  // ── 요약 카드 (pass/warn/fail 카운트 + 전체 등급) ──
+  const passN = ckItems.filter(c => c.cls === 'pass').length;
+  const warnN = ckItems.filter(c => c.cls === 'warn').length;
+  const failN = ckItems.filter(c => c.cls === 'fail').length;
+  const totalN = ckItems.length;
+  const gradePct = (passN * 100 + warnN * 50) / totalN;
+  const grade = gradePct >= 80 ? { lbl: 'A', color: '#16a34a', txt: '매력적인 종목' }
+              : gradePct >= 65 ? { lbl: 'B', color: '#059669', txt: '괜찮은 편' }
+              : gradePct >= 50 ? { lbl: 'C', color: '#d97706', txt: '보통' }
+              : gradePct >= 35 ? { lbl: 'D', color: '#ea580c', txt: '신중히 검토' }
+                               : { lbl: 'F', color: '#dc2626', txt: '주의 필요' };
+  document.getElementById('ckSummary').innerHTML = `
+    <div class="ck-summary">
+      <div class="ck-grade" style="background:${grade.color}">
+        <div class="ck-grade-lbl">${grade.lbl}</div>
+      </div>
+      <div class="ck-summary-text">
+        <div class="ck-summary-title">${grade.txt}</div>
+        <div class="ck-summary-counts">
+          <span class="ck-chip ck-chip-pass">✓ 통과 ${passN}</span>
+          <span class="ck-chip ck-chip-warn">⚠ 주의 ${warnN}</span>
+          <span class="ck-chip ck-chip-fail">✕ 미달 ${failN}</span>
+        </div>
+      </div>
+    </div>
+  `;
+  // ── 항목 리스트 (pass 먼저, warn 다음, fail 마지막) ──
+  const order = { pass: 0, warn: 1, fail: 2 };
+  const sorted = [...ckItems].sort((a, b) => (order[a.cls] || 0) - (order[b.cls] || 0));
+  document.getElementById('ckList').innerHTML = sorted.map(c => `
+    <div class="chk chk-v2 ${c.cls}">
+      <div class="chk-ico">${c.ico}</div>
+      <div class="chk-content">
+        <div class="chk-title">${c.t}</div>
+        <div class="chk-desc">${c.desc}</div>
+      </div>
+    </div>`).join('');
 
   // 종목 뉴스: 종목명으로 실제 크롤링 (최대 5개 + 더보기 → 네이버 검색)
   const dNewsEl = document.getElementById('dNews');
@@ -8106,9 +8189,25 @@ const SR_SANS_FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", 
 const SR_MONO_FONT = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
 // liveData에서 섹터별 집계 (실시간)
+// 시장 필터 — 'all' | 'kr' | 'us'
+let _tmMarket = 'all';
+function _tmMarketMatches(id){
+  if (_tmMarket === 'all') return true;
+  const isKr = /^\d{6}$/.test(id);
+  return _tmMarket === 'kr' ? isKr : !isKr;
+}
+function setTreemapMarket(mode){
+  _tmMarket = ['all','kr','us'].includes(mode) ? mode : 'all';
+  document.querySelectorAll('#tmMarketToggle .tm-view-btn').forEach(b =>
+    b.classList.toggle('on', b.dataset.mkt === _tmMarket));
+  renderSectorMap();
+}
+window.setTreemapMarket = setTreemapMarket;
+
 function computeSectorData(){
   const secMap = {};
   Object.entries(MASTER).forEach(([id, m]) => {
+    if (!_tmMarketMatches(id)) return;
     const d = liveData[id] || {};
     const sec = m.sec || '기타';
     if(!secMap[sec]) secMap[sec] = {nm:sec, ids:[], changes:[], mcs:[]};
@@ -8243,6 +8342,7 @@ function computeTopicData(){
     totalMc: 0,
   }));
   Object.entries(MASTER).forEach(([id, m]) => {
+    if (!_tmMarketMatches(id)) return;
     const topicIdxs = map.get(id);
     if (!topicIdxs || !topicIdxs.length) return;
     const d = liveData[id] || {};
@@ -9638,6 +9738,41 @@ function goToScreenerWithSearch(q){
   go(document.querySelector('.lnb-item[onclick*="screener"]'),'screener');
   applyFilters();
 }
+
+// 홈 "오늘 주목 종목 더보기" → 현재 탭 카테고리를 스크리너 필터로 적용
+function goHomeHLMore(){
+  const cat = (typeof _homeHLCat !== 'undefined') ? _homeHLCat : 'all';
+  // 공통: 검색창 비우기 + 빠른 필터 초기화
+  screenerQ = '';
+  const inp = document.getElementById('screenerSearchInp');
+  if(inp) inp.value = '';
+  activeQuickFilters.clear();
+  // 카테고리별 매핑
+  if (cat === 'surge') {
+    // 급등 = 전일대비 상위 → 정렬만 change 내림차순
+    try { const s = document.getElementById('f-sort'); if (s) s.value = 'change_desc'; } catch(_){}
+    toast('급등 순으로 정렬됐어요');
+  } else if (cat === 'plunge') {
+    try { const s = document.getElementById('f-sort'); if (s) s.value = 'change_asc'; } catch(_){}
+    toast('급락 순으로 정렬됐어요');
+  } else if (cat === 'kw') {
+    // 관심키워드 첫 번째를 검색어로
+    const kws = (typeof gKWs === 'function' ? gKWs() : []) || [];
+    if (kws.length) {
+      screenerQ = String(kws[0]).toLowerCase();
+      if (inp) inp.value = kws[0];
+      toast(`관심키워드 "${kws[0]}" 으로 필터링`);
+    } else {
+      toast('관심키워드를 먼저 등록해보세요');
+    }
+  } else {
+    toast('전체 종목 보기');
+  }
+  go(document.querySelector('.lnb-item[onclick*="screener"]'), 'screener');
+  try { initScreener && initScreener(); } catch(_){}
+  applyFilters();
+}
+window.goHomeHLMore = goHomeHLMore;
 document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();openSearchOverlay();}
   if(e.key==='Escape'&&document.getElementById('searchOverlay')?.classList.contains('on'))closeSearchOverlay();
@@ -10563,7 +10698,128 @@ document.addEventListener('DOMContentLoaded', function() {
   loadNoticeBanners();
   // OAuth 콜백 결과 처리
   handleOAuthRedirect();
+  // 온보딩 스텝 초기화 (DOM이 준비되어야 함)
+  _initOnboardingOnFirstVisit();
 });
+
+// ─── 온보딩 (종목발굴 / 종목상세) ──────────────
+//  각 페이지 첫 진입 시 2~3 스텝의 가이드 팝오버 노출.
+//  localStorage 'sr_ob_v1' 에 완료 플래그 저장.
+const ONBOARDING_SEEN_KEY = 'sr_ob_v1';
+function _getObSeen(){ try { return JSON.parse(localStorage.getItem(ONBOARDING_SEEN_KEY) || '{}'); } catch { return {}; } }
+function _markObSeen(key){
+  const s = _getObSeen(); s[key] = Date.now();
+  localStorage.setItem(ONBOARDING_SEEN_KEY, JSON.stringify(s));
+}
+function resetOnboarding(){ localStorage.removeItem(ONBOARDING_SEEN_KEY); toast('온보딩이 초기화됐어요'); }
+window.resetOnboarding = resetOnboarding;
+
+const OB_SCREENER = {
+  key: 'screener',
+  title: '🔍 종목 발굴 · 사용법',
+  steps: [
+    { t: '어떤 종목을 볼 수 있나요?',
+      d: '한국 코스피/코스닥 주요 종목과 미국 S&P500 대표 종목을 한눈에 볼 수 있어요. ETF도 포함돼 있어요.' },
+    { t: '필터로 좁혀보세요',
+      d: '우측 필터에서 시장·섹터·PER·ROE·배당수익률 등을 조합할 수 있어요. 빠른 필터(저평가·배당왕·성장주)로 원클릭 탐색도 가능!' },
+    { t: '카드를 누르면 상세 페이지',
+      d: '카드를 클릭하면 차트·AI 분석·뉴스·재무 지표가 있는 상세 페이지로 이동해요.' },
+  ],
+};
+const OB_DETAIL = {
+  key: 'detail',
+  title: '📈 종목 상세 · 핵심 기능',
+  steps: [
+    { t: 'AI 분석 섹션',
+      d: '현재가·PER·ROE 등 핵심 지표를 AI가 분석해서 "한 줄 총평" 까지 제공해요. 로그인 필수!' },
+    { t: '관심종목 ⭐ 저장',
+      d: '우상단 별표를 누르면 관심종목에 저장돼서 홈에서 바로 볼 수 있어요.' },
+    { t: '새로고침으로 최신 데이터',
+      d: '상단 "새로고침" 버튼으로 이 종목만 시세를 다시 가져올 수 있어요. 거래 시간 중엔 자주 눌러보세요.' },
+  ],
+};
+
+function _showOnboarding(cfg){
+  // 이미 본 적 있으면 skip
+  const seen = _getObSeen();
+  if (seen[cfg.key]) return;
+  // 모달 요소 생성
+  const ov = document.createElement('div');
+  ov.className = 'overlay on';
+  ov.id = '__obOv';
+  ov.style.zIndex = 2000;
+  ov.innerHTML = `
+    <div class="modal" style="max-width:400px">
+      <div class="modal-hdr">
+        <div class="modal-title">${cfg.title}</div>
+        <button class="modal-x" onclick="_obClose()">✕</button>
+      </div>
+      <div id="__obBody" style="padding:4px 2px 8px"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px">
+        <div id="__obDots" style="display:flex;gap:6px"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-g" id="__obPrev" onclick="_obPrev()" style="display:none">이전</button>
+          <button class="btn btn-p" id="__obNext" onclick="_obNext()">다음</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  ov.__cfg = cfg;
+  ov.__step = 0;
+  _obRender();
+}
+function _obRender(){
+  const ov = document.getElementById('__obOv');
+  if (!ov) return;
+  const cfg = ov.__cfg;
+  const i = ov.__step;
+  const s = cfg.steps[i];
+  const body = document.getElementById('__obBody');
+  body.innerHTML = `
+    <div style="font-size:38px;text-align:center;margin-bottom:10px">${['1️⃣','2️⃣','3️⃣','4️⃣'][i]||'•'}</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--tx);letter-spacing:-.2px">${s.t}</div>
+    <div style="font-size:13.5px;color:var(--tx2);line-height:1.65">${s.d}</div>
+  `;
+  const dots = document.getElementById('__obDots');
+  dots.innerHTML = cfg.steps.map((_, idx) => `
+    <span style="width:${idx===i?20:7}px;height:7px;border-radius:4px;background:${idx===i?'var(--brand)':'var(--bdr)'};transition:all .22s"></span>
+  `).join('');
+  document.getElementById('__obPrev').style.display = i > 0 ? '' : 'none';
+  document.getElementById('__obNext').textContent = i === cfg.steps.length - 1 ? '시작하기' : '다음';
+}
+function _obNext(){
+  const ov = document.getElementById('__obOv');
+  if (!ov) return;
+  const cfg = ov.__cfg;
+  if (ov.__step < cfg.steps.length - 1) { ov.__step++; _obRender(); }
+  else { _markObSeen(cfg.key); _obClose(); }
+}
+function _obPrev(){
+  const ov = document.getElementById('__obOv');
+  if (!ov) return;
+  if (ov.__step > 0) { ov.__step--; _obRender(); }
+}
+function _obClose(){
+  const ov = document.getElementById('__obOv');
+  if (ov) ov.remove();
+}
+window._obNext = _obNext;
+window._obPrev = _obPrev;
+window._obClose = _obClose;
+
+function _initOnboardingOnFirstVisit(){
+  // showPage 래핑으로 페이지 전환 시 체크
+  const orig = window.showPage;
+  if (typeof orig !== 'function') return;
+  window.showPage = function(page){
+    const r = orig.apply(this, arguments);
+    // 페이지 렌더 후 약간 딜레이해서 온보딩 띄움
+    if (page === 'screener') setTimeout(() => _showOnboarding(OB_SCREENER), 400);
+    if (page === 'detail')   setTimeout(() => _showOnboarding(OB_DETAIL), 500);
+    return r;
+  };
+}
 
 function handleOAuthRedirect(){
   try {
