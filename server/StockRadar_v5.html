@@ -3586,6 +3586,68 @@ html[data-theme="dark"] body .toast,
 }
 
 /* ══════════════════════════════════════════════
+   🏠 대시보드 위젯
+   ══════════════════════════════════════════════ */
+#dashboardWidgets { display: flex; flex-direction: column; gap: 14px; }
+.widget {
+  background: var(--white);
+  border: 1px solid var(--bdr);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  box-shadow: var(--sh1);
+  position: relative;
+}
+.widget-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 12px;
+}
+.widget-title {
+  font-size: 15px; font-weight: 800; letter-spacing: -.2px; color: var(--tx);
+}
+.widget.is-editing {
+  border: 2px dashed var(--brand);
+  animation: wShake .28s ease;
+}
+@keyframes wShake { from { transform: translateX(-2px); } 50% { transform: translateX(2px); } to { transform: translateX(0); } }
+.widget-edit-ctrl {
+  position: absolute; top: 8px; right: 8px;
+  display: flex; gap: 4px;
+  background: var(--white); border: 1px solid var(--bdr);
+  border-radius: 10px; padding: 4px;
+}
+.we-btn {
+  width: 30px; height: 30px; border-radius: 8px;
+  border: none; background: var(--surf); color: var(--tx2);
+  font-size: 13px; font-weight: 800; cursor: pointer;
+  transition: all var(--trans-fast);
+}
+.we-btn:hover:not(:disabled) { background: var(--brand-lt); color: var(--brand); }
+.we-btn:disabled { opacity: .3; cursor: not-allowed; }
+.we-btn.we-del:hover { background: #fee2e2; color: var(--bad); }
+.widget-gallery {
+  margin-top: 16px; padding: 16px; border-radius: var(--r-lg);
+  background: var(--surf); border: 2px dashed var(--bdr);
+}
+.widget-gallery-title {
+  font-size: 13px; font-weight: 800; color: var(--tx2); margin-bottom: 12px;
+}
+.widget-gallery-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;
+}
+.widget-gallery-item {
+  text-align: left; padding: 12px 14px;
+  background: var(--white); border: 1.5px solid var(--bdr);
+  border-radius: var(--r-md); cursor: pointer;
+  transition: all var(--trans);
+}
+.widget-gallery-item:hover { border-color: var(--brand); transform: translateY(-1px); box-shadow: var(--sh1); }
+.wgi-name { font-size: 13px; font-weight: 800; color: var(--tx); margin-bottom: 3px; }
+.wgi-desc { font-size: 11px; color: var(--tx4); }
+[data-theme="dark"] .widget { background: var(--white); border-color: var(--bdr); }
+[data-theme="dark"] .widget-gallery { background: var(--surf-2); border-color: var(--bdr); }
+[data-theme="dark"] .widget-gallery-item { background: var(--surf); }
+
+/* ══════════════════════════════════════════════
    ⭐ 관심종목 전용 페이지
    ══════════════════════════════════════════════ */
 .wl-sort-btn{
@@ -4176,26 +4238,37 @@ html[data-theme="dark"] body .toast,
 
   <!-- ══ 홈 ══ -->
   <div class="page on" id="pg-home">
-    <div class="mstrip" id="mstrip">
-      <div class="mc"><div class="mc-nm">KOSPI</div><div class="mc-val fl" id="idxV-KOSPI">—</div><div class="mc-chg fl" id="idxC-KOSPI">—</div></div>
-      <div class="mc"><div class="mc-nm">KOSDAQ</div><div class="mc-val fl" id="idxV-KOSDAQ">—</div><div class="mc-chg fl" id="idxC-KOSDAQ">—</div></div>
-      <div class="mc"><div class="mc-nm">NASDAQ</div><div class="mc-val fl" id="idxV-NASDAQ">—</div><div class="mc-chg fl" id="idxC-NASDAQ">—</div></div>
-      <div class="mc"><div class="mc-nm">S&P 500</div><div class="mc-val fl" id="idxV-SP500">—</div><div class="mc-chg fl" id="idxC-SP500">—</div></div>
-      <div class="mc"><div class="mc-nm">WTI</div><div class="mc-val fl" id="idxV-WTI">—</div><div class="mc-chg fl" id="idxC-WTI">—</div></div>
-      <div class="mc"><div class="mc-nm">달러/원</div><div class="mc-val fl" id="idxV-FX">—</div><div class="mc-chg fl" id="idxC-FX">—</div></div>
+    <!-- 대시보드 편집 툴바 -->
+    <div id="dashToolbar" style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px">
+      <button class="btn btn-g btn-sm" id="dashEditBtn" onclick="toggleDashEdit()">✏️ 편집</button>
     </div>
 
-    <div class="g2 section">
-      <div class="panel">
-        <div class="sh">
-          <div class="st">⭐ 내 관심종목</div>
+    <!-- 위젯 슬롯 — 순서는 sr_dashboard_layout 에 따름, JS 가 채움 -->
+    <div id="dashboardWidgets"></div>
+
+    <!-- 템플릿: 서버 렌더 없이 JS 가 활성 위젯만 복제 -->
+    <div id="widgetTemplates" style="display:none">
+      <div class="widget" data-widget="market_indices">
+        <div class="widget-hdr"><div class="widget-title">🌏 주요 지수</div></div>
+        <div class="mstrip" id="mstrip">
+          <div class="mc"><div class="mc-nm">KOSPI</div><div class="mc-val fl" id="idxV-KOSPI">—</div><div class="mc-chg fl" id="idxC-KOSPI">—</div></div>
+          <div class="mc"><div class="mc-nm">KOSDAQ</div><div class="mc-val fl" id="idxV-KOSDAQ">—</div><div class="mc-chg fl" id="idxC-KOSDAQ">—</div></div>
+          <div class="mc"><div class="mc-nm">NASDAQ</div><div class="mc-val fl" id="idxV-NASDAQ">—</div><div class="mc-chg fl" id="idxC-NASDAQ">—</div></div>
+          <div class="mc"><div class="mc-nm">S&P 500</div><div class="mc-val fl" id="idxV-SP500">—</div><div class="mc-chg fl" id="idxC-SP500">—</div></div>
+          <div class="mc"><div class="mc-nm">WTI</div><div class="mc-val fl" id="idxV-WTI">—</div><div class="mc-chg fl" id="idxC-WTI">—</div></div>
+          <div class="mc"><div class="mc-nm">달러/원</div><div class="mc-val fl" id="idxV-FX">—</div><div class="mc-chg fl" id="idxC-FX">—</div></div>
+        </div>
+      </div>
+      <div class="widget" data-widget="watchlist">
+        <div class="widget-hdr">
+          <div class="widget-title">⭐ 내 관심종목</div>
           <div class="sm" onclick="go(null,'watchlist')">전체 보기 →</div>
         </div>
         <div id="homeWL"></div>
       </div>
-      <div class="panel">
-        <div class="sh">
-          <div class="st">💡 오늘 주목 종목</div>
+      <div class="widget" data-widget="highlights">
+        <div class="widget-hdr">
+          <div class="widget-title">💡 오늘 주목 종목</div>
           <div class="sm" onclick="goHomeHLMore()">더보기 →</div>
         </div>
         <div id="homeHLCriteria" style="font-size:10px;color:var(--tx4);font-weight:500;line-height:1.3;margin-bottom:8px"></div>
@@ -4207,14 +4280,22 @@ html[data-theme="dark"] body .toast,
         </div>
         <div id="homeHL" style="display:flex;flex-direction:column;gap:10px"></div>
       </div>
-    </div>
-    <div class="card section">
-      <div class="sh">
-        <div class="st">📰 관심 키워드 뉴스</div>
-        <div class="sm" onclick="go(null,'issue')">더보기 →</div>
+      <div class="widget" data-widget="news">
+        <div class="widget-hdr">
+          <div class="widget-title">📰 관심 키워드 뉴스</div>
+          <div class="sm" onclick="go(null,'issue')">더보기 →</div>
+        </div>
+        <div id="homeKwChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;align-items:center"></div>
+        <div class="news-list" id="homeNews"></div>
       </div>
-      <div id="homeKwChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;align-items:center"></div>
-      <div class="news-list" id="homeNews"></div>
+      <div class="widget" data-widget="recent">
+        <div class="widget-hdr"><div class="widget-title">🕘 최근 본 종목</div></div>
+        <div id="recentStocks" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+      </div>
+      <div class="widget" data-widget="market_clock">
+        <div class="widget-hdr"><div class="widget-title">⏰ 시장 상태</div></div>
+        <div id="marketClock" style="font-size:13px;color:var(--tx2);line-height:1.8"></div>
+      </div>
     </div>
   </div>
 
@@ -7090,7 +7171,179 @@ function removeWL(id,e){
 // ══════════════════════════════════════════════
 // HOME
 // ══════════════════════════════════════════════
+// ─── 대시보드 편집 / 위젯 레이아웃 ──────────
+const DASH_WIDGETS = [
+  { id:'market_indices', name:'🌏 주요 지수',       desc:'KOSPI/NASDAQ/환율 등' },
+  { id:'watchlist',      name:'⭐ 내 관심종목',       desc:'관심종목 미리보기' },
+  { id:'highlights',     name:'💡 오늘 주목 종목',    desc:'급등·급락·키워드 종목' },
+  { id:'news',           name:'📰 관심 키워드 뉴스',   desc:'최근 키워드 뉴스' },
+  { id:'recent',         name:'🕘 최근 본 종목',      desc:'최근 상세 조회 종목' },
+  { id:'market_clock',   name:'⏰ 시장 상태',         desc:'개장/마감까지 카운트다운' },
+];
+const DASH_DEFAULT = ['market_indices','watchlist','highlights','news'];
+function _getDashLayout(){
+  try {
+    const raw = localStorage.getItem('sr_dashboard_layout');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length) return arr.filter(x => DASH_WIDGETS.find(w => w.id === x));
+    }
+  } catch(_){}
+  return [...DASH_DEFAULT];
+}
+function _saveDashLayout(arr){
+  try { localStorage.setItem('sr_dashboard_layout', JSON.stringify(arr)); } catch(_){}
+}
+let _dashEditMode = false;
+function toggleDashEdit(){
+  _dashEditMode = !_dashEditMode;
+  document.getElementById('dashEditBtn').textContent = _dashEditMode ? '✓ 완료' : '✏️ 편집';
+  document.getElementById('dashboardWidgets').classList.toggle('editing', _dashEditMode);
+  renderDashboard();
+}
+function moveWidget(id, dir){
+  const layout = _getDashLayout();
+  const i = layout.indexOf(id);
+  if (i < 0) return;
+  const j = i + dir;
+  if (j < 0 || j >= layout.length) return;
+  [layout[i], layout[j]] = [layout[j], layout[i]];
+  _saveDashLayout(layout);
+  renderDashboard();
+}
+function removeWidget(id){
+  const layout = _getDashLayout().filter(x => x !== id);
+  _saveDashLayout(layout);
+  renderDashboard();
+}
+function addWidget(id){
+  const layout = _getDashLayout();
+  if (layout.includes(id)) return;
+  layout.push(id);
+  _saveDashLayout(layout);
+  renderDashboard();
+}
+function renderDashboard(){
+  const slot = document.getElementById('dashboardWidgets');
+  const tpl = document.getElementById('widgetTemplates');
+  if (!slot || !tpl) return;
+  const layout = _getDashLayout();
+  slot.innerHTML = '';
+  layout.forEach((wid, idx) => {
+    const src = tpl.querySelector(`[data-widget="${wid}"]`);
+    if (!src) return;
+    const clone = src.cloneNode(true);
+    if (_dashEditMode) {
+      const ctrl = document.createElement('div');
+      ctrl.className = 'widget-edit-ctrl';
+      ctrl.innerHTML = `
+        <button class="we-btn" title="위로" onclick="moveWidget('${wid}',-1)" ${idx===0?'disabled':''}>↑</button>
+        <button class="we-btn" title="아래로" onclick="moveWidget('${wid}',1)" ${idx===layout.length-1?'disabled':''}>↓</button>
+        <button class="we-btn we-del" title="숨기기" onclick="removeWidget('${wid}')">✕</button>
+      `;
+      clone.appendChild(ctrl);
+      clone.classList.add('is-editing');
+    }
+    slot.appendChild(clone);
+  });
+  // 숨겨진 위젯 갤러리 (편집 모드일 때만)
+  if (_dashEditMode) {
+    const hidden = DASH_WIDGETS.filter(w => !layout.includes(w.id));
+    if (hidden.length) {
+      const gal = document.createElement('div');
+      gal.className = 'widget-gallery';
+      gal.innerHTML = `
+        <div class="widget-gallery-title">+ 추가할 수 있는 위젯</div>
+        <div class="widget-gallery-grid">
+          ${hidden.map(w => `
+            <button class="widget-gallery-item" onclick="addWidget('${w.id}')">
+              <div class="wgi-name">${w.name}</div>
+              <div class="wgi-desc">${w.desc}</div>
+            </button>
+          `).join('')}
+        </div>
+      `;
+      slot.appendChild(gal);
+    } else {
+      const msg = document.createElement('div');
+      msg.style.cssText = 'text-align:center;color:var(--tx4);font-size:12px;padding:20px';
+      msg.textContent = '모든 위젯이 이미 대시보드에 있어요';
+      slot.appendChild(msg);
+    }
+  }
+  // 추가된 위젯에 맞춰 데이터 채우기
+  renderHomeWL(); renderHomeHL(); renderHomeNews();
+  renderRecentWidget(); renderMarketClockWidget();
+}
+window.toggleDashEdit = toggleDashEdit;
+window.moveWidget = moveWidget;
+window.removeWidget = removeWidget;
+window.addWidget = addWidget;
+
+// ─── 새 위젯 렌더러 ──────────────────────────
+function renderRecentWidget(){
+  const el = document.getElementById('recentStocks');
+  if (!el) return;
+  const recent = (function(){
+    try { return JSON.parse(localStorage.getItem('sr_recent_viewed') || '[]').slice(0, 8); }
+    catch { return []; }
+  })();
+  if (!recent.length) {
+    el.innerHTML = '<div style="color:var(--tx4);font-size:12px;padding:8px">최근 본 종목이 없어요</div>';
+    return;
+  }
+  el.innerHTML = recent.map(id => {
+    const m = MASTER[id] || {};
+    const d = liveData[id] || {};
+    const cr = d.changeRate ?? 0;
+    const isUp = cr >= 0;
+    return `<div onclick="openDetail('${id}')" style="cursor:pointer;padding:10px 14px;background:var(--surf);border-radius:10px;display:flex;flex-direction:column;gap:2px;min-width:120px">
+      <div style="font-size:12px;font-weight:700;color:var(--tx)">${esc(m.nm || id)}</div>
+      <div style="font-size:11px;font-family:var(--mono);color:${isUp?'var(--up)':'var(--dn)'}">${isUp?'▲':'▼'}${Math.abs(cr).toFixed(2)}%</div>
+    </div>`;
+  }).join('');
+}
+function _trackRecentViewed(id){
+  try {
+    const arr = JSON.parse(localStorage.getItem('sr_recent_viewed') || '[]');
+    const filtered = [id, ...arr.filter(x => x !== id)].slice(0, 20);
+    localStorage.setItem('sr_recent_viewed', JSON.stringify(filtered));
+  } catch(_){}
+}
+window._trackRecentViewed = _trackRecentViewed;
+
+function renderMarketClockWidget(){
+  const el = document.getElementById('marketClock');
+  if (!el) return;
+  const now = new Date();
+  const kospiOpen = new Date(now); kospiOpen.setHours(9, 0, 0, 0);
+  const kospiClose = new Date(now); kospiClose.setHours(15, 30, 0, 0);
+  const usOpen = new Date(now); usOpen.setHours(22, 30, 0, 0);
+  const usClose = new Date(now); usClose.setDate(now.getDate() + (now.getHours() >= 22 ? 1 : 0)); usClose.setHours(5, 0, 0, 0);
+  const fmt = (ms) => {
+    if (ms < 0) return '—';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return h > 0 ? `${h}시간 ${m}분` : `${m}분`;
+  };
+  const isKospiOpen = now >= kospiOpen && now <= kospiClose;
+  const isUsOpen = now >= usOpen || now <= usClose; // rough
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="display:inline-flex;width:8px;height:8px;border-radius:50%;background:${isKospiOpen?'#16a34a':'#9ca3af'}"></span>
+      <b>🇰🇷 KOSPI</b> ${isKospiOpen ? `<span style="color:var(--c-good);font-weight:700">거래 중</span> · 마감까지 ${fmt(kospiClose - now)}` : '<span style="color:var(--tx4)">마감</span>'}
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="display:inline-flex;width:8px;height:8px;border-radius:50%;background:${isUsOpen?'#16a34a':'#9ca3af'}"></span>
+      <b>🇺🇸 US</b> ${isUsOpen ? '<span style="color:var(--c-good);font-weight:700">거래 중</span>' : '<span style="color:var(--tx4)">마감</span>'}
+    </div>
+  `;
+}
+
 function renderHome(){
+  renderDashboard();
+  return;
+  // legacy path 아래 유지 (위젯 복제 이후 남아있음)
   renderHomeWL(); renderHomeHL(); renderHomeNews();
 }
 
@@ -8191,6 +8444,7 @@ async function openDetail(id){
   const m=MASTER[id]||{nm:id,sec:'—',tags:[],geo:false,inst:false,div:0,score:3,roe:0,per:0,drop:0};
   const d=liveData[id]||{};
   curStock={id,...m};
+  try { _trackRecentViewed(id); } catch(_){}
   prevPage=document.querySelector('.lnb-item.on')?.onclick?.toString().match(/'(\w+)'/)?.[1]||'screener';
 
   document.getElementById('dTicker').textContent=`${id}`;  // 종목코드/심볼
