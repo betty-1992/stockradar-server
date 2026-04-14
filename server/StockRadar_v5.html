@@ -5210,6 +5210,45 @@ html[data-theme="dark"] body .toast,
   </div>
 </div>
 
+<!-- ══ 문의하기 모달 ══ -->
+<div class="overlay" id="inquiryOv" onclick="if(event.target===this)cm('inquiryOv')">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-hdr">
+      <div class="modal-title">📮 문의하기</div>
+      <button class="modal-x" onclick="cm('inquiryOv')">✕</button>
+    </div>
+    <div style="padding:4px 2px 6px">
+      <div style="font-size:12px;color:var(--tx3);line-height:1.6;margin-bottom:14px">
+        궁금한 점, 버그, 제안 등 언제든 남겨주세요. 빠르게 답변드릴게요.
+      </div>
+      <div class="set-field">
+        <label>문의 유형</label>
+        <select class="inp" id="inqCat">
+          <option value="general">💬 일반 문의</option>
+          <option value="account">🔐 계정/로그인</option>
+          <option value="bug">🐛 버그 신고</option>
+          <option value="feature">💡 기능 제안</option>
+          <option value="payment">💳 결제/요금</option>
+          <option value="other">📝 기타</option>
+        </select>
+      </div>
+      <div class="set-field" id="inqEmailField" style="display:none">
+        <label>답변받을 이메일</label>
+        <input class="inp" id="inqEmail" type="email" placeholder="example@domain.com">
+      </div>
+      <div class="set-field">
+        <label>제목</label>
+        <input class="inp" id="inqSubject" maxlength="200" placeholder="한 줄 요약">
+      </div>
+      <div class="set-field">
+        <label>내용</label>
+        <textarea class="inp" id="inqMessage" rows="6" maxlength="4000" placeholder="자세한 내용을 적어주세요 (최대 4000자)" style="resize:vertical"></textarea>
+      </div>
+      <button class="btn btn-p btn-full" onclick="submitInquiry()">보내기</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ 소셜 가입 후 간단 정보 입력 모달 ══ -->
 <div class="overlay" id="completeSignupOv">
   <div class="modal" style="max-width:420px">
@@ -10453,6 +10492,12 @@ function showPage(page){
   if(pg)pg.classList.add('on');
   document.getElementById('topTitle').textContent=PAGE_TITLES[page]||'';
   if (typeof trackEvent === 'function') trackEvent('page_view', page);
+  // 스톡이 컨텍스트 — 대화가 비어 있을 때만 페이지 이동 시 인사말 리프레시
+  try {
+    if (typeof _aiChatHistory !== 'undefined' && (!Array.isArray(_aiChatHistory) || _aiChatHistory.length === 0)) {
+      if (typeof _stockieRenderInitial === 'function') _stockieRenderInitial();
+    }
+  } catch(_){}
   if(page==='issue')renderIssue();
   if(page==='sector')setTimeout(renderSectorMap,50);
   if(page==='guide')renderGuide();
@@ -11156,6 +11201,9 @@ body.stockie-open .float-btn-ai{display:none;}
       </div>
     </div>
     <div class="ai-chat-hdr-actions">
+      <button class="ai-chat-hdr-btn" onclick="openInquiryForm()" title="문의하기" aria-label="문의하기">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </button>
       <button class="ai-chat-hdr-btn" onclick="stockieNewChat()" title="새 대화 시작" aria-label="새 대화">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9"/><polyline points="3 4 3 12 11 12"/></svg>
       </button>
@@ -12131,6 +12179,38 @@ function _initOnboardingOnFirstVisit(){
     return r;
   };
 }
+
+function openInquiryForm(){
+  const emailField = document.getElementById('inqEmailField');
+  if (emailField) emailField.style.display = gUser() ? 'none' : 'block';
+  ['inqSubject','inqMessage','inqEmail'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const cat = document.getElementById('inqCat'); if (cat) cat.value = 'general';
+  om('inquiryOv');
+}
+async function submitInquiry(){
+  const category = document.getElementById('inqCat').value;
+  const subject = document.getElementById('inqSubject').value.trim();
+  const message = document.getElementById('inqMessage').value.trim();
+  const email = document.getElementById('inqEmail').value.trim();
+  if (!subject || !message) return toast('제목과 내용을 입력해주세요');
+  if (!gUser() && !email) return toast('답변받을 이메일을 입력해주세요');
+  try {
+    await fetch((window.SERVER_URL || '') + '/api/inquiries', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category, subject, message, email }),
+    }).then(r => r.json()).then(d => {
+      if (!d.ok) throw new Error(d.error || '실패');
+    });
+    cm('inquiryOv');
+    toast('문의가 접수됐어요! 빠르게 답변드릴게요 🙏');
+  } catch (e) {
+    toast('전송 실패: ' + (e.message || ''));
+  }
+}
+window.openInquiryForm = openInquiryForm;
+window.submitInquiry = submitInquiry;
 
 function handleOAuthRedirect(){
   try {

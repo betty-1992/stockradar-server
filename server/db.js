@@ -212,6 +212,30 @@ const migrations = [
       CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at);
     `);
   },
+  // v8 — 고객 문의 (inquiries)
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS inquiries (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id       INTEGER,
+        email         TEXT,
+        category      TEXT NOT NULL DEFAULT 'general',
+        subject       TEXT NOT NULL,
+        message       TEXT NOT NULL,
+        status        TEXT NOT NULL DEFAULT 'open',  -- open | in_progress | resolved | closed
+        admin_reply   TEXT,
+        replied_at    INTEGER,
+        replied_by    INTEGER,
+        created_at    INTEGER NOT NULL,
+        updated_at    INTEGER NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY(replied_by) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status);
+      CREATE INDEX IF NOT EXISTS idx_inquiries_user ON inquiries(user_id);
+      CREATE INDEX IF NOT EXISTS idx_inquiries_created ON inquiries(created_at);
+    `);
+  },
 ];
 
 function runMigrations() {

@@ -874,6 +874,56 @@ ${angle ? `[관점/포인트] ${angle}` : ''}
   }
 });
 
+// ─── 고객 문의 관리 ───────────────────────────
+router.get('/inquiries', (req, res) => {
+  const status = (req.query.status || '').toString();
+  const where = [];
+  const args = [];
+  if (status && ['open','in_progress','resolved','closed'].includes(status)) {
+    where.push('i.status = ?'); args.push(status);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const rows = db.prepare(`
+    SELECT i.*, u.email AS user_email, u.nickname AS user_nickname
+    FROM inquiries i LEFT JOIN users u ON u.id = i.user_id
+    ${whereSql}
+    ORDER BY i.id DESC LIMIT 200
+  `).all(...args);
+  const summary = db.prepare(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) AS open_,
+      SUM(CASE WHEN status='in_progress' THEN 1 ELSE 0 END) AS in_progress,
+      SUM(CASE WHEN status='resolved' THEN 1 ELSE 0 END) AS resolved
+    FROM inquiries
+  `).get();
+  res.json({ ok: true, inquiries: rows, summary });
+});
+router.patch('/inquiries/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const schema = z.object({
+    status: z.enum(['open','in_progress','resolved','closed']).optional(),
+    admin_reply: z.string().max(4000).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, error: 'INVALID_INPUT' });
+  const cur = db.prepare(`SELECT * FROM inquiries WHERE id = ?`).get(id);
+  if (!cur) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const updates = []; const args = [];
+  if (parsed.data.status != null) { updates.push('status = ?'); args.push(parsed.data.status); }
+  if (parsed.data.admin_reply != null) {
+    updates.push('admin_reply = ?'); args.push(parsed.data.admin_reply);
+    updates.push('replied_at = ?'); args.push(Date.now());
+    updates.push('replied_by = ?'); args.push(req.user.id);
+  }
+  if (!updates.length) return res.json({ ok: true, unchanged: true });
+  updates.push('updated_at = ?'); args.push(Date.now());
+  args.push(id);
+  db.prepare(`UPDATE inquiries SET ${updates.join(', ')} WHERE id = ?`).run(...args);
+  logAudit({ userId: req.user.id, action: 'admin_update_inquiry', target: String(id), meta: parsed.data, ip: clientIp(req) });
+  res.json({ ok: true });
+});
+
 // ─── POST /api/admin/change-password ──────────
 //  현재 어드민 본인 비밀번호 변경 (시드 계정 changeme1234 교체용)
 router.post('/change-password', async (req, res) => {

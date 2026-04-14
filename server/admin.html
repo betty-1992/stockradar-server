@@ -301,6 +301,7 @@ a{color:inherit;text-decoration:none;}
       <div class="nav-item"    data-page="status"    onclick="navTo('status')"><span class="nav-ico">📡</span>서비스 상태</div>
       <div class="nav-item"    data-page="notices"   onclick="navTo('notices')"><span class="nav-ico">📢</span>공지사항</div>
       <div class="nav-item"    data-page="articles"  onclick="navTo('articles')"><span class="nav-ico">📚</span>가이드 글</div>
+      <div class="nav-item"    data-page="inquiries" onclick="navTo('inquiries')"><span class="nav-ico">💬</span>문의 관리</div>
       <div class="nav-item"    data-page="logs"      onclick="navTo('logs')"><span class="nav-ico">📋</span>감사 로그</div>
       <div class="nav-item"    data-page="settings"  onclick="navTo('settings')"><span class="nav-ico">⚙️</span>설정</div>
     </nav>
@@ -576,6 +577,30 @@ a{color:inherit;text-decoration:none;}
             <tbody id="svcTbody"></tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <!-- ─── 문의 관리 ─── -->
+    <section class="page" id="page-inquiries">
+      <div class="main-hdr">
+        <div>
+          <div class="main-title">💬 문의 관리</div>
+          <div class="main-sub">사용자 문의사항 접수 및 답변</div>
+        </div>
+        <button class="btn btn-d" onclick="loadInquiries()">새로고침</button>
+      </div>
+      <div class="stat-grid" id="inqStatGrid"></div>
+      <div class="card">
+        <div class="filters">
+          <select class="sel" id="inqStatus" onchange="loadInquiries()">
+            <option value="">전체 상태</option>
+            <option value="open" selected>미처리</option>
+            <option value="in_progress">처리중</option>
+            <option value="resolved">완료</option>
+            <option value="closed">종료</option>
+          </select>
+        </div>
+        <div id="inquiriesList"></div>
       </div>
     </section>
 
@@ -894,7 +919,7 @@ async function doLogout(){
   try { await api('/api/auth/logout', { method:'POST' }); } catch{}
   location.reload();
 }
-const VALID_PAGES = ['dashboard','analytics','users','menus','ai','costs','errors','status','notices','articles','logs','settings'];
+const VALID_PAGES = ['dashboard','analytics','users','menus','ai','costs','errors','status','notices','articles','inquiries','logs','settings'];
 function meLogin(user){
   $('meNick').textContent = user.nickname;
   $('meEmail').textContent = user.email;
@@ -935,6 +960,7 @@ function navTo(page, opts = {}){
   if(page==='status')    loadStatus();
   if(page==='notices')   loadNotices();
   if(page==='articles')  loadArticles();
+  if(page==='inquiries') loadInquiries();
   if(page==='logs')      loadLogs(1);
   // URL 해시 동기화
   const targetHash = `#${page}`;
@@ -971,6 +997,7 @@ window.addEventListener('popstate', (e) => {
     else if(page==='status')  loadStatus();
     else if(page==='notices') loadNotices();
     else if(page==='articles') loadArticles();
+    else if(page==='inquiries') loadInquiries();
     else if(page==='logs')    loadLogs(1);
     _curPage = page;
   }
@@ -1619,6 +1646,65 @@ async function deleteNotice(){
     loadNotices();
   } catch(e){ showErr(e); }
 }
+
+// ─── 문의 관리 ───────────────────────────
+async function loadInquiries(){
+  try {
+    const status = document.getElementById('inqStatus')?.value || '';
+    const d = await api(`/api/admin/inquiries${status?'?status='+status:''}`);
+    const s = d.summary || {};
+    $('inqStatGrid').innerHTML = [
+      { lbl:'총 문의', val: fmtNum(s.total), cls:'brand' },
+      { lbl:'미처리', val: fmtNum(s.open_||0), cls:'warn' },
+      { lbl:'처리중', val: fmtNum(s.in_progress), cls:'' },
+      { lbl:'완료',   val: fmtNum(s.resolved), cls:'good' },
+    ].map(x => `<div class="stat ${x.cls}"><div class="stat-lbl">${x.lbl}</div><div class="stat-val">${x.val}</div></div>`).join('');
+    const catMap = { general:'일반', account:'계정/로그인', bug:'버그 신고', feature:'기능 제안', payment:'결제/요금', other:'기타' };
+    const statusColor = { open:'#dc2626', in_progress:'#d97706', resolved:'#16a34a', closed:'#6b7280' };
+    const statusLabel = { open:'미처리', in_progress:'처리중', resolved:'완료', closed:'종료' };
+    $('inquiriesList').innerHTML = (d.inquiries || []).length
+      ? d.inquiries.map(i => `
+        <div class="card" style="border-left:4px solid ${statusColor[i.status]};margin-bottom:10px">
+          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+            <span class="chip" style="background:${statusColor[i.status]}1a;color:${statusColor[i.status]}">${statusLabel[i.status]}</span>
+            <span style="font-size:11px;color:var(--tx4)">${esc(catMap[i.category] || i.category)}</span>
+            <span style="font-size:11px;color:var(--tx4);font-family:var(--mono)">${fmtDate(i.created_at)}</span>
+            <span style="font-size:11px;color:var(--tx3);margin-left:auto">${esc(i.user_email || i.email || '익명')}</span>
+          </div>
+          <div style="font-size:15px;font-weight:800;color:var(--tx);margin-bottom:6px">${esc(i.subject)}</div>
+          <div style="font-size:13px;color:var(--tx2);white-space:pre-wrap;line-height:1.65;margin-bottom:10px;padding:10px 12px;background:var(--surf);border-radius:8px">${esc(i.message)}</div>
+          ${i.admin_reply ? `<div style="font-size:12px;color:var(--brand);margin-bottom:6px">📝 답변 (${fmtDate(i.replied_at)})</div>` : ''}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
+            <textarea id="inqReply-${i.id}" class="inp" rows="3" placeholder="답변 작성..." style="flex:1;min-width:260px;resize:vertical">${i.admin_reply?esc(i.admin_reply):''}</textarea>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <select class="sel" id="inqStatusSel-${i.id}" style="width:120px">
+                <option value="open" ${i.status==='open'?'selected':''}>미처리</option>
+                <option value="in_progress" ${i.status==='in_progress'?'selected':''}>처리중</option>
+                <option value="resolved" ${i.status==='resolved'?'selected':''}>완료</option>
+                <option value="closed" ${i.status==='closed'?'selected':''}>종료</option>
+              </select>
+              <button class="btn btn-p btn-sm" onclick="saveInquiry(${i.id})">저장</button>
+            </div>
+          </div>
+        </div>
+      `).join('')
+      : '<div style="padding:36px;text-align:center;color:var(--tx4)">문의 없음</div>';
+  } catch(e){ showErr(e); }
+}
+async function saveInquiry(id){
+  const reply = document.getElementById(`inqReply-${id}`).value.trim();
+  const status = document.getElementById(`inqStatusSel-${id}`).value;
+  try {
+    await api(`/api/admin/inquiries/${id}`, {
+      method:'PATCH',
+      body: { status, admin_reply: reply || undefined },
+    });
+    toast('저장됐어요');
+    loadInquiries();
+  } catch(e){ showErr(e); }
+}
+window.loadInquiries = loadInquiries;
+window.saveInquiry = saveInquiry;
 
 // ─── 가이드 글 관리 ──────────────────────
 let _articles = [];

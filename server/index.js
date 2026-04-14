@@ -1704,6 +1704,43 @@ app.post('/api/events', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── 공개: 문의하기 ─────────────────────────
+//  로그인 여부 무관 (비로그인은 email 필수). rate limit 으로 스팸 방어
+const INQUIRY_CATEGORIES = new Set(['general','account','bug','feature','payment','other']);
+app.post('/api/inquiries', (req, res) => {
+  try {
+    const { category, subject, message, email } = req.body || {};
+    if (!subject || typeof subject !== 'string' || !message || typeof message !== 'string') {
+      return res.status(400).json({ ok: false, error: 'subject·message 필요' });
+    }
+    if (subject.length > 200 || message.length > 4000) {
+      return res.status(400).json({ ok: false, error: 'TOO_LONG' });
+    }
+    const cat = INQUIRY_CATEGORIES.has(category) ? category : 'general';
+    const userId = req.user?.id || null;
+    const emailFinal = userId ? (req.user.email) : (email || '').toString().trim();
+    if (!userId && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailFinal)) {
+      return res.status(400).json({ ok: false, error: '유효한 이메일 필요 (비로그인 시)' });
+    }
+    const now = Date.now();
+    const r = db.prepare(`
+      INSERT INTO inquiries (user_id, email, category, subject, message, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'open', ?, ?)
+    `).run(userId, emailFinal, cat, subject.slice(0, 200), message.slice(0, 4000), now, now);
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+app.get('/api/inquiries/mine', (req, res) => {
+  if (!req.user) return res.status(401).json({ ok: false, error: 'AUTH_REQUIRED' });
+  const rows = db.prepare(`
+    SELECT id, category, subject, message, status, admin_reply, replied_at, created_at, updated_at
+    FROM inquiries WHERE user_id = ? ORDER BY id DESC
+  `).all(req.user.id);
+  res.json({ ok: true, inquiries: rows });
+});
+
 // ─── 공개: 투자 가이드 글 (발행된 것만) ─────
 app.get('/api/articles', (_req, res) => {
   try {
