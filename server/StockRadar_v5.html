@@ -3259,12 +3259,15 @@ html[data-theme="dark"] body .toast,
   border: 1px solid #404757;
 }
 
-/* 종목 발굴 카드 — 대비 확 올림 */
+/* 종목 발굴 — 우측 결과 영역 배경 더 어둡게 */
+[data-theme="dark"] .screener-right,
+[data-theme="dark"] #pg-screener,
+[data-theme="dark"] .stock-grid { background: #04060a !important; }
 [data-theme="dark"] .stock-card,
 [data-theme="dark"] .sc-card {
   background: #1a1f28 !important;
   border: 1px solid #2d333e !important;
-  box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5) !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.6) !important;
 }
 [data-theme="dark"] .stock-card:hover,
 [data-theme="dark"] .sc-card:hover {
@@ -3275,9 +3278,41 @@ html[data-theme="dark"] body .toast,
 [data-theme="dark"] .sc-ticker { color: #8b95a1 !important; }
 [data-theme="dark"] .sc-company { color: #f2f4f6 !important; }
 
-/* 종목 카드 내 market badge — 밝은 오렌지/블루 대신 다크 톤 */
+/* 종목 카드 내 market badge — 다크 반전 */
 [data-theme="dark"] .sc-mkt-kr { background: #3a1a0a !important; color: #fca97a !important; }
 [data-theme="dark"] .sc-mkt-us { background: #0f1e3e !important; color: #93c5fd !important; }
+
+/* ─── 상승/하락 컬러 다크모드 반전 (가독성 향상) ─── */
+[data-theme="dark"] {
+  --up: #ff6b6b; --up-bg: #2a0d0d; --up-lt: #5a1f1f;
+  --dn: #60a5fa; --dn-bg: #0c1a2e; --dn-lt: #1e3a5f;
+}
+[data-theme="dark"] .up,
+[data-theme="dark"] .fl.up,
+[data-theme="dark"] .sc-chg.up,
+[data-theme="dark"] .sc-px.up,
+[data-theme="dark"] .wl-chg.up,
+[data-theme="dark"] .wl-full-chg.up,
+[data-theme="dark"] .wl-full-px.up,
+[data-theme="dark"] .detail-chg.up,
+[data-theme="dark"] .detail-px.up,
+[data-theme="dark"] .sd-mover-px.up,
+[data-theme="dark"] .sd-mover-chg.up { color: var(--up) !important; }
+[data-theme="dark"] .dn,
+[data-theme="dark"] .fl.dn,
+[data-theme="dark"] .sc-chg.dn,
+[data-theme="dark"] .sc-px.dn,
+[data-theme="dark"] .wl-chg.dn,
+[data-theme="dark"] .wl-full-chg.dn,
+[data-theme="dark"] .wl-full-px.dn,
+[data-theme="dark"] .detail-chg.dn,
+[data-theme="dark"] .detail-px.dn,
+[data-theme="dark"] .sd-mover-px.dn,
+[data-theme="dark"] .sd-mover-chg.dn { color: var(--dn) !important; }
+[data-theme="dark"] .wl-card.up-c,
+[data-theme="dark"] .wl-full-card.up-c { border-left-color: var(--up) !important; }
+[data-theme="dark"] .wl-card.dn-c,
+[data-theme="dark"] .wl-full-card.dn-c { border-left-color: var(--dn) !important; }
 
 /* 종목 카드 태그 */
 [data-theme="dark"] .sc-tag,
