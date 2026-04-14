@@ -3630,6 +3630,17 @@ html[data-theme="dark"] body .toast,
 .wl-full-metric-lbl{font-size:9.5px;color:var(--tx4);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;}
 .wl-full-metric-val{font-size:13px;font-weight:800;color:var(--tx);font-family:var(--mono);}
 .wl-full-spark{height:40px;}
+.wl-full-card.wl-selected{border:2px solid var(--brand) !important;box-shadow:0 6px 20px rgba(49,130,246,.25) !important;}
+.wl-compare-mark{
+  position:absolute;top:10px;left:10px;
+  width:24px;height:24px;border-radius:8px;
+  background:var(--brand);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:900;
+}
+.wl-full-card:not(.wl-selected) .wl-compare-mark{
+  background:var(--surf);color:transparent;border:1.5px solid var(--bdr);
+}
 [data-theme="dark"] .wl-full-card{background:var(--white);border-color:var(--bdr);}
 [data-theme="dark"] .wl-full-metric{background:var(--surf);}
 @media(max-width:768px){
@@ -4215,15 +4226,37 @@ html[data-theme="dark"] body .toast,
           <div style="font-size:18px;font-weight:900;letter-spacing:-.3px;color:var(--tx);margin-bottom:4px">⭐ 내 관심종목</div>
           <div id="watchlistMeta" style="font-size:12px;color:var(--tx4)"></div>
         </div>
-        <div id="watchlistSort" style="display:flex;gap:6px">
-          <button class="wl-sort-btn on" data-sort="default" onclick="setWatchlistSort('default')">추가순</button>
-          <button class="wl-sort-btn" data-sort="chg_desc" onclick="setWatchlistSort('chg_desc')">상승↓</button>
-          <button class="wl-sort-btn" data-sort="chg_asc" onclick="setWatchlistSort('chg_asc')">하락↓</button>
-          <button class="wl-sort-btn" data-sort="name" onclick="setWatchlistSort('name')">이름</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-g btn-sm" id="wlCompareBtn" onclick="toggleCompareMode()">⚖️ 비교하기</button>
+          <div id="watchlistSort" style="display:flex;gap:6px">
+            <button class="wl-sort-btn on" data-sort="default" onclick="setWatchlistSort('default')">추가순</button>
+            <button class="wl-sort-btn" data-sort="chg_desc" onclick="setWatchlistSort('chg_desc')">상승↓</button>
+            <button class="wl-sort-btn" data-sort="chg_asc" onclick="setWatchlistSort('chg_asc')">하락↓</button>
+            <button class="wl-sort-btn" data-sort="name" onclick="setWatchlistSort('name')">이름</button>
+          </div>
+        </div>
+      </div>
+      <div id="wlCompareBar" style="display:none;margin-top:14px;padding:12px 14px;background:var(--brand-lt);border-radius:12px;display:none">
+        <div style="font-size:13px;color:var(--brand);font-weight:700;margin-bottom:6px">⚖️ 비교 모드 (최대 3개)</div>
+        <div style="font-size:12px;color:var(--tx3);margin-bottom:10px">카드를 탭해서 2~3개 종목을 선택하세요</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div id="wlCompareChips" style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0"></div>
+          <button class="btn btn-p btn-sm" onclick="runWatchlistCompare()">비교 실행 →</button>
         </div>
       </div>
     </div>
     <div id="watchlistGrid" class="wl-full-grid"></div>
+  </div>
+
+  <!-- ══ 관심종목 비교 결과 모달 ══ -->
+  <div class="overlay" id="wlCompareOv" onclick="if(event.target===this)cm('wlCompareOv')">
+    <div class="modal" style="max-width:760px;padding:0;overflow:hidden">
+      <div class="modal-hdr" style="padding:16px 20px;border-bottom:1px solid var(--bdr)">
+        <div class="modal-title">⚖️ 관심종목 비교</div>
+        <button class="modal-x" onclick="cm('wlCompareOv')">✕</button>
+      </div>
+      <div id="wlCompareBody" style="padding:20px 22px 28px;max-height:78vh;overflow-y:auto"></div>
+    </div>
   </div>
 
   <!-- ══ 종목발굴 ══ -->
@@ -7149,7 +7182,10 @@ function renderWatchlistPage(){
     const perStr = per > 0 ? per.toFixed(1) + 'x' : '—';
     const mc = d.mc ?? m.mc ?? 0;
     const mcStr = mc >= 1000 ? `$${(mc/1000).toFixed(1)}B` : mc > 0 ? `$${mc}M` : '—';
-    return `<div class="wl-full-card ${isUp?'up-c':'dn-c'}" onclick="openDetail('${id}')">
+    const isSelected = _wlCompareMode && _wlCompareIds.includes(id);
+    const clickHandler = _wlCompareMode ? `toggleCompareSelect('${id}')` : `openDetail('${id}')`;
+    return `<div class="wl-full-card ${isUp?'up-c':'dn-c'} ${isSelected?'wl-selected':''}" onclick="${clickHandler}">
+      ${_wlCompareMode ? `<div class="wl-compare-mark">${isSelected?'✓':''}</div>` : ''}
       <button class="wl-full-x" onclick="removeWL('${id}',event)" title="제거">✕</button>
       <div class="wl-full-top">
         <div>
@@ -7180,6 +7216,159 @@ function setWatchlistSort(key){
 }
 window.renderWatchlistPage = renderWatchlistPage;
 window.setWatchlistSort = setWatchlistSort;
+
+// ─── 관심종목 비교 모드 ─────────────────────
+let _wlCompareMode = false;
+let _wlCompareIds = [];
+function toggleCompareMode(){
+  _wlCompareMode = !_wlCompareMode;
+  _wlCompareIds = [];
+  const bar = document.getElementById('wlCompareBar');
+  if (bar) bar.style.display = _wlCompareMode ? 'block' : 'none';
+  const btn = document.getElementById('wlCompareBtn');
+  if (btn) btn.textContent = _wlCompareMode ? '✕ 비교 취소' : '⚖️ 비교하기';
+  _renderCompareChips();
+  // 카드 리렌더 (비교 모드 표시)
+  renderWatchlistPage();
+}
+function _renderCompareChips(){
+  const el = document.getElementById('wlCompareChips');
+  if (!el) return;
+  el.innerHTML = _wlCompareIds.length
+    ? _wlCompareIds.map(id => {
+        const m = MASTER[id] || {};
+        return `<span class="chip chip-admin" style="background:var(--brand);color:#fff;padding:4px 10px">${esc(m.nm || id)} <span style="margin-left:4px;cursor:pointer" onclick="toggleCompareSelect('${id}');event.stopPropagation()">✕</span></span>`;
+      }).join('')
+    : '<span style="font-size:11px;color:var(--tx4)">선택된 종목 없음</span>';
+}
+function toggleCompareSelect(id){
+  if (!_wlCompareMode) return;
+  const idx = _wlCompareIds.indexOf(id);
+  if (idx >= 0) _wlCompareIds.splice(idx, 1);
+  else {
+    if (_wlCompareIds.length >= 3) { toast('최대 3개까지 선택할 수 있어요'); return; }
+    _wlCompareIds.push(id);
+  }
+  _renderCompareChips();
+  renderWatchlistPage();
+}
+async function runWatchlistCompare(){
+  if (_wlCompareIds.length < 2) return toast('2개 이상 선택해주세요');
+  const ids = [..._wlCompareIds];
+  om('wlCompareOv');
+  const body = document.getElementById('wlCompareBody');
+  // 테이블 먼저 렌더
+  const rows = ids.map(id => {
+    const m = MASTER[id] || {};
+    const d = liveData[id] || {};
+    return {
+      id,
+      name: d.name || m.nm || id,
+      isKr: /^\d{6}$/.test(id),
+      sec: m.sec || '—',
+      price: d.price,
+      chg: d.changeRate ?? 0,
+      per: d.pe ?? m.per ?? 0,
+      roe: m.roe ?? 0,
+      rev: m.rev ?? 0,
+      div: d.div ?? m.div ?? 0,
+      mc: d.mc ?? m.mc ?? 0,
+      drop: d.drop ?? m.drop ?? 0,
+    };
+  });
+  const upColor = v => v >= 0 ? 'var(--up)' : 'var(--dn)';
+  const metric = (label, key, fmt, betterHigh=true) => {
+    const vals = rows.map(r => r[key]).filter(v => v != null && !isNaN(v));
+    const best = vals.length ? (betterHigh ? Math.max(...vals) : Math.min(...vals)) : null;
+    const cells = rows.map(r => {
+      const v = r[key];
+      const isBest = v != null && !isNaN(v) && v === best;
+      return `<td style="text-align:center;padding:10px 8px;${isBest?'background:rgba(22,163,74,.14);color:var(--c-good);font-weight:800':''}">${fmt(v)}</td>`;
+    }).join('');
+    return `<tr><th style="text-align:left;padding:10px 12px;color:var(--tx3);font-weight:700;font-size:11px">${label}</th>${cells}</tr>`;
+  };
+  body.innerHTML = `
+    <div style="font-size:13px;color:var(--tx3);margin-bottom:14px;line-height:1.6">
+      선택한 ${rows.length}개 종목의 주요 지표를 나란히 비교합니다. <span style="color:var(--c-good);font-weight:700">초록 배경</span>은 해당 지표 기준 가장 매력적인 값이에요.
+    </div>
+    <div class="table-wrap" style="overflow:auto;border-radius:12px;border:1px solid var(--bdr)">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:12px;background:var(--surf);color:var(--tx3);font-weight:700;font-size:11px">지표</th>
+            ${rows.map(r => `<th style="text-align:center;padding:12px 8px;background:var(--surf);color:var(--tx);font-weight:800">
+              <div style="font-size:13px">${esc(r.name)}</div>
+              <div style="font-size:10px;color:var(--tx4);font-family:var(--mono);margin-top:2px">${r.isKr?'🇰🇷':'🇺🇸'} ${r.id}</div>
+            </th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${metric('현재가', 'price', v => v==null?'—':fmtP(v, 'x'))}
+          ${metric('오늘 등락', 'chg', v => v==null?'—':`<span style="color:${upColor(v)}">${v>=0?'+':''}${v.toFixed(2)}%</span>`, true)}
+          ${metric('PER', 'per', v => v>0?v.toFixed(1)+'배':'—', false)}
+          ${metric('ROE', 'roe', v => v?v+'%':'—', true)}
+          ${metric('매출성장', 'rev', v => v?(v>0?'+':'')+v+'%':'—', true)}
+          ${metric('배당수익률', 'div', v => v>0?v.toFixed(1)+'%':'—', true)}
+          ${metric('시가총액', 'mc', v => v>=1000?`$${(v/1000).toFixed(1)}B`:v>0?`$${v}M`:'—', true)}
+          ${metric('52주고점대비', 'drop', v => v?'▼'+v+'%':'—', true)}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:18px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:800">🤖 AI 비교 인사이트</div>
+        <button class="btn btn-g btn-sm" onclick="runCompareAI()" id="cmpAiBtn">분석 요청</button>
+      </div>
+      <div id="cmpAiContent" class="ai-box" style="padding:16px;font-size:13px;line-height:1.7;color:var(--tx2)">
+        ${gUser() ? '버튼을 눌러 AI 에게 3종목 비교 분석을 요청하세요.' : '<div style="text-align:center;padding:10px"><div style="color:var(--tx4);font-size:12px;margin-bottom:8px">로그인하면 AI 비교 인사이트를 받을 수 있어요</div><button class="btn btn-p btn-sm" onclick="om(\'loginOv\')">로그인</button></div>'}
+      </div>
+    </div>
+  `;
+  window._cmpRows = rows;
+}
+async function runCompareAI(){
+  if (!gUser()) { om('loginOv'); return; }
+  const rows = window._cmpRows || [];
+  if (!rows.length) return;
+  const el = document.getElementById('cmpAiContent');
+  const btn = document.getElementById('cmpAiBtn');
+  if (btn) btn.disabled = true;
+  el.innerHTML = '<div class="ai-loading"><div class="spinner"></div><span>AI 비교 분석 중...</span></div>';
+  try {
+    const stocksText = rows.map((r, i) =>
+      `${i+1}. ${r.name} (${r.id}, ${r.isKr?'KR':'US'}) — 현재가 ${r.price}, 오늘 ${r.chg?.toFixed(2)}%, PER ${r.per||'N/A'}, ROE ${r.roe||'N/A'}%, 매출성장 ${r.rev||'N/A'}%, 배당 ${r.div?.toFixed?.(1)||'N/A'}%, 시총 ${r.mc||'N/A'}M, 52주 고점대비 ${r.drop||0}%`
+    ).join('\n');
+    const question = `다음 ${rows.length}개 종목을 **투자 매력도** 관점에서 비교 분석해주세요. 각 종목의 강점/약점을 간결히, 마지막에 '어떤 유형의 투자자에게 적합한지' 한 줄 요약 포함.
+
+[비교 대상]
+${stocksText}
+
+[출력]
+- 각 종목별 **강점 2개 / 약점 2개** (불릿)
+- 밸류에이션 비교 1문단
+- 성장성 vs 안정성 비교 1문단
+- **한 줄 결론:** 어떤 투자자 성향에 어떤 종목이 맞는지
+
+구체 수치 인용 필수, 투자 권유 금지.`;
+    const r = await fetch((window.SERVER_URL || '') + '/api/ai-chat', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, history: [] }),
+    });
+    const j = await r.json();
+    if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+    el.innerHTML = renderAiMarkdown(j.answer || '', j.model);
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--tx4);font-size:12px">AI 분석 실패: ${e.message}</div>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+window.toggleCompareMode = toggleCompareMode;
+window.toggleCompareSelect = toggleCompareSelect;
+window.runWatchlistCompare = runWatchlistCompare;
+window.runCompareAI = runCompareAI;
 
 let _homeHLCat = 'all'; // 'all' | 'surge' | 'plunge' | 'kw'
 function setHomeHLCat(cat){
