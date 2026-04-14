@@ -2230,7 +2230,7 @@ input,select,textarea{font-family:var(--sans);}
 .msg-box.info{background:var(--blue-bg);color:var(--brand);border:1px solid var(--blue-lt);}
 
 /* MODAL */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:5500;display:none;align-items:center;justify-content:center;padding:16px;}
 .overlay.on{display:flex;}
 .modal{background:var(--white);border-radius:14px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:var(--sh3);animation:fu .2s ease;padding:24px;}
 @keyframes fu{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -3982,12 +3982,27 @@ html[data-theme="dark"] body .toast,
 
   /* 상세 / 홈 / 어디든 인라인 2열 그리드 → flex column */
   [style*="grid-template-columns:1fr 1fr"],
-  [style*="grid-template-columns: 1fr 1fr"] {
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns:repeat(2"],
+  [style*="grid-template-columns: repeat(2"] {
     display: flex !important;
     flex-direction: column !important;
     grid-template-columns: none !important;
     gap: 10px !important;
   }
+  /* 상세 페이지 기업정보 / 차트 / 뉴스 영역 안전망 */
+  #pg-detail .chart-sec,
+  #pg-detail .panel,
+  #pg-detail .card {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  #pg-detail .info-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  #chartArea canvas { max-width: 100% !important; }
   /* 홈 g2 section 도 동일 */
   .g2.section { display: flex !important; flex-direction: column !important; }
 
@@ -4336,10 +4351,12 @@ html[data-theme="dark"] body .toast,
         </div>
         <div id="homeHLCriteria" style="font-size:10px;color:var(--tx4);font-weight:500;line-height:1.3;margin-bottom:8px"></div>
         <div class="hl-tabs" id="hlTabs">
-          <button class="hl-tab on" data-cat="all"    onclick="setHomeHLCat('all')">전체</button>
-          <button class="hl-tab"    data-cat="surge"  onclick="setHomeHLCat('surge')">🔥 급등</button>
-          <button class="hl-tab"    data-cat="plunge" onclick="setHomeHLCat('plunge')">📉 급락</button>
-          <button class="hl-tab"    data-cat="kw"     onclick="setHomeHLCat('kw')">🎯 관심키워드</button>
+          <button class="hl-tab on" data-cat="all"       onclick="setHomeHLCat('all')">전체</button>
+          <button class="hl-tab"    data-cat="kr_surge"  onclick="setHomeHLCat('kr_surge')">🇰🇷🔥 국내급등</button>
+          <button class="hl-tab"    data-cat="kr_plunge" onclick="setHomeHLCat('kr_plunge')">🇰🇷📉 국내급락</button>
+          <button class="hl-tab"    data-cat="us_surge"  onclick="setHomeHLCat('us_surge')">🇺🇸🔥 해외급등</button>
+          <button class="hl-tab"    data-cat="us_plunge" onclick="setHomeHLCat('us_plunge')">🇺🇸📉 해외급락</button>
+          <button class="hl-tab"    data-cat="kw"        onclick="setHomeHLCat('kw')">🎯 관심키워드</button>
         </div>
         <div id="homeHL" style="display:flex;flex-direction:column;gap:10px"></div>
       </div>
@@ -7063,6 +7080,8 @@ function toggleLandingByAuth(){
     landing.style.display = 'none';
     app.style.display = '';
     document.body.style.overflow = '';
+    // 로그인 성공 후 남아 있을 수 있는 모든 오버레이 정리 (회원가입 유령 팝업 방지)
+    document.querySelectorAll('.overlay.on').forEach(o => o.classList.remove('on'));
   } else {
     landing.style.display = 'grid';
     app.style.display = 'none';
@@ -7777,12 +7796,17 @@ function renderHomeHL(){
 
   // 카테고리별 필터링
   const CAT_LIMIT = 5;
+  const isKr = (s) => /^\d{6}$/.test(s.id);
   let pool;
-  if(_homeHLCat === 'surge'){
-    pool = withData.filter(s => (s.changeRate||0) >= 2);
-  } else if(_homeHLCat === 'plunge'){
-    pool = withData.filter(s => (s.changeRate||0) <= -2);
-  } else if(_homeHLCat === 'kw'){
+  if(_homeHLCat === 'kr_surge') {
+    pool = withData.filter(s => isKr(s) && (s.changeRate||0) >= 2);
+  } else if(_homeHLCat === 'kr_plunge') {
+    pool = withData.filter(s => isKr(s) && (s.changeRate||0) <= -2);
+  } else if(_homeHLCat === 'us_surge') {
+    pool = withData.filter(s => !isKr(s) && (s.changeRate||0) >= 2);
+  } else if(_homeHLCat === 'us_plunge') {
+    pool = withData.filter(s => !isKr(s) && (s.changeRate||0) <= -2);
+  } else if(_homeHLCat === 'kw') {
     pool = withData.filter(s => kwHit(s));
   } else {
     pool = withData;
@@ -11675,13 +11699,20 @@ function goHomeHLMore(){
   if(inp) inp.value = '';
   activeQuickFilters.clear();
   // 카테고리별 매핑
-  if (cat === 'surge') {
-    // 급등 = 전일대비 상위 → 정렬만 change 내림차순
-    try { const s = document.getElementById('f-sort'); if (s) s.value = 'change_desc'; } catch(_){}
-    toast('급등 순으로 정렬됐어요');
-  } else if (cat === 'plunge') {
-    try { const s = document.getElementById('f-sort'); if (s) s.value = 'change_asc'; } catch(_){}
-    toast('급락 순으로 정렬됐어요');
+  // 시장 필터 매핑
+  const setMarket = (mkt) => { try { const s = document.getElementById('f-market'); if (s) s.value = mkt; } catch(_){} };
+  if (cat === 'kr_surge') {
+    setMarket('KR'); try { const s = document.getElementById('f-sort'); if (s) s.value = 'change_desc'; } catch(_){}
+    toast('국내 급등 순으로 정렬됐어요');
+  } else if (cat === 'kr_plunge') {
+    setMarket('KR'); try { const s = document.getElementById('f-sort'); if (s) s.value = 'change_asc'; } catch(_){}
+    toast('국내 급락 순으로 정렬됐어요');
+  } else if (cat === 'us_surge') {
+    setMarket('US'); try { const s = document.getElementById('f-sort'); if (s) s.value = 'change_desc'; } catch(_){}
+    toast('해외 급등 순으로 정렬됐어요');
+  } else if (cat === 'us_plunge') {
+    setMarket('US'); try { const s = document.getElementById('f-sort'); if (s) s.value = 'change_asc'; } catch(_){}
+    toast('해외 급락 순으로 정렬됐어요');
   } else if (cat === 'kw') {
     // 관심키워드 첫 번째를 검색어로
     const kws = (typeof gKWs === 'function' ? gKWs() : []) || [];
@@ -11783,12 +11814,13 @@ body.stockie-open .float-btn-ai{display:none;}
   position: fixed; bottom: 0; left: 0; right: 0;
   z-index: 490;
   background: var(--white);
-  border-top: none;
-  padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+  border: none !important;
+  margin: 0 !important;
+  padding: 6px 6px calc(4px + env(safe-area-inset-bottom));
   justify-content: space-around;
   align-items: stretch;
   gap: 2px;
-  box-shadow: 0 -8px 24px rgba(16,24,40,.08);
+  box-shadow: 0 -1px 0 var(--bdr);
 }
 [data-theme="dark"] .mob-bottom-nav {
   background: var(--white);
