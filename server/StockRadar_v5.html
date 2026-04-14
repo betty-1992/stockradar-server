@@ -16,6 +16,13 @@
     document.documentElement.setAttribute('data-theme', resolved);
   } catch(e){}
 })();
+// 전역 에러 캐치 — 개별 함수 오류가 전체 페이지를 깨뜨리지 않도록
+window.addEventListener('error', function(e){
+  try { console.warn('[global error]', e?.message || e); } catch(_){}
+});
+window.addEventListener('unhandledrejection', function(e){
+  try { console.warn('[unhandled promise]', e?.reason?.message || e?.reason); } catch(_){}
+});
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
@@ -2253,13 +2260,26 @@ input,select,textarea{font-family:var(--sans);}
 .set-field label{font-size:12px;font-weight:600;color:var(--tx3);display:block;margin-bottom:4px;}
 .set-field input{width:100%;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:8px;font-size:13px;color:var(--tx);background:var(--surf);transition:.13s;}
 .set-field input:focus{outline:none;border-color:var(--brand);}
-.btn{padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;transition:.13s;cursor:pointer;}
-.btn-p{background:var(--brand);color:#fff;}
+.btn{
+  min-height:40px;
+  padding:10px 18px;border-radius:10px;
+  font-size:13px;font-weight:700;
+  transition:all var(--trans);
+  cursor:pointer;border:1.5px solid transparent;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  line-height:1;
+}
+.btn:active{transform:scale(.97);}
+.btn-sm{min-height:32px;padding:7px 14px;font-size:12px;border-radius:9px;}
+.btn-p{background:var(--brand);color:#fff;border-color:var(--brand);}
 .btn-p:hover{background:var(--brand-dk);}
-.btn-g{background:var(--white);color:var(--brand);border:1.5px solid var(--brand);}
+.btn-g{background:var(--white);color:var(--brand);border-color:var(--brand);}
 .btn-g:hover{background:var(--blue-bg);}
-.btn-d{background:var(--red-bg);color:var(--up);border:1.5px solid var(--red-lt);}
+.btn-d{background:var(--red-bg);color:var(--up);border-color:var(--red-lt);}
 .btn-full{width:100%;}
+[data-theme="dark"] .btn-g{background:var(--surf);}
+[data-theme="dark"] .btn-g:hover{background:var(--brand-lt);}
+[data-theme="dark"] .btn-d{background:#2a1313;color:#fca5a5;border-color:#5a1f1f;}
 .msg-box{font-size:12px;padding:8px 11px;border-radius:7px;margin-top:7px;}
 .msg-box.ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-lt);}
 .msg-box.err{background:var(--red-bg);color:var(--up);border:1px solid var(--red-lt);}
@@ -8099,7 +8119,9 @@ function renderHomeHL(){
     .map(id => ({id, ...MASTER[id], ...liveData[id]}));
 
   if(!withData.length){
-    document.getElementById('homeHL').innerHTML = `<div style="padding:18px;text-align:center;color:var(--tx4);font-size:13px;background:var(--white);border:1px solid var(--bdr);border-radius:var(--r)">📡 데이터 로딩 중...</div>`;
+    document.getElementById('homeHL').innerHTML = `<div style="padding:30px 20px;text-align:center;color:var(--tx4);font-size:13px;background:var(--surf);border-radius:14px;border:1px dashed var(--bdr)">
+      <div class="spinner" style="margin:0 auto 10px"></div>시세 데이터를 불러오고 있어요...
+    </div>`;
     return;
   }
 
@@ -8253,17 +8275,23 @@ async function renderHomeNews(){
   const el = document.getElementById('homeNews');
   if(!el) return;
   if(!kws.length){
-    el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--tx4);font-size:12px">
-      관심 키워드를 등록하면 최근 뉴스를 모아드려요
+    el.innerHTML = `<div style="padding:36px 20px;text-align:center;background:var(--surf);border-radius:14px;border:1px dashed var(--bdr)">
+      <div style="font-size:32px;margin-bottom:8px;opacity:.6">📰</div>
+      <div style="font-size:13px;font-weight:700;color:var(--tx2);margin-bottom:4px">관심 키워드를 등록해보세요</div>
+      <div style="font-size:11px;color:var(--tx4);line-height:1.55;margin-bottom:14px">등록한 키워드로 매일 관련 뉴스를<br>자동으로 모아드려요</div>
+      <button class="btn btn-p btn-sm" onclick="openKwModal()">＋ 키워드 추가</button>
     </div>`;
     return;
   }
-  el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--tx4);font-size:12px">
-    <div class="spinner" style="margin:0 auto 8px"></div>뉴스 로딩 중...
+  el.innerHTML = `<div style="padding:28px 20px;text-align:center;color:var(--tx4);font-size:12px">
+    <div class="spinner" style="margin:0 auto 10px"></div>최신 뉴스를 가져오고 있어요...
   </div>`;
   const items = await fetchKeywordNews(kws, 5);
   if(!items.length){
-    el.innerHTML = `<div style="padding:18px;text-align:center;color:var(--tx4);font-size:12px">뉴스를 가져오지 못했어요</div>`;
+    el.innerHTML = `<div style="padding:30px 20px;text-align:center;background:var(--surf);border-radius:14px;border:1px dashed var(--bdr)">
+      <div style="font-size:28px;margin-bottom:6px;opacity:.6">📭</div>
+      <div style="font-size:12.5px;color:var(--tx3);line-height:1.6">최근 24시간 내 관련 뉴스를 찾지 못했어요<br><span style="font-size:11px;color:var(--tx4)">잠시 후 다시 확인해주세요</span></div>
+    </div>`;
     return;
   }
   el.innerHTML = items.slice(0,5).map(n=>{
@@ -11533,7 +11561,8 @@ function showPage(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   const pg=document.getElementById(`pg-${page}`);
   if(pg)pg.classList.add('on');
-  document.getElementById('topTitle').textContent=PAGE_TITLES[page]||'';
+  const topTitle = document.getElementById('topTitle');
+  if (topTitle) topTitle.textContent = PAGE_TITLES[page] || '';
   if (typeof trackEvent === 'function') trackEvent('page_view', page);
   // 스톡이 컨텍스트 — 대화가 비어 있을 때만 페이지 이동 시 인사말 리프레시
   try {
