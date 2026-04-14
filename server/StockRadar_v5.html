@@ -92,13 +92,14 @@
    다크 모드 — data-theme="dark" 일 때만 오버라이드
    ══════════════════════════════════════════════ */
 [data-theme="dark"] {
-  --bg:       #0f1115;
-  --white:    #191c22;
-  --surf:     #181b21;
-  --surf-2:   #12151a;
-  --bdr:      #262a33;
-  --bdr2:     #3b4048;
-  --bdr-soft: rgba(255,255,255,.05);
+  /* 더 깊은 다크 + 카드 surface 를 더 밝게 해서 대비 향상 */
+  --bg:       #07090d;
+  --white:    #1a1f28;
+  --surf:     #13171e;
+  --surf-2:   #0d1015;
+  --bdr:      #2d333e;
+  --bdr2:     #404757;
+  --bdr-soft: rgba(255,255,255,.06);
 
   --tx:  #f2f4f6;
   --tx2: #c8ccd4;
@@ -3160,10 +3161,41 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
   border-color: var(--bdr) !important;
 }
 
-/* Toast 재확인 */
+/* Toast 재확인 — 최고 우선순위 */
+html[data-theme="dark"] body .toast,
 [data-theme="dark"] .toast {
-  background: #f2f4f6 !important;
-  color: #191f28 !important;
+  background: #e5e8eb !important;
+  color: #0a0c10 !important;
+  border: 1px solid #404757;
+}
+
+/* 종목 발굴 카드 — 대비 확 올림 */
+[data-theme="dark"] .stock-card,
+[data-theme="dark"] .sc-card {
+  background: #1a1f28 !important;
+  border: 1px solid #2d333e !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.5) !important;
+}
+[data-theme="dark"] .stock-card:hover,
+[data-theme="dark"] .sc-card:hover {
+  background: #20252f !important;
+  border-color: var(--brand) !important;
+}
+[data-theme="dark"] .sc-metric { background: #0f1218 !important; }
+[data-theme="dark"] .sc-ticker { color: #8b95a1 !important; }
+[data-theme="dark"] .sc-company { color: #f2f4f6 !important; }
+
+/* 종목 카드 내 market badge — 밝은 오렌지/블루 대신 다크 톤 */
+[data-theme="dark"] .sc-mkt-kr { background: #3a1a0a !important; color: #fca97a !important; }
+[data-theme="dark"] .sc-mkt-us { background: #0f1e3e !important; color: #93c5fd !important; }
+
+/* 종목 카드 태그 */
+[data-theme="dark"] .sc-tag,
+[data-theme="dark"] .stock-tag,
+[data-theme="dark"] .sc-tags span {
+  background: var(--surf) !important;
+  color: var(--tx2) !important;
+  border-color: var(--bdr) !important;
 }
 
 /* 섹터 차트 위 라벨·범례 */
@@ -3292,6 +3324,27 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
   box-shadow: 0 8px 24px rgba(49,130,246,.18);
 }
 .landing-google-btn:active { transform: translateY(0); }
+.landing-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 18px 0; font-size: 11px; color: var(--tx4); font-weight: 700;
+}
+.landing-divider::before, .landing-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--bdr);
+}
+.landing-email-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.landing-email-btn {
+  padding: 13px 14px; border-radius: 12px;
+  background: var(--surf); color: var(--tx2);
+  border: 1.5px solid var(--bdr);
+  font-size: 13.5px; font-weight: 700; cursor: pointer;
+  transition: all var(--trans);
+}
+.landing-email-btn:hover { border-color: var(--brand); color: var(--brand); }
+.landing-email-btn.primary {
+  background: var(--brand-lt); color: var(--brand); border-color: var(--brand);
+}
+.landing-email-btn.primary:hover { background: var(--brand); color: #fff; }
+.landing-email-btn:active { transform: scale(.97); }
 .landing-foot-note {
   font-size: 11px; color: var(--tx4); line-height: 1.7;
   margin: 24px 0 20px;
@@ -3689,8 +3742,8 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
   </div>
   <div class="landing-right">
     <div class="landing-right-inner">
-      <div class="landing-right-title">환영합니다</div>
-      <div class="landing-right-sub">Google 계정으로 간편하게 시작하세요</div>
+      <div class="landing-right-title">StockRadar에<br>오신 것을 환영해요 👋</div>
+      <div class="landing-right-sub">Google 또는 이메일로 간편하게 시작하세요</div>
       <button class="landing-google-btn" onclick="socialLogin('google')">
         <svg width="20" height="20" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -3700,9 +3753,13 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
         </svg>
         <span>Google 계정으로 시작하기</span>
       </button>
+      <div class="landing-divider"><span>또는</span></div>
+      <div class="landing-email-actions">
+        <button class="landing-email-btn" onclick="om('loginOv')">이메일로 로그인</button>
+        <button class="landing-email-btn primary" onclick="om('signupOv')">이메일로 회원가입</button>
+      </div>
       <div class="landing-foot-note">
-        가입 후 이용약관·개인정보처리방침에 동의하게 됩니다.<br>
-        서비스 관련 질문은 나중에 문의 메뉴에서 받을 수 있어요.
+        가입 후 이용약관·개인정보처리방침에 동의하게 됩니다.
       </div>
       <div class="landing-feature-chips">
         <span>💡 무료</span>

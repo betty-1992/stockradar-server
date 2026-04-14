@@ -101,9 +101,13 @@ function publicUser(u) {
 }
 
 // ─── POST /api/auth/signup ───────────────────
-//  가입 즉시 status='pending'. 인증 코드 메일을 발송하고,
-//  유저는 코드 입력 후 verify-email 호출 시 active 로 전환되며 세션 발급.
-//  (세션은 verify 성공 시에만 발급 — 미인증 상태로 로그인되는 걸 막음)
+//  (Phase 1) 이메일 인증 없이 즉시 가입 + 자동 로그인
+//    · status='active' 로 생성 (제한 없이 즉시 사용 가능)
+//    · email_verified=0 (나중에 인증 강화 시 이 값으로 기존 유저 필터링 가능)
+//    · 법적 동의는 terms_accepted_at 에 기록
+//  (향후) 이메일 인증 재도입:
+//    · 새 가입자는 status='pending' + 코드 발송으로 전환
+//    · 기존 email_verified=0 유저에게 banner 로 "이메일 인증 필요" 안내
 router.post('/signup', signupLimiter, async (req, res) => {
   const parsed = signupSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -111,33 +115,25 @@ router.post('/signup', signupLimiter, async (req, res) => {
   }
   const { email, password, nickname, consents } = parsed.data;
 
-  // 법적 필수 동의 검증 — 서버에서도 한 번 더 확인
   if (!consents || !consents.terms || !consents.privacy || !consents.disclaimer) {
     return res.status(400).json({ ok: false, error: 'CONSENTS_REQUIRED' });
   }
 
   const dup = db.prepare(`SELECT id, status FROM users WHERE email = ?`).get(email);
   if (dup) {
-    // 이미 pending 상태면 "재발송" 안내 (코드 재발급)
-    if (dup.status === 'pending') {
-      const code = issueCode(email, 'signup');
-      const r = await sendVerificationCode(email, code);
-      logAudit({ userId: dup.id, action: 'signup_resend', ip: clientIp(req) });
-      return res.json({ ok: true, needVerification: true, email, resent: true, devCode: r.dev ? code : undefined });
-    }
+    // pending 잔여 레코드(과거 이메일 인증 시절 데이터)도 '이미 가입됨'으로 처리
     return res.status(409).json({ ok: false, error: 'EMAIL_EXISTS' });
   }
 
   const pwHash = await bcrypt.hash(password, 12);
   const now = Date.now();
   const info = db.prepare(`
-    INSERT INTO users (email, pw_hash, nickname, role, status, provider, email_verified, created_at)
-    VALUES (?, ?, ?, 'user', 'pending', 'local', 0, ?)
-  `).run(email, pwHash, nickname, now);
+    INSERT INTO users (email, pw_hash, nickname, role, status, provider, email_verified, created_at, last_login, login_count, terms_accepted_at)
+    VALUES (?, ?, ?, 'user', 'active', 'local', 0, ?, ?, 1, ?)
+  `).run(email, pwHash, nickname, now, now, now);
 
   const userId = info.lastInsertRowid;
-  logAudit({ userId, action: 'signup_request', ip: clientIp(req) });
-  // 법적 증거 — 약관 동의 내역을 audit_logs 에 별도 기록
+  logAudit({ userId, action: 'signup', ip: clientIp(req) });
   logAudit({
     userId,
     action: 'consents_agreed',
@@ -149,17 +145,12 @@ router.post('/signup', signupLimiter, async (req, res) => {
     ip: clientIp(req),
   });
 
-  // 인증 코드 발송
-  const code = issueCode(email, 'signup');
-  const r = await sendVerificationCode(email, code);
+  // 즉시 세션 발급 (자동 로그인)
+  await regenerateSession(req);
+  req.session.userId = userId;
 
-  // dev 모드(RESEND_API_KEY 없음)면 devCode 를 응답에 포함해서 UI 에서 바로 확인 가능
-  res.json({
-    ok: true,
-    needVerification: true,
-    email,
-    devCode: r.dev ? code : undefined,
-  });
+  const u = db.prepare(`SELECT * FROM users WHERE id = ?`).get(userId);
+  res.json({ ok: true, user: publicUser(u) });
 });
 
 // ─── POST /api/auth/verify-email ─────────────
@@ -282,15 +273,11 @@ router.post('/login', loginLimiter, async (req, res) => {
     return res.status(401).json({ ok: false, error: 'INVALID_CREDENTIALS' });
   }
 
-  // 비밀번호는 맞았지만 아직 이메일 인증 안 된 계정 → 인증 스텝 유도
-  // 코드 자동 재발급은 하지 않음 (기존 발급 코드를 무효화하는 부작용 방지)
-  // 프론트는 이 응답을 받으면 인증 화면으로 이동 + 필요 시 /resend-verification 호출
+  // (Phase 1) 이메일 인증 생략 — pending 레거시 계정도 즉시 active 로 승격
+  //   나중에 인증 재도입 시 email_verified=0 유저에게 banner 로 "인증 필요" 안내
   if (u.status === 'pending') {
-    return res.status(403).json({
-      ok: false,
-      error: 'EMAIL_NOT_VERIFIED',
-      email,
-    });
+    db.prepare(`UPDATE users SET status = 'active' WHERE id = ?`).run(u.id);
+    u.status = 'active';
   }
 
   await regenerateSession(req);
