@@ -7913,7 +7913,14 @@ function toggleCompareSelect(id){
   }
   window._wlCompareIds = arr;
   _renderCompareChips();
-  renderWatchlistPage();
+  // 전체 재렌더 대신 해당 카드만 class + 체크마크 토글 (성능 최적화)
+  const card = document.querySelector(`[data-wl-id="${id}"]`);
+  if (card) {
+    const selected = arr.includes(id);
+    card.classList.toggle('wl-selected', selected);
+    const mark = card.querySelector('.wl-compare-mark');
+    if (mark) mark.textContent = selected ? '✓' : '';
+  }
 }
 async function runWatchlistCompare(){
   const ids = [...(window._wlCompareIds || [])];
