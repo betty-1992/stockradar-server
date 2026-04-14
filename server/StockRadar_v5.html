@@ -3178,6 +3178,25 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 [data-theme="dark"] .stock-check-card .ck-summary { background: var(--surf) !important; }
 [data-theme="dark"] .stock-check-card .ck-summary-title { color: var(--tx) !important; }
 
+/* 간단히 보기 체크박스 (스크리너 상단) */
+.simple-view-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: var(--tx3);
+  cursor: pointer; user-select: none;
+  padding: 5px 10px; border-radius: 8px;
+  transition: background var(--trans-fast);
+}
+.simple-view-toggle:hover { background: var(--surf); color: var(--brand); }
+.simple-view-toggle input[type=checkbox] {
+  width: 15px; height: 15px; accent-color: var(--brand); cursor: pointer; margin: 0;
+}
+@media (max-width: 768px) {
+  .simple-view-toggle { display: none; }
+}
+/* 간단히 보기 — 카드 지표 섹션 숨김 */
+.stock-grid.simple-view .sc-metrics { display: none !important; }
+.stock-grid.simple-view .sc-footer { margin-top: 6px !important; }
+
 /* ─── 종목 발굴 상단 범례 영역 다크 대응 ─── */
 [data-theme="dark"] .screener-legend {
   background: var(--white) !important;
@@ -4900,7 +4919,11 @@ html[data-theme="dark"] body .toast,
         <div class="screener-sticky-hdr">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap">
             <div style="font-size:13px;color:var(--tx3)">총 <b id="resultCnt" style="color:var(--tx);font-size:15px">0</b>개</div>
-            <div style="margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <label class="simple-view-toggle" title="PER·ROE 등 지표를 숨겨 제목·시세만 보여줘요">
+                <input type="checkbox" id="simpleViewChk" onchange="toggleSimpleView(this.checked)">
+                <span>간단히 보기</span>
+              </label>
               <div style="display:flex;align-items:center;gap:6px">
                 <span style="font-size:11px;color:var(--tx4)">정렬</span>
                 <select id="sortSelect" onchange="onSortSelect(this)"
@@ -11498,7 +11521,7 @@ function showPage(page){
   if(page==='guide')renderGuide();
   if(page==='home')renderHome();
   if(page==='watchlist')renderWatchlistPage();
-  if(page==='screener'){applyFilters();}
+  if(page==='screener'){applyFilters(); setTimeout(restoreSimpleView, 50);}
   // 모바일 바텀 네비 active 동기화
   try {
     document.querySelectorAll('.mob-nav-item').forEach(b =>
@@ -11987,6 +12010,25 @@ function goToScreenerWithSearch(q){
 }
 
 // 홈 "오늘 주목 종목 더보기" → 현재 탭 카테고리를 스크리너 필터로 적용
+// 종목발굴 — 간단히 보기 (지표 섹션 숨김)
+function toggleSimpleView(on){
+  const grid = document.getElementById('stockGrid');
+  if (!grid) return;
+  grid.classList.toggle('simple-view', !!on);
+  try { localStorage.setItem('sr_simple_view', on ? '1' : '0'); } catch(_){}
+}
+function restoreSimpleView(){
+  try {
+    const on = localStorage.getItem('sr_simple_view') === '1';
+    const chk = document.getElementById('simpleViewChk');
+    if (chk) chk.checked = on;
+    const grid = document.getElementById('stockGrid');
+    if (grid) grid.classList.toggle('simple-view', on);
+  } catch(_){}
+}
+window.toggleSimpleView = toggleSimpleView;
+window.restoreSimpleView = restoreSimpleView;
+
 function goHomeHLMore(){
   const cat = (typeof _homeHLCat !== 'undefined') ? _homeHLCat : 'all';
   // 공통: 검색창 비우기 + 빠른 필터 초기화
