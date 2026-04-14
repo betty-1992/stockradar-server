@@ -11058,6 +11058,12 @@ function go(el,page){
     const found=[...document.querySelectorAll('.lnb-item')].find(i=>i.onclick?.toString().includes(`'${page}'`));
     if(found)found.classList.add('on');
   }
+  // 네비게이션 전 — 열려 있는 모바일 오버레이·모달 모두 닫기
+  try {
+    document.getElementById('mobFilterOverlay')?.classList.remove('on');
+    document.getElementById('mobDrawerOv')?.classList.remove('open');
+    document.querySelectorAll('.overlay.on').forEach(o => o.classList.remove('on'));
+  } catch(_){}
   showPage(page);
   pushNav(page);
   document.getElementById('lnb')?.classList.remove('mob-on');
