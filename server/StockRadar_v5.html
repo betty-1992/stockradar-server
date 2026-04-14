@@ -7637,7 +7637,9 @@ window.addWidget = addWidget;
 
 // ─── 새 위젯 렌더러 ──────────────────────────
 function renderRecentWidget(){
-  const el = document.getElementById('recentStocks');
+  // widget map 에서 직접 찾기 — getElementById 의존 제거
+  const widget = (_widgetNodes && _widgetNodes['recent']) || null;
+  const el = widget ? widget.querySelector('#recentStocks') : document.getElementById('recentStocks');
   if (!el) return;
   const recent = (function(){
     try { return JSON.parse(localStorage.getItem('sr_recent_viewed') || '[]').slice(0, 8); }
@@ -7673,7 +7675,8 @@ function _trackRecentViewed(id){
 window._trackRecentViewed = _trackRecentViewed;
 
 function renderMarketClockWidget(){
-  const el = document.getElementById('marketClock');
+  const widget = (_widgetNodes && _widgetNodes['market_clock']) || null;
+  const el = widget ? widget.querySelector('#marketClock') : document.getElementById('marketClock');
   if (!el) return;
   const now = new Date();
   const dow = now.getDay(); // 0=일 6=토
