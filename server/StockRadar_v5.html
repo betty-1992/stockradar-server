@@ -1097,9 +1097,13 @@ input,select,textarea{font-family:var(--sans);}
 .btn-ext:hover{border-color:var(--brand);color:var(--brand);}
 
 /* KEY METRICS BAR */
-.metrics-bar{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:rgba(0,0,0,.04);border-radius:14px;overflow:hidden;border:none;margin-bottom:14px;}
+.metrics-bar{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--bdr);border-radius:14px;overflow:hidden;border:1px solid var(--bdr);margin-bottom:14px;}
 @media(max-width:900px){.metrics-bar{grid-template-columns:repeat(4,1fr);}}
 .metric-cell{background:var(--white);padding:14px 10px;text-align:center;}
+[data-theme="dark"] .metrics-bar { background: var(--bdr) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .metric-cell { background: var(--white) !important; }
+[data-theme="dark"] .metric-cell-lbl { color: var(--tx4) !important; }
+[data-theme="dark"] .metric-cell-val { color: var(--tx) !important; }
 .metric-cell-lbl{font-size:10px;color:var(--tx4);font-weight:500;margin-bottom:5px;letter-spacing:.2px;}
 .metric-cell-val{font-size:15px;font-weight:700;font-family:var(--mono);}
 
@@ -2443,7 +2447,7 @@ input,select,textarea{font-family:var(--sans);}
 
   /* 플로팅 버튼 위치 */
   .float-btns{ right:12px; bottom:16px; }
-  .ai-chat-panel{ width:calc(100vw - 24px); right:12px; }
+  /* ai-chat-panel 은 Toss-style 블록에서 풀스크린 처리 */
 
   /* 홈 지수 카드 */
   .idx-grid{ grid-template-columns:repeat(2,1fr) !important; }
@@ -2795,7 +2799,7 @@ input,select,textarea{font-family:var(--sans);}
 .ai-chat-inp button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(13,148,136,.35);}
 .ai-chat-inp button:disabled{opacity:.5;cursor:not-allowed;transform:none;}
 @media(max-width:767px){
-  .ai-chat-panel{width:calc(100vw - 24px);right:12px;bottom:70px;}
+  /* ai-chat-panel 는 Toss-style 블록에서 풀스크린 처리 */
 }
 
 
@@ -3876,6 +3880,37 @@ html[data-theme="dark"] body .toast,
     min-width: 0 !important;
   }
 
+  /* 지표 바 — 모바일에서 border-radius 유지 + 스크롤 자연스럽게 */
+  .metrics-bar {
+    padding: 0 !important;
+    background: var(--bdr) !important;
+    border-radius: 12px !important;
+    gap: 1px !important;
+  }
+  .metric-cell {
+    min-width: 88px !important;
+    padding: 12px 10px !important;
+    background: var(--white) !important;
+  }
+
+  /* 홈 위젯 카드 패딩 */
+  .widget { padding: 14px !important; }
+  .widget-hdr { margin-bottom: 10px !important; }
+  .widget-title { font-size: 14px !important; }
+
+  /* 홈 관심종목 카드 내부 — 너무 많은 정보 줄임 */
+  .wl-card { padding: 10px 12px !important; min-width: 0 !important; }
+  .wl-nm { font-size: 12.5px !important; }
+  .wl-sub { display: none !important; }
+
+  /* 종목 발굴 카드 — 패딩/폰트 축소 */
+  .stock-card, .sc-card {
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+  }
+  .sc-company { font-size: 14px !important; }
+  .sc-px { font-size: 18px !important; }
+
   /* 카드 공통: 패딩 컴팩트, 하단 간격 줄이기 */
   .card, .set-sec, .chart-sec, .panel, .stat,
   .core-cond-card, .crit-card, .concept-card, .blog-card {
@@ -3968,13 +4003,28 @@ html[data-theme="dark"] body .toast,
   .blog-modal-body { padding: 16px 18px 28px !important; }
   .blog-article-title { font-size: 20px !important; }
 
-  /* AI 챗 패널 */
+  /* AI 챗 패널 — 모바일 풀스크린 */
   .ai-chat-panel {
-    width: calc(100vw - 12px) !important;
-    right: 6px !important;
-    bottom: 72px !important;
-    max-height: 72vh !important;
+    position: fixed !important;
+    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+    width: 100vw !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    z-index: 9500 !important;
   }
+  .ai-chat-panel.on { display: flex !important; }
+  .ai-chat-body { flex: 1; max-height: none !important; padding-bottom: 80px; }
+  .ai-chat-inp {
+    position: fixed !important;
+    bottom: 0; left: 0; right: 0;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom)) !important;
+    background: var(--white);
+    border-top: 1px solid var(--bdr);
+  }
+  /* 스톡이 열리면 바텀 네비/플로팅 버튼 가림 */
+  body.stockie-open .mob-bottom-nav,
+  body.stockie-open .float-btns { display: none !important; }
   .float-btns { right: 10px !important; bottom: 14px !important; }
 
   /* 공지 배너 — 더 콤팩트 */
