@@ -3039,6 +3039,93 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 [data-theme="dark"] .guide-part-group,
 [data-theme="dark"] .fmp-banner { background: var(--white) !important; border-color: var(--bdr) !important; }
 
+/* ─── 지금 뜨는 주제 (trending strip) 다크모드 ─── */
+[data-theme="dark"] .trending-strip {
+  background: linear-gradient(90deg, #2a1a0a, #1f1408 60%, var(--white)) !important;
+  border-color: #78350f !important;
+}
+[data-theme="dark"] .trending-strip-label { color: #fcd34d !important; }
+[data-theme="dark"] .trending-chip {
+  background: var(--surf) !important;
+  color: var(--tx) !important;
+  border-color: #78350f !important;
+}
+[data-theme="dark"] .trending-chip:hover {
+  background: #2a1a0a !important;
+  border-color: #f97316 !important;
+  box-shadow: 0 2px 6px rgba(251,146,60,.25);
+}
+[data-theme="dark"] .trending-chip .tc-count {
+  background: rgba(251,146,60,.15);
+  color: #fcd34d;
+}
+
+/* 메시지 박스 */
+[data-theme="dark"] .msg-box.ok   { background: #102818 !important; color: #86efac !important; border-color: #16a34a !important; }
+[data-theme="dark"] .msg-box.err  { background: #2a1313 !important; color: #fca5a5 !important; border-color: #b91c1c !important; }
+[data-theme="dark"] .msg-box.info { background: #15233e !important; color: #93c5fd !important; border-color: #1e40af !important; }
+
+/* 이슈 룰 팝업 */
+[data-theme="dark"] .issue-rule-popup { background: var(--surf) !important; color: var(--tx2) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .issue-rule-popup b { color: var(--tx) !important; }
+[data-theme="dark"] .issue-rule-btn { background: var(--surf) !important; border-color: var(--bdr) !important; color: var(--tx3) !important; }
+
+/* 내 키워드 카드 */
+[data-theme="dark"] .my-kw-card { background: var(--white) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .my-kw-chips .kw-chip,
+[data-theme="dark"] .kw-mode .km-btn { background: var(--surf) !important; color: var(--tx2) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .kw-mode .km-btn.on { background: var(--brand) !important; color: #fff !important; border-color: var(--brand) !important; }
+
+/* 이슈/뉴스 카드, 검색창, 필터 패널 */
+[data-theme="dark"] .issue-feed,
+[data-theme="dark"] .issue-card,
+[data-theme="dark"] .news-item,
+[data-theme="dark"] .filter-panel,
+[data-theme="dark"] .screener-right,
+[data-theme="dark"] .fp-sec,
+[data-theme="dark"] .fp-group,
+[data-theme="dark"] .kwp-trending-chips,
+[data-theme="dark"] .ai-loading { background: var(--white) !important; color: var(--tx) !important; border-color: var(--bdr) !important; }
+
+/* 필터 패널 내 빠른 선택 on 상태 */
+[data-theme="dark"] .fp-qbtn { background: var(--surf) !important; color: var(--tx2) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .fp-qbtn.on { background: var(--brand) !important; color: #fff !important; border-color: var(--brand) !important; }
+
+/* 검색 드롭다운 */
+[data-theme="dark"] #srchDrop,
+[data-theme="dark"] .sd-row,
+[data-theme="dark"] .sd-mover { background: var(--white) !important; color: var(--tx) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .sd-sub, [data-theme="dark"] .sd-px.up { color: var(--up) !important; }
+[data-theme="dark"] .sd-px.dn { color: var(--dn) !important; }
+
+/* 섹터 테이블 */
+[data-theme="dark"] .sec-table,
+[data-theme="dark"] .sec-table th,
+[data-theme="dark"] .sec-table td { background: var(--white) !important; color: var(--tx) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .sec-table th { background: var(--surf) !important; color: var(--tx3) !important; }
+[data-theme="dark"] .sec-popover { background: var(--white) !important; border-color: var(--bdr) !important; color: var(--tx) !important; }
+[data-theme="dark"] .sec-pop-cell { background: var(--surf) !important; }
+
+/* 주요지수 카드 (홈 상단) */
+[data-theme="dark"] .mc { background: var(--white) !important; border-color: var(--bdr) !important; color: var(--tx) !important; }
+[data-theme="dark"] .mc-nm { color: var(--tx3) !important; }
+
+/* LNB active 강조 */
+[data-theme="dark"] .lnb-item.on { background: var(--brand-lt) !important; color: var(--brand) !important; }
+
+/* 투자 가이드 블로그 — body/article 본문 */
+[data-theme="dark"] .blog-modal .blog-modal-body { background: var(--white) !important; color: var(--tx) !important; }
+[data-theme="dark"] .blog-article-title,
+[data-theme="dark"] .blog-article-body h3 { color: var(--tx) !important; }
+[data-theme="dark"] .blog-article-body { color: var(--tx2) !important; }
+[data-theme="dark"] .blog-article-body b { color: var(--tx) !important; }
+[data-theme="dark"] .blog-card-title { color: var(--tx) !important; }
+[data-theme="dark"] .blog-card-sum { color: var(--tx3) !important; }
+
+/* 체크리스트 요약 카드 */
+[data-theme="dark"] .stock-check-card .ck-summary { background: var(--surf) !important; }
+[data-theme="dark"] .stock-check-card .ck-summary-title { color: var(--tx) !important; }
+
 /* ─── 스톡이 (AI 챗봇) 다크모드 ─── */
 [data-theme="dark"] .ai-chat-panel,
 [data-theme="dark"] #aiChatPanel,
@@ -3058,6 +3145,135 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 [data-theme="dark"] .stockie-faq-chip:hover { background: var(--brand-lt) !important; color: var(--brand) !important; }
 /* 스톡이 플로팅 버튼 & 패널 헤더는 그라데이션 유지 — 대비 좋음 */
 [data-theme="dark"] .ai-chat-hdr { filter: brightness(.9); }
+
+/* ══════════════════════════════════════════════
+   🏠 랜딩 (로그인 게이트)
+   ══════════════════════════════════════════════ */
+.landing {
+  position: fixed; inset: 0; z-index: 5000;
+  display: grid; grid-template-columns: 1.1fr 1fr;
+  background: var(--bg);
+  overflow: auto;
+}
+.landing-left {
+  padding: 56px 64px;
+  background: linear-gradient(135deg, #e8f3ff 0%, #f2f4f6 50%, #ede9fe 100%);
+  display: flex; flex-direction: column; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.landing-left::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(49,130,246,.12), transparent 50%),
+              radial-gradient(circle at 20% 80%, rgba(124,58,237,.10), transparent 50%);
+  pointer-events: none;
+}
+[data-theme="dark"] .landing-left {
+  background: linear-gradient(135deg, #0f1724 0%, #0f1115 50%, #1a0f24 100%);
+}
+.landing-brand {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 48px;
+  position: relative; z-index: 2;
+}
+.landing-logo {
+  width: 56px; height: 56px; border-radius: 16px;
+  background: linear-gradient(135deg, #3182f6, #7c3aed);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px;
+  box-shadow: 0 8px 24px rgba(49,130,246,.25);
+}
+.landing-brand-name { font-size: 22px; font-weight: 900; color: var(--tx); letter-spacing: -.6px; }
+.landing-brand-name b { color: var(--brand); }
+.landing-brand-sub { font-size: 12px; color: var(--tx3); font-weight: 600; margin-top: 2px; }
+
+.landing-carousel {
+  position: relative; flex: 1; max-height: 380px;
+  display: flex; align-items: center;
+}
+.landing-slide {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; justify-content: center;
+  opacity: 0; transform: translateX(30px);
+  transition: all .5s cubic-bezier(.32,.72,0,1);
+  pointer-events: none;
+}
+.landing-slide.on { opacity: 1; transform: translateX(0); pointer-events: auto; }
+.landing-slide-ico {
+  font-size: 72px; margin-bottom: 20px;
+  filter: drop-shadow(0 6px 16px rgba(16,24,40,.12));
+}
+.landing-slide-title {
+  font-size: 34px; font-weight: 900; letter-spacing: -.8px;
+  color: var(--tx); margin-bottom: 14px; line-height: 1.2;
+}
+.landing-slide-desc {
+  font-size: 16px; color: var(--tx2); line-height: 1.65; max-width: 440px;
+}
+.landing-dots {
+  display: flex; gap: 10px; margin-top: 36px; position: relative; z-index: 2;
+}
+.landing-dot {
+  width: 10px; height: 10px; border-radius: 999px;
+  background: rgba(16,24,40,.15); cursor: pointer;
+  transition: all .3s;
+}
+.landing-dot.on { width: 30px; background: var(--brand); }
+[data-theme="dark"] .landing-dot { background: rgba(255,255,255,.2); }
+
+.landing-right {
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px;
+}
+.landing-right-inner { max-width: 380px; width: 100%; text-align: center; }
+.landing-right-title {
+  font-size: 28px; font-weight: 900; color: var(--tx);
+  letter-spacing: -.5px; margin-bottom: 10px;
+}
+.landing-right-sub {
+  font-size: 14px; color: var(--tx3); margin-bottom: 36px; line-height: 1.6;
+}
+.landing-google-btn {
+  width: 100%; padding: 16px 20px; border-radius: 14px;
+  background: var(--white); color: var(--tx); border: 1.5px solid var(--bdr);
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  transition: all var(--trans);
+  box-shadow: var(--sh1);
+}
+.landing-google-btn:hover {
+  border-color: var(--brand); transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(49,130,246,.18);
+}
+.landing-google-btn:active { transform: translateY(0); }
+.landing-foot-note {
+  font-size: 11px; color: var(--tx4); line-height: 1.7;
+  margin: 24px 0 20px;
+}
+.landing-feature-chips {
+  display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
+}
+.landing-feature-chips span {
+  font-size: 11px; font-weight: 700; padding: 6px 12px;
+  border-radius: 999px; background: var(--surf); color: var(--tx3);
+  border: 1px solid var(--bdr-soft);
+}
+
+@media (max-width: 900px) {
+  .landing { grid-template-columns: 1fr; overflow-y: auto; }
+  .landing-left { padding: 40px 28px 28px; min-height: 60vh; }
+  .landing-right { padding: 28px 24px 48px; }
+  .landing-slide-title { font-size: 26px; }
+  .landing-slide-desc { font-size: 14px; }
+  .landing-slide-ico { font-size: 56px; }
+  .landing-carousel { max-height: 280px; }
+  .landing-brand { margin-bottom: 28px; }
+}
+@media (max-width: 420px) {
+  .landing-left { padding: 32px 20px 20px; }
+  .landing-brand-name { font-size: 18px; }
+  .landing-slide-title { font-size: 22px; }
+  .landing-slide-ico { font-size: 48px; margin-bottom: 14px; }
+  .landing-right-title { font-size: 22px; }
+}
 
 /* ══════════════════════════════════════════════
    ⭐ 관심종목 전용 페이지
@@ -3126,13 +3342,15 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 }
 @keyframes obPop { from { opacity:0; transform: translateY(20px) scale(.94); } to { opacity:1; transform: translateY(0) scale(1); } }
 .ob-skip {
-  position: absolute; top: 14px; right: 16px;
+  position: absolute; top: 10px; right: 12px;
   background: none; border: none; font-size: 12px;
   color: var(--tx4); font-weight: 600; cursor: pointer;
-  padding: 4px 8px; border-radius: 6px; z-index: 2;
+  padding: 10px 14px; border-radius: 10px; z-index: 2;
   transition: all var(--trans-fast);
+  min-height: 40px;
 }
 .ob-skip:hover { color: var(--tx2); background: var(--surf); }
+.ob-skip:active { background: var(--bdr); }
 .ob-title {
   padding: 18px 24px 0; font-size: 12px; font-weight: 800;
   color: var(--brand); text-align: center; letter-spacing: .3px;
@@ -3154,6 +3372,8 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 .ob-hero svg { width: 80%; height: 80%; max-height: 150px; filter: drop-shadow(0 4px 12px rgba(16,24,40,.08)); }
 [data-theme="dark"] .ob-hero { background: linear-gradient(135deg, #15233e 0%, #181b21 100%); }
 [data-theme="dark"] .ob-hero svg { filter: drop-shadow(0 4px 12px rgba(0,0,0,.5)); }
+.ob-swipe-area { cursor: grab; user-select: none; touch-action: pan-y; }
+.ob-swipe-area:active { cursor: grabbing; }
 .ob-step-num {
   text-align: center; font-size: 10.5px; font-weight: 800;
   color: var(--tx4); letter-spacing: 1px; margin: 14px 0 6px;
@@ -3182,17 +3402,28 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 .ob-btns {
   display: flex; gap: 10px; padding: 0 24px 22px;
 }
+.ob-btn-prev, .ob-btn-next {
+  flex: 1 1 0; min-height: 48px;
+  padding: 14px 18px; border-radius: 14px;
+  font-size: 14px; font-weight: 800;
+  transition: all var(--trans);
+}
 .ob-btn-prev {
-  flex: 0 0 auto; background: var(--surf); color: var(--tx2);
-  padding: 12px 18px; border-radius: 12px; font-weight: 700;
+  background: var(--surf); color: var(--tx2);
 }
 .ob-btn-prev:hover { background: var(--bdr); }
+.ob-btn-prev:active { transform: scale(.96); }
 .ob-btn-next {
-  flex: 1; padding: 12px 18px; border-radius: 12px; font-weight: 800;
   box-shadow: 0 4px 12px rgba(49,130,246,.25);
 }
 .ob-btn-next:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(49,130,246,.35); }
+.ob-btn-next:active { transform: scale(.96); }
 [data-theme="dark"] .ob-btn-next { box-shadow: 0 4px 12px rgba(74,143,255,.35); }
+/* dot 터치 영역 확대 */
+.ob-dot { padding: 6px 0; position: relative; }
+.ob-dot::before {
+  content: ''; position: absolute; inset: -6px -4px; border-radius: 999px;
+}
 @media (max-width: 420px) {
   .ob-hero { height: 150px; margin: 12px 16px 6px; }
   .ob-step-title { font-size: 18px; margin: 0 18px 6px; }
@@ -3357,6 +3588,87 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 </head>
 <body>
 <div class="toast" id="toast"></div>
+
+<!-- ══ 랜딩 (비로그인 게이트) ══ -->
+<div class="landing" id="landingPage" style="display:none">
+  <div class="landing-left">
+    <div class="landing-brand">
+      <div class="landing-logo">📡</div>
+      <div>
+        <div class="landing-brand-name">Stock<b>Radar</b></div>
+        <div class="landing-brand-sub">주린이 주식 나침반</div>
+      </div>
+    </div>
+    <div class="landing-carousel" id="landingCarousel">
+      <div class="landing-slide on" data-slide="0">
+        <div class="landing-slide-ico">🔍</div>
+        <div class="landing-slide-title">종목 발굴</div>
+        <div class="landing-slide-desc">
+          코스피·코스닥·미국 주식 중<br>
+          PER·ROE·배당 기준으로 원하는 종목만 딱
+        </div>
+      </div>
+      <div class="landing-slide" data-slide="1">
+        <div class="landing-slide-ico">🤖</div>
+        <div class="landing-slide-title">AI 종목 분석</div>
+        <div class="landing-slide-desc">
+          Gemini 가 재무 지표를 쉬운 한국어로 설명<br>
+          "지금 비싼가 싼가" 한 줄 총평까지
+        </div>
+      </div>
+      <div class="landing-slide" data-slide="2">
+        <div class="landing-slide-ico">🗺</div>
+        <div class="landing-slide-title">섹터·토픽 트리맵</div>
+        <div class="landing-slide-desc">
+          오늘 어떤 섹터·테마가 뜨거운지 한눈에<br>
+          국내/해외 따로 비교도 가능
+        </div>
+      </div>
+      <div class="landing-slide" data-slide="3">
+        <div class="landing-slide-ico">🔥</div>
+        <div class="landing-slide-title">트렌드 트래커</div>
+        <div class="landing-slide-desc">
+          관심 키워드의 뉴스를 자동 수집<br>
+          매일 시장의 핫이슈를 놓치지 마세요
+        </div>
+      </div>
+      <div class="landing-slide" data-slide="4">
+        <div class="landing-slide-ico">📖</div>
+        <div class="landing-slide-title">투자 가이드 블로그</div>
+        <div class="landing-slide-desc">
+          차트 보는 법, 가치 평가, 대가들의 원칙<br>
+          그림과 함께 쉽게 읽는 투자 입문서
+        </div>
+      </div>
+    </div>
+    <div class="landing-dots" id="landingDots"></div>
+  </div>
+  <div class="landing-right">
+    <div class="landing-right-inner">
+      <div class="landing-right-title">환영합니다</div>
+      <div class="landing-right-sub">Google 계정으로 간편하게 시작하세요</div>
+      <button class="landing-google-btn" onclick="socialLogin('google')">
+        <svg width="20" height="20" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        <span>Google 계정으로 시작하기</span>
+      </button>
+      <div class="landing-foot-note">
+        가입 후 이용약관·개인정보처리방침에 동의하게 됩니다.<br>
+        서비스 관련 질문은 나중에 문의 메뉴에서 받을 수 있어요.
+      </div>
+      <div class="landing-feature-chips">
+        <span>💡 무료</span>
+        <span>🔐 안전</span>
+        <span>📈 실시간</span>
+        <span>🤖 AI</span>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ══ 공지사항 배너 ══ -->
 <div id="noticeBanners" style="position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;flex-direction:column;pointer-events:none"></div>
@@ -6107,9 +6419,9 @@ async function doLogout(){
   if(!confirm('로그아웃 하시겠어요?')) return;
   try { await api('/api/auth/logout', { method:'POST' }); } catch(e){}
   _currentUser = null;
-  // 로그아웃 후에도 로컬 캐시(즐겨찾기·키워드)는 그대로 둠 → 비로그인 상태에서도 동일 UX
   updateUserUI();
   renderHome();
+  toggleLandingByAuth();
   toast('로그아웃 됐어요');
 }
 
@@ -6127,7 +6439,62 @@ async function restoreSession(){
       }
     }
   } catch(e){ /* 비로그인 상태면 무시 */ }
+  // 로그인 상태에 따라 랜딩/앱 토글
+  toggleLandingByAuth();
 }
+
+// ─── 로그인 게이트 ────────────────────────────
+function toggleLandingByAuth(){
+  const user = gUser();
+  const landing = document.getElementById('landingPage');
+  const app = document.querySelector('.app');
+  if (!landing || !app) return;
+  if (user) {
+    landing.style.display = 'none';
+    app.style.display = '';
+    document.body.style.overflow = '';
+  } else {
+    landing.style.display = 'grid';
+    app.style.display = 'none';
+    document.body.style.overflow = 'hidden';
+    _startLandingCarousel();
+  }
+}
+let _landingCarouselTimer = null;
+let _landingSlideIdx = 0;
+function _startLandingCarousel(){
+  // dots 렌더
+  const slides = document.querySelectorAll('#landingCarousel .landing-slide');
+  const dotsEl = document.getElementById('landingDots');
+  if (!slides.length || !dotsEl) return;
+  if (!dotsEl.children.length) {
+    dotsEl.innerHTML = Array.from(slides).map((_, i) =>
+      `<span class="landing-dot ${i===0?'on':''}" onclick="_landingGoto(${i})"></span>`).join('');
+  }
+  clearInterval(_landingCarouselTimer);
+  _landingCarouselTimer = setInterval(() => {
+    _landingSlideIdx = (_landingSlideIdx + 1) % slides.length;
+    _landingApply();
+  }, 4000);
+}
+function _landingGoto(i){
+  _landingSlideIdx = i;
+  _landingApply();
+  // 수동 조작 후 타이머 리셋
+  const slides = document.querySelectorAll('#landingCarousel .landing-slide');
+  clearInterval(_landingCarouselTimer);
+  _landingCarouselTimer = setInterval(() => {
+    _landingSlideIdx = (_landingSlideIdx + 1) % slides.length;
+    _landingApply();
+  }, 5000);
+}
+function _landingApply(){
+  document.querySelectorAll('#landingCarousel .landing-slide').forEach((s, i) =>
+    s.classList.toggle('on', i === _landingSlideIdx));
+  document.querySelectorAll('#landingDots .landing-dot').forEach((d, i) =>
+    d.classList.toggle('on', i === _landingSlideIdx));
+}
+window._landingGoto = _landingGoto;
 
 function openCompleteSignupModal(defaultNickname){
   const ov = document.getElementById('completeSignupOv');
@@ -11196,10 +11563,12 @@ function _showOnboarding(cfg){
     <div class="modal ob-modal">
       <button class="ob-skip" onclick="_obSkip()">건너뛰기</button>
       <div class="ob-title">${cfg.title}</div>
-      <div class="ob-hero" id="__obHero"></div>
-      <div class="ob-step-num" id="__obStepNum"></div>
-      <div class="ob-step-title" id="__obStepTitle"></div>
-      <div class="ob-step-desc" id="__obStepDesc"></div>
+      <div class="ob-swipe-area" id="__obSwipe">
+        <div class="ob-hero" id="__obHero"></div>
+        <div class="ob-step-num" id="__obStepNum"></div>
+        <div class="ob-step-title" id="__obStepTitle"></div>
+        <div class="ob-step-desc" id="__obStepDesc"></div>
+      </div>
       <div class="ob-dots" id="__obDots"></div>
       <div class="ob-btns">
         <button class="btn ob-btn-prev" id="__obPrev" onclick="_obPrev()">← 이전</button>
@@ -11211,6 +11580,27 @@ function _showOnboarding(cfg){
   ov.__cfg = cfg;
   ov.__step = 0;
   _obRender();
+  // 스와이프 바인딩 (터치 + 마우스 드래그)
+  const swipeArea = document.getElementById('__obSwipe');
+  let startX = null, startY = null;
+  const onStart = (e) => {
+    const p = e.touches ? e.touches[0] : e;
+    startX = p.clientX; startY = p.clientY;
+  };
+  const onEnd = (e) => {
+    if (startX == null) return;
+    const p = e.changedTouches ? e.changedTouches[0] : e;
+    const dx = p.clientX - startX;
+    const dy = p.clientY - startY;
+    startX = startY = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) _obNext(); else _obPrev();
+    }
+  };
+  swipeArea.addEventListener('touchstart', onStart, { passive: true });
+  swipeArea.addEventListener('touchend', onEnd);
+  swipeArea.addEventListener('mousedown', onStart);
+  swipeArea.addEventListener('mouseup', onEnd);
 }
 function _obRender(){
   const ov = document.getElementById('__obOv');
@@ -11226,8 +11616,11 @@ function _obRender(){
   dots.innerHTML = cfg.steps.map((_, idx) => `
     <span class="ob-dot ${idx===i?'on':''}" onclick="_obGo(${idx})"></span>
   `).join('');
-  document.getElementById('__obPrev').style.visibility = i > 0 ? 'visible' : 'hidden';
-  document.getElementById('__obNext').textContent = i === cfg.steps.length - 1 ? '시작하기 ✨' : '다음 →';
+  const prev = document.getElementById('__obPrev');
+  const next = document.getElementById('__obNext');
+  // 첫 스텝일 땐 이전 숨기고 next 풀폭
+  prev.style.display = i > 0 ? '' : 'none';
+  next.textContent = i === cfg.steps.length - 1 ? '시작하기 ✨' : '다음 →';
 }
 function _obGo(i){
   const ov = document.getElementById('__obOv');
