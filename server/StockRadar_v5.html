@@ -136,14 +136,14 @@ html,body{
 }
 
 /* ── 글씨 크기 모드 (접근성) ─────────────────── */
-/* CSS rem 을 직접 건드리지 않고 html font-size 를 % 로 조정해서
-   em/rem 기반 요소와 간격까지 자연스럽게 비례 확대 */
-html{font-size:16px;}              /* 기준 */
-body.fs-lg html, html.fs-lg{font-size:18px;}   /* 크게  +12.5% */
-body.fs-xl html, html.fs-xl{font-size:20px;}   /* 더크게 +25% */
-/* 프로젝트 컴포넌트는 px 로 되어 있어서 추가로 scale: body 기반 계산식 사용 */
-body.fs-lg{zoom:1.08;}             /* 크게   — 전역 8% 확대 */
-body.fs-xl{zoom:1.18;}             /* 더크게 — 전역 18% 확대 */
+/* GNB/LNB 는 고정, 컨텐츠 영역(.scroll)만 확대.
+   zoom 은 Chromium/Safari 에서 지원되며 레이아웃 파생 */
+html{font-size:16px;}
+body.fs-lg .scroll, html.fs-lg .scroll { zoom: 1.08; }
+body.fs-xl .scroll, html.fs-xl .scroll { zoom: 1.18; }
+body.fs-lg .detail-hero, body.fs-xl .detail-hero { zoom: inherit; }
+/* GNB/LNB 는 항상 기본 크기 유지 */
+.gnb, .topbar, .lnb { zoom: 1 !important; }
 *{-webkit-tap-highlight-color:transparent;}
 button{border:none;cursor:pointer;font-family:var(--sans);}
 a{text-decoration:none;color:inherit;}
@@ -158,9 +158,12 @@ input,select,textarea{font-family:var(--sans);}
 .lnb{
   width:var(--lnb);flex-shrink:0;background:var(--white);
   box-shadow:1px 0 0 rgba(0,0,0,.06);
-  display:flex;flex-direction:column;overflow:hidden;
+  display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;
   transition:width .2s ease;
+  height:100vh;position:sticky;top:0;
 }
+.lnb .lnb-user { margin-top:auto; }
+.lnb::-webkit-scrollbar { width:4px; }
 
 /* ── 접힘 상태 ── */
 .lnb.collapsed{ width:52px; }
@@ -3435,13 +3438,19 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
    📱 모바일 반응형 (≤768px) — Toss 스타일 컴팩트
    ══════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  html, body { overflow-x: hidden; }
+  html, body { overflow-x: hidden !important; max-width: 100vw; }
+  * { max-width: 100%; }
   html { font-size: 15px; }
 
-  /* 전역 여백 축소 */
-  .scroll { padding: 10px 10px 48px !important; }
+  /* 전역 여백 최소화 — 좌우 8px 가 전체 기준 */
+  .scroll { padding: 8px 8px 48px !important; }
   .page { padding: 0 !important; }
   .main, .main-wrap, .content { padding: 0 !important; }
+
+  /* 섹션 간 간격 축소 */
+  .g2, .g3, .g4, .stat-grid, .info-grid, .blog-grid,
+  .wl-full-grid, .stock-grid { gap: 8px !important; margin-bottom: 8px !important; }
+  .section { margin-bottom: 8px !important; }
 
   /* 카드 공통: 패딩 컴팩트, 하단 간격 줄이기 */
   .card, .set-sec, .chart-sec, .panel, .stat,
@@ -3461,19 +3470,8 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
   /* 종목발굴 카드 1열 */
   .stock-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
 
-  /* 스크리너 필터 패널 → 슬라이드 드로어 */
-  .filter-panel.fp-open {
-    position: fixed !important;
-    top: 0; right: 0; bottom: 0;
-    width: 86% !important; max-width: 320px;
-    height: 100vh;
-    z-index: 700;
-    transform: translateX(100%);
-    transition: transform var(--trans-slow);
-    border-left: 1px solid var(--bdr);
-    box-shadow: -10px 0 32px rgba(0,0,0,.18);
-  }
-  .filter-panel.fp-open.on { transform: translateX(0); }
+  /* 종목발굴 — 기존 .mob-filter-overlay 바텀시트 사용. 데스크탑 .filter-panel 은 숨김 */
+  .filter-panel { display: none !important; }
   .scroll:has(#pg-screener.on) {
     flex-direction: column !important;
     overflow-y: auto !important;
@@ -3481,6 +3479,7 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
   .scroll:has(#pg-screener.on) .screener-right {
     overflow-y: visible !important;
     padding: 0 !important;
+    width: 100% !important;
   }
 
   /* 상세 페이지 — 헤더/버튼 컴팩트 */
@@ -10656,13 +10655,8 @@ function migrateOldUser(){
   border-color:var(--brand);color:var(--brand);
   box-shadow:0 6px 16px rgba(37,99,235,.18);
 }
-/* 스톡이 열려있을 땐 스톡이 버튼만 숨김 (맨 위로 버튼은 유지) */
+/* 스톡이 열려있을 땐 스톡이 버튼만 숨김 (맨 위로 버튼은 하단 그대로 유지) */
 body.stockie-open .float-btn-ai{display:none;}
-/* 맨 위로 버튼은 우상단(GNB 아래)으로 이동 — 패널이 어디 있든 항상 접근 가능 */
-body.stockie-open .float-btns{
-  bottom:auto;
-  top:calc(var(--hdr, 52px) + 16px);
-}
 </style>
 
 <!-- ══ 플로팅 버튼 ══ -->
