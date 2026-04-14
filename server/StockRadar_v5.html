@@ -7823,10 +7823,9 @@ function renderWatchlistPage(){
     const compareMode = !!window._wlCompareMode;
     const compareIds = window._wlCompareIds || [];
     const isSelected = compareMode && compareIds.includes(id);
-    const clickHandler = compareMode ? `toggleCompareSelect('${id}')` : `openDetail('${id}')`;
-    return `<div class="wl-full-card ${isUp?'up-c':'dn-c'} ${isSelected?'wl-selected':''}" onclick="${clickHandler}">
+    return `<div class="wl-full-card ${isUp?'up-c':'dn-c'} ${isSelected?'wl-selected':''}" data-wl-id="${id}">
       ${compareMode ? `<div class="wl-compare-mark">${isSelected?'✓':''}</div>` : ''}
-      <button class="wl-full-x" onclick="removeWL('${id}',event)" title="제거">✕</button>
+      <button class="wl-full-x" data-wl-remove="${id}" title="제거">✕</button>
       <div class="wl-full-top">
         <div>
           <div class="wl-full-sub">${isKR?'🇰🇷 코스피':'🇺🇸 미국'} · ${m.sec||'—'}</div>
@@ -7847,6 +7846,24 @@ function renderWatchlistPage(){
     </div>`;
   }).join('');
   sorted.forEach(id => setTimeout(() => drawSpark(`wls-${id}`, liveData[id]?.closes, (liveData[id]?.changeRate??0)>=0), 80));
+  // 위임 클릭 핸들러 — 한 번만 바인드
+  if (!el._wlBound) {
+    el._wlBound = true;
+    el.addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-wl-remove]');
+      if (rm) {
+        e.stopPropagation();
+        const rid = rm.getAttribute('data-wl-remove');
+        removeWL(rid, e);
+        return;
+      }
+      const card = e.target.closest('[data-wl-id]');
+      if (!card) return;
+      const cid = card.getAttribute('data-wl-id');
+      if (window._wlCompareMode) toggleCompareSelect(cid);
+      else openDetail(cid);
+    });
+  }
 }
 function setWatchlistSort(key){
   window._wlSort = key;
