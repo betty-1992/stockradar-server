@@ -3060,6 +3060,59 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 [data-theme="dark"] .ai-chat-hdr { filter: brightness(.9); }
 
 /* ══════════════════════════════════════════════
+   ⭐ 관심종목 전용 페이지
+   ══════════════════════════════════════════════ */
+.wl-sort-btn{
+  padding:6px 12px;border-radius:999px;border:1.5px solid var(--bdr);
+  background:var(--white);color:var(--tx3);font-size:11.5px;font-weight:700;
+  cursor:pointer;transition:all var(--trans);white-space:nowrap;
+}
+.wl-sort-btn:hover{border-color:var(--brand);color:var(--brand);}
+.wl-sort-btn.on{background:var(--brand);border-color:var(--brand);color:#fff;}
+.wl-full-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;
+}
+.wl-full-card{
+  position:relative;background:var(--white);border:1px solid var(--bdr);
+  border-radius:var(--r-lg);padding:16px 18px;cursor:pointer;
+  transition:all var(--trans);
+}
+.wl-full-card:hover{transform:translateY(-2px);box-shadow:var(--sh-hover);border-color:var(--brand);}
+.wl-full-card.up-c{border-left:3px solid var(--up);}
+.wl-full-card.dn-c{border-left:3px solid var(--dn);}
+.wl-full-x{
+  position:absolute;top:10px;right:10px;
+  width:24px;height:24px;border-radius:8px;
+  background:var(--surf);border:none;color:var(--tx4);font-size:12px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity var(--trans);
+}
+.wl-full-card:hover .wl-full-x{opacity:1;}
+.wl-full-x:hover{background:var(--bdr);color:var(--tx2);}
+.wl-full-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+.wl-full-sub{font-size:10.5px;color:var(--tx4);font-weight:700;margin-bottom:4px;letter-spacing:.2px;}
+.wl-full-name{font-size:16px;font-weight:800;color:var(--tx);line-height:1.3;letter-spacing:-.3px;}
+.wl-full-ticker{font-size:11px;color:var(--tx4);font-family:var(--mono);margin-top:2px;}
+.wl-full-px{font-size:20px;font-weight:900;letter-spacing:-.4px;line-height:1.1;}
+.wl-full-px.up{color:var(--up);}
+.wl-full-px.dn{color:var(--dn);}
+.wl-full-chg{font-size:12px;font-weight:700;margin-top:2px;}
+.wl-full-chg.up{color:var(--up);}
+.wl-full-chg.dn{color:var(--dn);}
+.wl-full-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.wl-full-metric{background:var(--surf);border-radius:10px;padding:8px 10px;text-align:center;}
+.wl-full-metric-lbl{font-size:9.5px;color:var(--tx4);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;}
+.wl-full-metric-val{font-size:13px;font-weight:800;color:var(--tx);font-family:var(--mono);}
+.wl-full-spark{height:40px;}
+[data-theme="dark"] .wl-full-card{background:var(--white);border-color:var(--bdr);}
+[data-theme="dark"] .wl-full-metric{background:var(--surf);}
+@media(max-width:768px){
+  .wl-full-grid{grid-template-columns:1fr;gap:10px;}
+  .wl-full-card{padding:14px;}
+  .wl-full-x{opacity:1;}
+}
+
+/* ══════════════════════════════════════════════
    🎯 온보딩 팝업 (시각 레이어드)
    ══════════════════════════════════════════════ */
 .ob-overlay { background: rgba(16,24,40,.55); backdrop-filter: blur(4px); }
@@ -3353,6 +3406,10 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
       <span class="lnb-item-ico" style="margin-right:8px;display:inline-flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
       <span class="lnb-item-txt">종목 발굴</span>
     </div>
+    <div class="lnb-item" onclick="go(this,'watchlist')">
+      <span class="lnb-item-ico" style="margin-right:8px;display:inline-flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8l2.9 5.88 6.5.94-4.7 4.58 1.11 6.47L12 17.6l-5.81 3.06 1.11-6.47L2.6 9.62l6.5-.94z"/></svg></span>
+      <span class="lnb-item-txt">관심종목</span>
+    </div>
     <div class="lnb-item" onclick="go(this,'issue')">
       <span class="lnb-item-ico" style="margin-right:8px;display:inline-flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
       <span class="lnb-item-txt">트렌드 트래커</span>
@@ -3431,7 +3488,10 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 
     <div class="g2 section">
       <div class="panel">
-        <div class="sh"><div class="st">⭐ 내 관심종목</div><div class="sm" onclick="go(null,'screener')">＋ 추가</div></div>
+        <div class="sh">
+          <div class="st">⭐ 내 관심종목</div>
+          <div class="sm" onclick="go(null,'watchlist')">전체 보기 →</div>
+        </div>
         <div id="homeWL"></div>
       </div>
       <div class="panel">
@@ -3457,6 +3517,25 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
       <div id="homeKwChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;align-items:center"></div>
       <div class="news-list" id="homeNews"></div>
     </div>
+  </div>
+
+  <!-- ══ 관심종목 (전용 페이지) ══ -->
+  <div class="page" id="pg-watchlist">
+    <div class="card section" style="padding:18px 20px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:18px;font-weight:900;letter-spacing:-.3px;color:var(--tx);margin-bottom:4px">⭐ 내 관심종목</div>
+          <div id="watchlistMeta" style="font-size:12px;color:var(--tx4)"></div>
+        </div>
+        <div id="watchlistSort" style="display:flex;gap:6px">
+          <button class="wl-sort-btn on" data-sort="default" onclick="setWatchlistSort('default')">추가순</button>
+          <button class="wl-sort-btn" data-sort="chg_desc" onclick="setWatchlistSort('chg_desc')">상승↓</button>
+          <button class="wl-sort-btn" data-sort="chg_asc" onclick="setWatchlistSort('chg_asc')">하락↓</button>
+          <button class="wl-sort-btn" data-sort="name" onclick="setWatchlistSort('name')">이름</button>
+        </div>
+      </div>
+    </div>
+    <div id="watchlistGrid" class="wl-full-grid"></div>
   </div>
 
   <!-- ══ 종목발굴 ══ -->
@@ -6174,7 +6253,10 @@ function renderHomeWL(){
     el.innerHTML=`<div class="card" style="padding:18px;text-align:center;color:var(--tx4);font-size:13px"><div style="font-size:30px;margin-bottom:8px">⭐</div>아직 관심종목이 없어요<br>종목발굴에서 추가해보세요!</div>`;
     return;
   }
-  const items=wl.map(id=>{
+  // 홈에서는 최대 4개까지만 미리보기 (나머지는 "관심종목" 페이지에서)
+  const HOME_WL_LIMIT = 4;
+  const visible = wl.slice(0, HOME_WL_LIMIT);
+  const items=visible.map(id=>{
     const m=MASTER[id]||{}; const d=liveData[id]||{};
     const cr=d.changeRate??0; const isUp=cr>=0;
     return `<div class="wl-card ${isUp?'up-c':'dn-c'}" onclick="openDetail('${id}')">
@@ -6186,9 +6268,100 @@ function renderHomeWL(){
       <div class="wl-spark"><canvas id="ws-${id}" style="width:100%;height:32px"></canvas></div>
     </div>`;
   }).join('');
-  el.innerHTML=`<div class="g4">${items}</div>`;
-  wl.forEach(id=>setTimeout(()=>drawSpark(`ws-${id}`,liveData[id]?.closes,(liveData[id]?.changeRate??0)>=0),100));
+  const more = wl.length > HOME_WL_LIMIT
+    ? `<div style="text-align:center;padding:12px;color:var(--brand);font-size:12px;font-weight:700;cursor:pointer" onclick="go(null,'watchlist')">+ ${wl.length - HOME_WL_LIMIT}개 더 보기 →</div>`
+    : '';
+  el.innerHTML=`<div class="g2" style="grid-template-columns:repeat(2,1fr);gap:8px">${items}</div>${more}`;
+  visible.forEach(id=>setTimeout(()=>drawSpark(`ws-${id}`,liveData[id]?.closes,(liveData[id]?.changeRate??0)>=0),100));
 }
+
+// ─── 관심종목 전용 페이지 ─────────────────────
+function renderWatchlistPage(){
+  const wl = gWL();
+  const el = document.getElementById('watchlistGrid');
+  const metaEl = document.getElementById('watchlistMeta');
+  if (!el) return;
+  if (!gUser()) {
+    metaEl.textContent = '';
+    el.innerHTML = `<div class="card" style="padding:40px 20px;text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">⭐</div>
+      <div style="font-size:16px;font-weight:800;margin-bottom:6px">로그인이 필요해요</div>
+      <div style="font-size:13px;color:var(--tx4);margin-bottom:16px">관심종목은 계정에 저장됩니다</div>
+      <button class="btn btn-p" onclick="om('loginOv')">로그인하기</button>
+    </div>`;
+    return;
+  }
+  if (!wl.length) {
+    metaEl.textContent = '0개';
+    el.innerHTML = `<div class="card" style="padding:48px 20px;text-align:center">
+      <div style="font-size:56px;margin-bottom:14px;filter:drop-shadow(0 4px 8px rgba(16,24,40,.1))">⭐</div>
+      <div style="font-size:16px;font-weight:800;margin-bottom:6px">아직 관심종목이 없어요</div>
+      <div style="font-size:13px;color:var(--tx4);line-height:1.6;margin-bottom:18px">
+        마음에 드는 종목을 발견하면<br>별표를 눌러 저장해보세요
+      </div>
+      <button class="btn btn-p" onclick="go(null,'screener')">종목 발굴하러 가기</button>
+    </div>`;
+    return;
+  }
+  // 오름차순/내림차순/종목순 정렬 옵션
+  const sortKey = (window._wlSort || 'default');
+  let sorted = [...wl];
+  const chg = id => liveData[id]?.changeRate ?? 0;
+  if (sortKey === 'chg_desc') sorted.sort((a,b) => chg(b) - chg(a));
+  else if (sortKey === 'chg_asc') sorted.sort((a,b) => chg(a) - chg(b));
+  else if (sortKey === 'name') sorted.sort((a,b) => {
+    const na = MASTER[a]?.nm || a; const nb = MASTER[b]?.nm || b;
+    return na.localeCompare(nb, 'ko');
+  });
+
+  // 요약: 평균 변동률, 상승/하락 종목 수
+  const changes = sorted.map(chg).filter(v => !isNaN(v));
+  const avg = changes.length ? (changes.reduce((a,b)=>a+b,0) / changes.length) : 0;
+  const ups = changes.filter(v => v > 0).length;
+  const dns = changes.filter(v => v < 0).length;
+  metaEl.innerHTML = `<b>${wl.length}개</b> · 평균 ${avg>=0?'▲':'▼'}${Math.abs(avg).toFixed(2)}% · 상승 ${ups} · 하락 ${dns}`;
+
+  el.innerHTML = sorted.map(id => {
+    const m = MASTER[id] || {};
+    const d = liveData[id] || {};
+    const cr = d.changeRate ?? 0;
+    const isUp = cr >= 0;
+    const isKR = /^\d{6}$/.test(id);
+    const per = d.pe ?? m.per ?? 0;
+    const perStr = per > 0 ? per.toFixed(1) + 'x' : '—';
+    const mc = d.mc ?? m.mc ?? 0;
+    const mcStr = mc >= 1000 ? `$${(mc/1000).toFixed(1)}B` : mc > 0 ? `$${mc}M` : '—';
+    return `<div class="wl-full-card ${isUp?'up-c':'dn-c'}" onclick="openDetail('${id}')">
+      <button class="wl-full-x" onclick="removeWL('${id}',event)" title="제거">✕</button>
+      <div class="wl-full-top">
+        <div>
+          <div class="wl-full-sub">${isKR?'🇰🇷 코스피':'🇺🇸 미국'} · ${m.sec||'—'}</div>
+          <div class="wl-full-name">${d.name||m.nm||id}</div>
+          <div class="wl-full-ticker">${id}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="wl-full-px ${isUp?'up':'dn'}">${fmtP(d.price,id)}</div>
+          <div class="wl-full-chg ${isUp?'up':'dn'}">${isUp?'▲':'▼'}${Math.abs(cr).toFixed(2)}%</div>
+        </div>
+      </div>
+      <div class="wl-full-metrics">
+        <div class="wl-full-metric"><div class="wl-full-metric-lbl">PER</div><div class="wl-full-metric-val">${perStr}</div></div>
+        <div class="wl-full-metric"><div class="wl-full-metric-lbl">시가총액</div><div class="wl-full-metric-val">${mcStr}</div></div>
+        <div class="wl-full-metric"><div class="wl-full-metric-lbl">배당</div><div class="wl-full-metric-val">${(d.div ?? m.div) ? ((d.div ?? m.div).toFixed(1)+'%') : '—'}</div></div>
+      </div>
+      <div class="wl-full-spark"><canvas id="wls-${id}" style="width:100%;height:40px"></canvas></div>
+    </div>`;
+  }).join('');
+  sorted.forEach(id => setTimeout(() => drawSpark(`wls-${id}`, liveData[id]?.closes, (liveData[id]?.changeRate??0)>=0), 80));
+}
+function setWatchlistSort(key){
+  window._wlSort = key;
+  document.querySelectorAll('#watchlistSort .wl-sort-btn').forEach(b =>
+    b.classList.toggle('on', b.dataset.sort === key));
+  renderWatchlistPage();
+}
+window.renderWatchlistPage = renderWatchlistPage;
+window.setWatchlistSort = setWatchlistSort;
 
 let _homeHLCat = 'all'; // 'all' | 'surge' | 'plunge' | 'kw'
 function setHomeHLCat(cat){
@@ -9422,7 +9595,7 @@ window.openGuideArticle = openGuideArticle;
 // ══════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════
-const PAGE_TITLES={home:'홈',screener:'종목 발굴',detail:'종목 상세',issue:'트렌드 트래커',sector:'섹터맵',guide:'투자 가이드',settings:'설정',terms:'이용약관',privacy:'개인정보 처리방침',disclaimer:'투자 면책 고지'};
+const PAGE_TITLES={home:'홈',watchlist:'관심종목',screener:'종목 발굴',detail:'종목 상세',issue:'트렌드 트래커',sector:'섹터맵',guide:'투자 가이드',settings:'설정',terms:'이용약관',privacy:'개인정보 처리방침',disclaimer:'투자 면책 고지'};
 
 // ══════════════════════════════════════════════
 // 브라우저 히스토리 관리 (SPA 뒤로가기)
@@ -9526,6 +9699,7 @@ function showPage(page){
   if(page==='sector')setTimeout(renderSectorMap,50);
   if(page==='guide')renderGuide();
   if(page==='home')renderHome();
+  if(page==='watchlist')renderWatchlistPage();
   if(page==='screener'){applyFilters();}
   if(page==='settings'){
     renderSetAccount();
