@@ -3142,6 +3142,18 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 [data-theme="dark"] .stock-check-card .ck-summary { background: var(--surf) !important; }
 [data-theme="dark"] .stock-check-card .ck-summary-title { color: var(--tx) !important; }
 
+/* ─── 종목 발굴 상단 범례 영역 다크 대응 ─── */
+[data-theme="dark"] .screener-legend {
+  background: var(--white) !important;
+  border-color: var(--bdr) !important;
+}
+[data-theme="dark"] .screener-legend span,
+[data-theme="dark"] .screener-legend div { color: var(--tx2) !important; }
+[data-theme="dark"] #recommendDesc {
+  background: #15233e !important;
+  color: #93c5fd !important;
+}
+
 /* ─── 홈 오늘 주목 종목: 분류 뱃지 / 부가 chips — 라이트 + 다크 대응 ─── */
 .hl-badge.hl-pri-kw { background: #eef2ff; color: #4f46e5; border-color: #c7d2fe; }
 .hl-badge.hl-pri-up { background: #fff5f5; color: #c92a2a; border-color: #fecaca; }
@@ -4837,7 +4849,7 @@ html[data-theme="dark"] body .toast,
             ⭐ <b>추천순</b> = ROE · 매출성장 · PER · 52주 낙폭(매수타이밍) · 배당 기준 자동 계산 · 필터 조건 부합도 반영
           </div>
           <!-- 범례 -->
-          <div style="display:flex;align-items:center;gap:9px;font-size:11px;padding:5px 10px;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-radius:8px;flex-wrap:wrap;border:1px solid var(--bdr)">
+          <div class="screener-legend" style="display:flex;align-items:center;gap:9px;font-size:11px;padding:5px 10px;background:var(--white);backdrop-filter:blur(8px);border-radius:8px;flex-wrap:wrap;border:1px solid var(--bdr)">
             <span style="color:var(--tx4);font-weight:500">지표:</span>
             <div style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c-good)"></span><span style="color:var(--c-good);font-weight:600">좋음</span></div>
             <div style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c-warn)"></span><span style="color:var(--tx2);font-weight:600">보통</span></div>
