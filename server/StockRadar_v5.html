@@ -7600,12 +7600,8 @@ function renderDashboard(){
         </div>
       `;
       slot.appendChild(gal);
-    } else {
-      const msg = document.createElement('div');
-      msg.style.cssText = 'text-align:center;color:var(--tx4);font-size:12px;padding:20px';
-      msg.textContent = '모든 위젯이 이미 대시보드에 있어요';
-      slot.appendChild(msg);
     }
+    // 모든 위젯이 이미 있을 때는 별도 메시지 노출 X
   }
   // 추가된 위젯에 맞춰 데이터 채우기
   renderHomeWL(); renderHomeHL(); renderHomeNews();
