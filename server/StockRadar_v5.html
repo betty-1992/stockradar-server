@@ -3592,25 +3592,26 @@ html[data-theme="dark"] body .toast,
 /* ══════════════════════════════════════════════
    🏠 대시보드 위젯
    ══════════════════════════════════════════════ */
-#dashboardWidgets { display: flex; flex-direction: column; gap: 14px; }
-.widget {
-  background: var(--white);
-  border: 1px solid var(--bdr);
-  border-radius: var(--r-lg);
-  padding: 18px 20px;
-  box-shadow: var(--sh1);
-  position: relative;
-}
+#dashboardWidgets { display: flex; flex-direction: column; gap: 16px; }
+/* 기본 상태: 섹션끼리 시각적 구분만, 별도 container chrome 없음 */
+.widget { position: relative; }
 .widget-hdr {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; margin-bottom: 12px;
+  gap: 10px; margin-bottom: 10px; padding: 0 2px;
 }
 .widget-title {
-  font-size: 15px; font-weight: 800; letter-spacing: -.2px; color: var(--tx);
+  font-size: 16px; font-weight: 800; letter-spacing: -.3px; color: var(--tx);
+}
+/* 편집 모드에서만 카드형 컨테이너 + 대시 보더 */
+#dashboardWidgets.editing .widget {
+  background: var(--white);
+  border: 2px dashed var(--brand);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  animation: wShake .28s ease;
 }
 .widget.is-editing {
-  border: 2px dashed var(--brand);
-  animation: wShake .28s ease;
+  /* (backward compat; 편집 모드는 부모 클래스 기준으로 처리) */
 }
 @keyframes wShake { from { transform: translateX(-2px); } 50% { transform: translateX(2px); } to { transform: translateX(0); } }
 .widget-edit-ctrl {
