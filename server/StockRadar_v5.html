@@ -3129,6 +3129,51 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 [data-theme="dark"] .stock-check-card .ck-summary { background: var(--surf) !important; }
 [data-theme="dark"] .stock-check-card .ck-summary-title { color: var(--tx) !important; }
 
+/* 🎯 최후의 catch-all — 인라인 하드코딩 라이트 배경 강제 오버라이드 */
+[data-theme="dark"] [style*="background:#fff"],
+[data-theme="dark"] [style*="background: #fff"],
+[data-theme="dark"] [style*="background:#f9fafb"],
+[data-theme="dark"] [style*="background:#f8fafc"],
+[data-theme="dark"] [style*="background:var(--white)"],
+[data-theme="dark"] [style*="background:var(--surf)"] {
+  background: var(--white) !important;
+  color: var(--tx) !important;
+}
+[data-theme="dark"] [style*="color:#111"],
+[data-theme="dark"] [style*="color: #111"],
+[data-theme="dark"] [style*="color:#000"] { color: var(--tx) !important; }
+[data-theme="dark"] [style*="border:1px solid #eee"],
+[data-theme="dark"] [style*="border:1px solid #e5e8eb"] { border-color: var(--bdr) !important; }
+
+/* 모든 chip / 뱃지류 공통 — 기본 토큰으로 */
+[data-theme="dark"] .chip,
+[data-theme="dark"] .chip-label,
+[data-theme="dark"] .tag,
+[data-theme="dark"] .badge,
+[data-theme="dark"] .pill,
+[data-theme="dark"] .cat-pill,
+[data-theme="dark"] .sc-mkt-badge,
+[data-theme="dark"] .stat-chip,
+[data-theme="dark"] .legend-chip {
+  background: var(--surf) !important;
+  color: var(--tx2) !important;
+  border-color: var(--bdr) !important;
+}
+
+/* Toast 재확인 */
+[data-theme="dark"] .toast {
+  background: #f2f4f6 !important;
+  color: #191f28 !important;
+}
+
+/* 섹터 차트 위 라벨·범례 */
+[data-theme="dark"] #treemapLegend,
+[data-theme="dark"] #secChartLabel,
+[data-theme="dark"] #secTableLabel,
+[data-theme="dark"] .news-meta,
+[data-theme="dark"] .wl-sub,
+[data-theme="dark"] .detail-meta-row span { color: var(--tx3) !important; }
+
 /* ─── 스톡이 (AI 챗봇) 다크모드 ─── */
 [data-theme="dark"] .ai-chat-panel,
 [data-theme="dark"] #aiChatPanel,
@@ -10067,6 +10112,11 @@ function showPage(page){
   if(page==='home')renderHome();
   if(page==='watchlist')renderWatchlistPage();
   if(page==='screener'){applyFilters();}
+  // 모바일 바텀 네비 active 동기화
+  try {
+    document.querySelectorAll('.mob-nav-item').forEach(b =>
+      b.classList.toggle('on', b.dataset.page === page));
+  } catch(_){}
   if(page==='settings'){
     renderSetAccount();
   }
@@ -10657,6 +10707,55 @@ function migrateOldUser(){
 }
 /* 스톡이 열려있을 땐 스톡이 버튼만 숨김 (맨 위로 버튼은 하단 그대로 유지) */
 body.stockie-open .float-btn-ai{display:none;}
+
+/* ══════════════════════════════════════════════
+   📱 모바일 바텀 네비게이션
+   ══════════════════════════════════════════════ */
+.mob-bottom-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  z-index: 490;
+  background: var(--white);
+  border-top: 1px solid var(--bdr);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  justify-content: space-around;
+  align-items: stretch;
+  gap: 2px;
+  box-shadow: 0 -4px 16px rgba(16,24,40,.06);
+}
+[data-theme="dark"] .mob-bottom-nav {
+  background: var(--white);
+  border-top-color: var(--bdr);
+  box-shadow: 0 -4px 16px rgba(0,0,0,.3);
+}
+.mob-nav-item {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; padding: 7px 4px;
+  background: none; border: none; cursor: pointer;
+  color: var(--tx4); font-size: 10px; font-weight: 700;
+  border-radius: 10px;
+  transition: color var(--trans), background var(--trans);
+}
+.mob-nav-item svg { stroke-width: 2; }
+.mob-nav-item:active { background: var(--surf); }
+.mob-nav-item.on { color: var(--brand); }
+.mob-nav-item.on svg { stroke-width: 2.4; }
+
+@media (max-width: 768px) {
+  .mob-bottom-nav { display: flex; }
+  /* 하단 네비 높이만큼 본문 여백 확보 */
+  .scroll { padding-bottom: 80px !important; }
+  /* 플로팅 버튼(맨 위로 + 스톡이)을 바텀 네비 위로 올림 */
+  .float-btns { bottom: 72px !important; right: 10px !important; }
+  /* 공지 배너 하단 고정 X — 기본은 top 이라 무관 */
+  /* AI 챗 패널 bottom 도 바텀 네비 피하기 */
+  .ai-chat-panel { bottom: 76px !important; max-height: 68vh !important; }
+}
+/* 데스크탑에서는 바텀 네비 숨김 */
+@media (min-width: 769px) {
+  .mob-bottom-nav { display: none !important; }
+}
 </style>
 
 <!-- ══ 플로팅 버튼 ══ -->
@@ -10670,6 +10769,30 @@ body.stockie-open .float-btn-ai{display:none;}
   </button>
   <button class="float-btn float-btn-top" onclick="scrollToTop()" title="맨 위로">&#8593;</button>
 </div>
+
+<!-- ══ 모바일 전용 바텀 네비게이션 ══ -->
+<nav class="mob-bottom-nav" id="mobBottomNav">
+  <button class="mob-nav-item on" data-page="home" onclick="go(null,'home')">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span>홈</span>
+  </button>
+  <button class="mob-nav-item" data-page="screener" onclick="go(null,'screener')">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <span>발굴</span>
+  </button>
+  <button class="mob-nav-item" data-page="watchlist" onclick="go(null,'watchlist')">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8l2.9 5.88 6.5.94-4.7 4.58 1.11 6.47L12 17.6l-5.81 3.06 1.11-6.47L2.6 9.62l6.5-.94z"/></svg>
+    <span>관심</span>
+  </button>
+  <button class="mob-nav-item" data-page="sector" onclick="go(null,'sector')">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+    <span>섹터</span>
+  </button>
+  <button class="mob-nav-item" data-page="guide" onclick="go(null,'guide')">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    <span>가이드</span>
+  </button>
+</nav>
 
 <!-- ══ 스톡이 챗봇 패널 ══ -->
 <div class="ai-chat-panel" id="aiChatPanel">
