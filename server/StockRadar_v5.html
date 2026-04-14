@@ -2300,7 +2300,8 @@ input,select,textarea{font-family:var(--sans);}
 .empty-ico{font-size:40px;margin-bottom:10px;}
 .empty-t{font-size:14px;font-weight:600;margin-bottom:5px;color:var(--tx3);}
 .empty-s{font-size:12px;line-height:1.6;}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--tx);color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;font-weight:500;z-index:9999;opacity:0;pointer-events:none;transition:opacity .3s;white-space:nowrap;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;font-weight:500;z-index:9999;opacity:0;pointer-events:none;transition:opacity .3s;white-space:nowrap;box-shadow:0 6px 24px rgba(0,0,0,.25);}
+[data-theme="dark"] .toast{background:#f2f4f6;color:#191f28;}
 .toast.on{opacity:1;}
 .mob-btn{display:none;padding:6px;border-radius:7px;background:var(--surf);border:1px solid var(--bdr);font-size:18px;cursor:pointer;}
 @media(max-width:768px){.mob-btn{display:flex;align-items:center;}}
@@ -2947,6 +2948,204 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 
 /* Chart.js 캔버스는 색을 JS로 설정해야 — 그리드만 살짝 어둡게 */
 [data-theme="dark"] canvas { filter: brightness(.95); }
+
+/* ─── 다크모드: 배지·칩·태그 대비 패치 ─── */
+[data-theme="dark"] .chip,
+[data-theme="dark"] .sc-mkt-badge,
+[data-theme="dark"] .cat-pill,
+[data-theme="dark"] .sec-pop-tag,
+[data-theme="dark"] .blog-card-cat,
+[data-theme="dark"] .fp-qbtn,
+[data-theme="dark"] .hl-tab,
+[data-theme="dark"] .guide-tab,
+[data-theme="dark"] .tm-view-btn {
+  background: var(--surf) !important;
+  color: var(--tx2) !important;
+  border-color: var(--bdr) !important;
+}
+[data-theme="dark"] .chip.chip-active,
+[data-theme="dark"] .chip-active {
+  background: #0f2e1c !important; color: #86efac !important;
+}
+[data-theme="dark"] .chip-pending {
+  background: #2e240a !important; color: #fcd34d !important;
+}
+[data-theme="dark"] .chip-banned {
+  background: #2e1212 !important; color: #fca5a5 !important;
+}
+[data-theme="dark"] .chip-admin {
+  background: #f2f4f6 !important; color: #191f28 !important;
+}
+[data-theme="dark"] .fp-qbtn.on,
+[data-theme="dark"] .hl-tab.on,
+[data-theme="dark"] .guide-tab.on,
+[data-theme="dark"] .tm-view-btn.on,
+[data-theme="dark"] .blog-cat-btn.on {
+  background: var(--brand) !important;
+  color: #fff !important;
+  border-color: var(--brand) !important;
+}
+
+/* 체크리스트 카드 — pass/warn/fail 배경 다크 톤 */
+[data-theme="dark"] .chk.pass { background: #102a1a !important; border-left-color: #16a34a !important; }
+[data-theme="dark"] .chk.warn { background: #2a1f0a !important; border-left-color: #d97706 !important; }
+[data-theme="dark"] .chk.fail { background: #2a1313 !important; border-left-color: #dc2626 !important; }
+
+/* 종목 발굴 카드 배경 + 지표 셀 */
+[data-theme="dark"] .stock-card,
+[data-theme="dark"] .sc-card { background: var(--white) !important; }
+[data-theme="dark"] .sc-metric,
+[data-theme="dark"] .info-cell,
+[data-theme="dark"] .metric-cell { background: var(--surf) !important; }
+
+/* 가이드 블로그 — tip/warn 박스, 코드 */
+[data-theme="dark"] .blog-article-body .tip { background: #15233e !important; border-left-color: #4a8fff !important; color: #c8ccd4 !important; }
+[data-theme="dark"] .blog-article-body .warn { background: #2a1313 !important; border-left-color: #dc2626 !important; color: #fca5a5 !important; }
+[data-theme="dark"] .blog-article-body .illus { background: var(--surf) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .blog-article-body code { background: var(--surf) !important; color: #c8ccd4 !important; }
+
+/* 버튼 보조 — btn-g, btn-d 라이트 하드코딩 제거 */
+[data-theme="dark"] .btn-g { background: var(--surf) !important; color: var(--brand) !important; border-color: var(--brand) !important; }
+[data-theme="dark"] .btn-g:hover { background: var(--blue-bg) !important; }
+[data-theme="dark"] .btn-d { background: #2a1313 !important; color: #fca5a5 !important; border-color: #5a1f1f !important; }
+
+/* 입력/선택 박스 — 포커스 시 대비 */
+[data-theme="dark"] .inp,
+[data-theme="dark"] .sel,
+[data-theme="dark"] .fp-input,
+[data-theme="dark"] .fp-range input { background: var(--surf) !important; color: var(--tx) !important; border-color: var(--bdr) !important; }
+
+/* 검색 오버레이 */
+[data-theme="dark"] .search-overlay { background: rgba(0,0,0,.7); }
+[data-theme="dark"] .sm-row,
+[data-theme="dark"] .sm-tag { background: var(--white) !important; color: var(--tx2) !important; border-color: var(--bdr) !important; }
+
+/* 모달 기본 컨테이너 */
+[data-theme="dark"] .overlay { background: rgba(0,0,0,.6); }
+[data-theme="dark"] .modal { background: var(--white) !important; }
+
+/* 트리맵 셀 텍스트 */
+[data-theme="dark"] .tm-cell { filter: brightness(.85); }
+[data-theme="dark"] .tm-cell-title,
+[data-theme="dark"] .tm-cell-count { text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+
+/* 푸터/기타 밝은 배경 하드코딩 요소 */
+[data-theme="dark"] .footer,
+[data-theme="dark"] .legal-wrap,
+[data-theme="dark"] .master-card,
+[data-theme="dark"] .ind-card,
+[data-theme="dark"] .guide-mistake-card,
+[data-theme="dark"] .guide-basic-card,
+[data-theme="dark"] .guide-part-group,
+[data-theme="dark"] .fmp-banner { background: var(--white) !important; border-color: var(--bdr) !important; }
+
+/* ─── 스톡이 (AI 챗봇) 다크모드 ─── */
+[data-theme="dark"] .ai-chat-panel,
+[data-theme="dark"] #aiChatPanel,
+[data-theme="dark"] .ai-chat-body,
+[data-theme="dark"] #aiChatBody { background: var(--white) !important; color: var(--tx) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .ai-chat-inp,
+[data-theme="dark"] #aiChatInp { background: var(--surf) !important; color: var(--tx) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .ai-chat-inp::placeholder,
+[data-theme="dark"] #aiChatInp::placeholder { color: var(--tx4) !important; }
+[data-theme="dark"] .stockie-msg,
+[data-theme="dark"] .stockie-bubble,
+[data-theme="dark"] .stockie-bubble-user,
+[data-theme="dark"] .stockie-bubble-assistant { background: var(--surf) !important; color: var(--tx) !important; }
+[data-theme="dark"] .stockie-bubble-user { background: var(--brand) !important; color: #fff !important; }
+[data-theme="dark"] .stockie-chip,
+[data-theme="dark"] .stockie-faq-chip { background: var(--surf-2) !important; color: var(--tx2) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .stockie-faq-chip:hover { background: var(--brand-lt) !important; color: var(--brand) !important; }
+/* 스톡이 플로팅 버튼 & 패널 헤더는 그라데이션 유지 — 대비 좋음 */
+[data-theme="dark"] .ai-chat-hdr { filter: brightness(.9); }
+
+/* ══════════════════════════════════════════════
+   🎯 온보딩 팝업 (시각 레이어드)
+   ══════════════════════════════════════════════ */
+.ob-overlay { background: rgba(16,24,40,.55); backdrop-filter: blur(4px); }
+.ob-modal {
+  max-width: 380px; width: calc(100% - 32px);
+  padding: 0 !important; position: relative;
+  border-radius: var(--r-xl) !important;
+  overflow: hidden;
+  box-shadow: var(--sh3);
+  animation: obPop .32s cubic-bezier(.32,.72,0,1);
+}
+@keyframes obPop { from { opacity:0; transform: translateY(20px) scale(.94); } to { opacity:1; transform: translateY(0) scale(1); } }
+.ob-skip {
+  position: absolute; top: 14px; right: 16px;
+  background: none; border: none; font-size: 12px;
+  color: var(--tx4); font-weight: 600; cursor: pointer;
+  padding: 4px 8px; border-radius: 6px; z-index: 2;
+  transition: all var(--trans-fast);
+}
+.ob-skip:hover { color: var(--tx2); background: var(--surf); }
+.ob-title {
+  padding: 18px 24px 0; font-size: 12px; font-weight: 800;
+  color: var(--brand); text-align: center; letter-spacing: .3px;
+  text-transform: uppercase;
+}
+.ob-hero {
+  height: 180px; display: flex; align-items: center; justify-content: center;
+  margin: 14px 20px 8px;
+  background: linear-gradient(135deg, var(--blue-bg) 0%, var(--surf) 100%);
+  border-radius: var(--r-lg);
+  position: relative;
+  overflow: hidden;
+}
+.ob-hero::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 70% 30%, rgba(49,130,246,.08), transparent 60%);
+  pointer-events: none;
+}
+.ob-hero svg { width: 80%; height: 80%; max-height: 150px; filter: drop-shadow(0 4px 12px rgba(16,24,40,.08)); }
+[data-theme="dark"] .ob-hero { background: linear-gradient(135deg, #15233e 0%, #181b21 100%); }
+[data-theme="dark"] .ob-hero svg { filter: drop-shadow(0 4px 12px rgba(0,0,0,.5)); }
+.ob-step-num {
+  text-align: center; font-size: 10.5px; font-weight: 800;
+  color: var(--tx4); letter-spacing: 1px; margin: 14px 0 6px;
+}
+.ob-step-title {
+  text-align: center; font-size: 20px; font-weight: 900;
+  color: var(--tx); letter-spacing: -.5px; margin: 0 24px 8px;
+  line-height: 1.3;
+}
+.ob-step-desc {
+  text-align: center; font-size: 13.5px; color: var(--tx3);
+  line-height: 1.55; margin: 0 24px 20px;
+}
+.ob-dots {
+  display: flex; justify-content: center; gap: 8px;
+  margin: 4px 0 18px;
+}
+.ob-dot {
+  width: 8px; height: 8px; border-radius: 999px;
+  background: var(--bdr); cursor: pointer;
+  transition: all var(--trans);
+}
+.ob-dot.on { width: 24px; background: var(--brand); }
+.ob-dot:hover { background: var(--tx4); }
+.ob-dot.on:hover { background: var(--brand-dk); }
+.ob-btns {
+  display: flex; gap: 10px; padding: 0 24px 22px;
+}
+.ob-btn-prev {
+  flex: 0 0 auto; background: var(--surf); color: var(--tx2);
+  padding: 12px 18px; border-radius: 12px; font-weight: 700;
+}
+.ob-btn-prev:hover { background: var(--bdr); }
+.ob-btn-next {
+  flex: 1; padding: 12px 18px; border-radius: 12px; font-weight: 800;
+  box-shadow: 0 4px 12px rgba(49,130,246,.25);
+}
+.ob-btn-next:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(49,130,246,.35); }
+[data-theme="dark"] .ob-btn-next { box-shadow: 0 4px 12px rgba(74,143,255,.35); }
+@media (max-width: 420px) {
+  .ob-hero { height: 150px; margin: 12px 16px 6px; }
+  .ob-step-title { font-size: 18px; margin: 0 18px 6px; }
+  .ob-step-desc { font-size: 12.5px; margin: 0 18px 16px; }
+  .ob-btns { padding: 0 18px 18px; }
+}
 
 /* ══════════════════════════════════════════════
    📱 모바일 반응형 (≤768px) — Toss 스타일 컴팩트
@@ -10785,53 +10984,52 @@ function _markObSeen(key){
 function resetOnboarding(){ localStorage.removeItem(ONBOARDING_SEEN_KEY); toast('온보딩이 초기화됐어요'); }
 window.resetOnboarding = resetOnboarding;
 
+// 일러스트 SVG — 단순한 레이어드 시각화
+const _obSvgFilter = `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="20" width="110" height="80" rx="10" fill="#fff" stroke="#e5e8eb" stroke-width="1.5"/><rect x="28" y="34" width="60" height="8" rx="4" fill="#e8f3ff"/><rect x="28" y="48" width="86" height="6" rx="3" fill="#f2f4f6"/><rect x="28" y="60" width="76" height="6" rx="3" fill="#f2f4f6"/><rect x="28" y="72" width="66" height="6" rx="3" fill="#f2f4f6"/><rect x="28" y="86" width="40" height="10" rx="5" fill="#3182f6"/><circle cx="160" cy="30" r="18" fill="#3182f6" opacity=".15"/><circle cx="160" cy="30" r="10" fill="#3182f6"/><text x="160" y="34" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">✓</text><circle cx="170" cy="75" r="22" fill="#fce7f3"/><text x="170" y="84" text-anchor="middle" font-size="22">🎯</text></svg>`;
+const _obSvgGrid = `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect x="14" y="18" width="56" height="44" rx="8" fill="#fff" stroke="#e5e8eb"/><rect x="76" y="18" width="56" height="44" rx="8" fill="#fff" stroke="#e5e8eb"/><rect x="138" y="18" width="46" height="44" rx="8" fill="#e8f3ff" stroke="#3182f6" stroke-width="1.5"/><rect x="14" y="68" width="56" height="44" rx="8" fill="#fff" stroke="#e5e8eb"/><rect x="76" y="68" width="56" height="44" rx="8" fill="#fff" stroke="#e5e8eb"/><rect x="138" y="68" width="46" height="44" rx="8" fill="#fff" stroke="#e5e8eb"/><text x="42" y="46" text-anchor="middle" font-size="18">📊</text><text x="104" y="46" text-anchor="middle" font-size="18">💰</text><text x="161" y="46" text-anchor="middle" font-size="18">⭐</text><text x="42" y="96" text-anchor="middle" font-size="18">📈</text><text x="104" y="96" text-anchor="middle" font-size="18">🏭</text><text x="161" y="96" text-anchor="middle" font-size="18">🔥</text></svg>`;
+const _obSvgCard = `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect x="40" y="18" width="120" height="84" rx="12" fill="#fff" stroke="#e5e8eb" stroke-width="1.5"/><text x="56" y="40" font-size="10" fill="#8b95a1" font-weight="700">AAPL</text><text x="56" y="56" font-size="16" font-weight="800" fill="#191f28">Apple Inc.</text><text x="56" y="76" font-size="16" font-weight="800" fill="#e53935">$185.50</text><text x="126" y="76" font-size="11" fill="#e53935">▲2.3%</text><rect x="56" y="84" width="34" height="10" rx="5" fill="#e8f3ff"/><text x="73" y="92" text-anchor="middle" font-size="7" fill="#3182f6" font-weight="700">AI 분석</text><rect x="94" y="84" width="30" height="10" rx="5" fill="#fef3c7"/><text x="109" y="92" text-anchor="middle" font-size="7" fill="#92400e" font-weight="700">차트</text><path d="M 158 22 Q 166 10 174 22" stroke="#3182f6" stroke-width="2" fill="none"/><circle cx="170" cy="18" r="3" fill="#3182f6"/></svg>`;
+const _obSvgAI = `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect x="20" y="18" width="160" height="86" rx="12" fill="#fff" stroke="#e5e8eb"/><circle cx="44" cy="42" r="14" fill="#ede9fe"/><text x="44" y="48" text-anchor="middle" font-size="16">🤖</text><rect x="66" y="34" width="104" height="8" rx="4" fill="#ede9fe"/><rect x="66" y="46" width="80" height="6" rx="3" fill="#f2f4f6"/><rect x="36" y="64" width="128" height="6" rx="3" fill="#f2f4f6"/><rect x="36" y="76" width="108" height="6" rx="3" fill="#f2f4f6"/><rect x="36" y="88" width="60" height="10" rx="5" fill="#dcfce7"/><text x="66" y="96" text-anchor="middle" font-size="7" fill="#166534" font-weight="700">한 줄 총평</text></svg>`;
+const _obSvgStar = `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><rect x="20" y="16" width="160" height="90" rx="12" fill="#fff" stroke="#e5e8eb"/><text x="100" y="76" text-anchor="middle" font-size="56">⭐</text><rect x="44" y="22" width="70" height="8" rx="4" fill="#f2f4f6"/><rect x="44" y="34" width="50" height="6" rx="3" fill="#f2f4f6"/><circle cx="158" cy="30" r="12" fill="#fef3c7"/><text x="158" y="35" text-anchor="middle" font-size="14">+</text></svg>`;
+const _obSvgRefresh = `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="58" r="34" fill="none" stroke="#3182f6" stroke-width="3" stroke-linecap="round" stroke-dasharray="160 60"/><path d="M 128 42 L 142 36 L 138 52 Z" fill="#3182f6"/><text x="100" y="68" text-anchor="middle" font-size="32">🔄</text><text x="100" y="108" text-anchor="middle" font-size="10" fill="#8b95a1" font-weight="600">시세·지표 새로 가져오기</text></svg>`;
+
 const OB_SCREENER = {
   key: 'screener',
-  title: '🔍 종목 발굴 · 사용법',
+  title: '🔍 종목 발굴',
   steps: [
-    { t: '어떤 종목을 볼 수 있나요?',
-      d: '한국 코스피/코스닥 주요 종목과 미국 S&P500 대표 종목을 한눈에 볼 수 있어요. ETF도 포함돼 있어요.' },
-    { t: '필터로 좁혀보세요',
-      d: '우측 필터에서 시장·섹터·PER·ROE·배당수익률 등을 조합할 수 있어요. 빠른 필터(저평가·배당왕·성장주)로 원클릭 탐색도 가능!' },
-    { t: '카드를 누르면 상세 페이지',
-      d: '카드를 클릭하면 차트·AI 분석·뉴스·재무 지표가 있는 상세 페이지로 이동해요.' },
+    { hero: _obSvgGrid,   t: '코스피·코스닥·미국',         d: '주요 종목과 ETF 를 한 번에' },
+    { hero: _obSvgFilter, t: '필터로 원하는 종목만',      d: '저평가·배당왕·성장주 원클릭' },
+    { hero: _obSvgCard,   t: '카드 탭 → 상세 페이지',     d: '차트·AI 분석·뉴스까지' },
   ],
 };
 const OB_DETAIL = {
   key: 'detail',
-  title: '📈 종목 상세 · 핵심 기능',
+  title: '📈 종목 상세',
   steps: [
-    { t: 'AI 분석 섹션',
-      d: '현재가·PER·ROE 등 핵심 지표를 AI가 분석해서 "한 줄 총평" 까지 제공해요. 로그인 필수!' },
-    { t: '관심종목 ⭐ 저장',
-      d: '우상단 별표를 누르면 관심종목에 저장돼서 홈에서 바로 볼 수 있어요.' },
-    { t: '새로고침으로 최신 데이터',
-      d: '상단 "새로고침" 버튼으로 이 종목만 시세를 다시 가져올 수 있어요. 거래 시간 중엔 자주 눌러보세요.' },
+    { hero: _obSvgAI,      t: 'AI 한 줄 총평',       d: 'PER·ROE 분석 + 투자 포인트' },
+    { hero: _obSvgStar,    t: '관심종목 저장',        d: '우상단 별표 → 홈에서 바로' },
+    { hero: _obSvgRefresh, t: '이 종목만 새로고침',  d: '상단 새로고침 버튼으로' },
   ],
 };
 
 function _showOnboarding(cfg){
-  // 이미 본 적 있으면 skip
   const seen = _getObSeen();
   if (seen[cfg.key]) return;
-  // 모달 요소 생성
   const ov = document.createElement('div');
-  ov.className = 'overlay on';
+  ov.className = 'overlay on ob-overlay';
   ov.id = '__obOv';
   ov.style.zIndex = 2000;
   ov.innerHTML = `
-    <div class="modal" style="max-width:400px">
-      <div class="modal-hdr">
-        <div class="modal-title">${cfg.title}</div>
-        <button class="modal-x" onclick="_obClose()">✕</button>
-      </div>
-      <div id="__obBody" style="padding:4px 2px 8px"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px">
-        <div id="__obDots" style="display:flex;gap:6px"></div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-g" id="__obPrev" onclick="_obPrev()" style="display:none">이전</button>
-          <button class="btn btn-p" id="__obNext" onclick="_obNext()">다음</button>
-        </div>
+    <div class="modal ob-modal">
+      <button class="ob-skip" onclick="_obSkip()">건너뛰기</button>
+      <div class="ob-title">${cfg.title}</div>
+      <div class="ob-hero" id="__obHero"></div>
+      <div class="ob-step-num" id="__obStepNum"></div>
+      <div class="ob-step-title" id="__obStepTitle"></div>
+      <div class="ob-step-desc" id="__obStepDesc"></div>
+      <div class="ob-dots" id="__obDots"></div>
+      <div class="ob-btns">
+        <button class="btn ob-btn-prev" id="__obPrev" onclick="_obPrev()">← 이전</button>
+        <button class="btn btn-p ob-btn-next" id="__obNext" onclick="_obNext()">다음 →</button>
       </div>
     </div>
   `;
@@ -10846,19 +11044,30 @@ function _obRender(){
   const cfg = ov.__cfg;
   const i = ov.__step;
   const s = cfg.steps[i];
-  const body = document.getElementById('__obBody');
-  body.innerHTML = `
-    <div style="font-size:38px;text-align:center;margin-bottom:10px">${['1️⃣','2️⃣','3️⃣','4️⃣'][i]||'•'}</div>
-    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--tx);letter-spacing:-.2px">${s.t}</div>
-    <div style="font-size:13.5px;color:var(--tx2);line-height:1.65">${s.d}</div>
-  `;
+  document.getElementById('__obHero').innerHTML = s.hero || `<div style="font-size:72px">${s.ico||'✨'}</div>`;
+  document.getElementById('__obStepNum').textContent = `STEP ${i+1} / ${cfg.steps.length}`;
+  document.getElementById('__obStepTitle').textContent = s.t;
+  document.getElementById('__obStepDesc').textContent = s.d;
   const dots = document.getElementById('__obDots');
   dots.innerHTML = cfg.steps.map((_, idx) => `
-    <span style="width:${idx===i?20:7}px;height:7px;border-radius:4px;background:${idx===i?'var(--brand)':'var(--bdr)'};transition:all .22s"></span>
+    <span class="ob-dot ${idx===i?'on':''}" onclick="_obGo(${idx})"></span>
   `).join('');
-  document.getElementById('__obPrev').style.display = i > 0 ? '' : 'none';
-  document.getElementById('__obNext').textContent = i === cfg.steps.length - 1 ? '시작하기' : '다음';
+  document.getElementById('__obPrev').style.visibility = i > 0 ? 'visible' : 'hidden';
+  document.getElementById('__obNext').textContent = i === cfg.steps.length - 1 ? '시작하기 ✨' : '다음 →';
 }
+function _obGo(i){
+  const ov = document.getElementById('__obOv');
+  if (!ov) return;
+  ov.__step = i;
+  _obRender();
+}
+function _obSkip(){
+  const ov = document.getElementById('__obOv');
+  if (ov && ov.__cfg) _markObSeen(ov.__cfg.key);
+  _obClose();
+}
+window._obGo = _obGo;
+window._obSkip = _obSkip;
 function _obNext(){
   const ov = document.getElementById('__obOv');
   if (!ov) return;
