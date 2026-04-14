@@ -737,8 +737,8 @@ input,select,textarea{font-family:var(--sans);}
    minmax(260px, 1fr) 로 화면이 좁으면 자동으로 컬럼 수가 줄어듦. */
 .stock-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
-  gap:12px;
+  grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+  gap:20px;
 }
 @media(max-width:768px){.stock-grid{grid-template-columns:1fr;}}
 
@@ -4055,7 +4055,7 @@ html[data-theme="dark"] body .toast,
   }
 
   /* 종목발굴 카드 1열 */
-  .stock-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .stock-grid { grid-template-columns: 1fr !important; gap: 14px !important; }
 
   /* 종목발굴 — 기존 .mob-filter-overlay 바텀시트 사용. 데스크탑 .filter-panel 은 숨김 */
   .filter-panel { display: none !important; }
