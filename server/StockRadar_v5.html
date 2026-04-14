@@ -7274,16 +7274,39 @@ function addWidget(id){
   _saveDashLayout(layout);
   renderDashboard();
 }
-function renderDashboard(){
-  const slot = document.getElementById('dashboardWidgets');
+// 위젯 DOM 보관 — 최초 1회만 템플릿에서 분리해서 map 으로 저장
+//  (id 중복으로 hidden 템플릿이 getElementById 를 가로채는 버그 방지)
+let _widgetNodes = null;
+function _initWidgetNodes(){
+  if (_widgetNodes) return;
+  _widgetNodes = {};
   const tpl = document.getElementById('widgetTemplates');
-  if (!slot || !tpl) return;
+  if (!tpl) return;
+  // 템플릿 자식들을 분리해서 map 에 저장, 템플릿 자체는 비움
+  Array.from(tpl.querySelectorAll('[data-widget]')).forEach(node => {
+    const id = node.getAttribute('data-widget');
+    _widgetNodes[id] = node;
+    node.remove();
+  });
+  // 템플릿 컨테이너는 더 이상 필요 없음 — id/숨김 모두 제거
+  tpl.remove();
+}
+
+function renderDashboard(){
+  _initWidgetNodes();
+  const slot = document.getElementById('dashboardWidgets');
+  if (!slot || !_widgetNodes) return;
   const layout = _getDashLayout();
-  slot.innerHTML = '';
+  // 기존 편집 컨트롤만 제거 (노드는 재사용)
+  Object.values(_widgetNodes).forEach(n => {
+    const ctrl = n.querySelector(':scope > .widget-edit-ctrl');
+    if (ctrl) ctrl.remove();
+    n.classList.remove('is-editing');
+  });
+  // 슬롯 비우지 말고 순서대로 appendChild (기존 노드는 이동됨)
   layout.forEach((wid, idx) => {
-    const src = tpl.querySelector(`[data-widget="${wid}"]`);
-    if (!src) return;
-    const clone = src.cloneNode(true);
+    const node = _widgetNodes[wid];
+    if (!node) return;
     if (_dashEditMode) {
       const ctrl = document.createElement('div');
       ctrl.className = 'widget-edit-ctrl';
@@ -7292,12 +7315,18 @@ function renderDashboard(){
         <button class="we-btn" title="아래로" onclick="moveWidget('${wid}',1)" ${idx===layout.length-1?'disabled':''}>↓</button>
         <button class="we-btn we-del" title="숨기기" onclick="removeWidget('${wid}')">✕</button>
       `;
-      clone.appendChild(ctrl);
-      clone.classList.add('is-editing');
+      node.appendChild(ctrl);
+      node.classList.add('is-editing');
     }
-    slot.appendChild(clone);
+    slot.appendChild(node); // 이미 부모에 있으면 이동
   });
-  // 숨겨진 위젯 갤러리 (편집 모드일 때만)
+  // 레이아웃에 없는 노드는 슬롯에서 제거 (편집 중 remove 된 위젯 반영)
+  Array.from(slot.querySelectorAll(':scope > .widget')).forEach(n => {
+    const wid = n.getAttribute('data-widget');
+    if (!layout.includes(wid)) n.remove();
+  });
+  // 편집 갤러리 제거 후 재생성
+  Array.from(slot.querySelectorAll(':scope > .widget-gallery')).forEach(n => n.remove());
   if (_dashEditMode) {
     const hidden = DASH_WIDGETS.filter(w => !layout.includes(w.id));
     if (hidden.length) {
