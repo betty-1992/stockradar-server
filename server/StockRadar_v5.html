@@ -7697,10 +7697,12 @@ function renderWatchlistPage(){
     const perStr = per > 0 ? per.toFixed(1) + 'x' : '—';
     const mc = d.mc ?? m.mc ?? 0;
     const mcStr = mc >= 1000 ? `$${(mc/1000).toFixed(1)}B` : mc > 0 ? `$${mc}M` : '—';
-    const isSelected = _wlCompareMode && _wlCompareIds.includes(id);
-    const clickHandler = _wlCompareMode ? `toggleCompareSelect('${id}')` : `openDetail('${id}')`;
+    const compareMode = !!window._wlCompareMode;
+    const compareIds = window._wlCompareIds || [];
+    const isSelected = compareMode && compareIds.includes(id);
+    const clickHandler = compareMode ? `toggleCompareSelect('${id}')` : `openDetail('${id}')`;
     return `<div class="wl-full-card ${isUp?'up-c':'dn-c'} ${isSelected?'wl-selected':''}" onclick="${clickHandler}">
-      ${_wlCompareMode ? `<div class="wl-compare-mark">${isSelected?'✓':''}</div>` : ''}
+      ${compareMode ? `<div class="wl-compare-mark">${isSelected?'✓':''}</div>` : ''}
       <button class="wl-full-x" onclick="removeWL('${id}',event)" title="제거">✕</button>
       <div class="wl-full-top">
         <div>
@@ -7733,43 +7735,45 @@ window.renderWatchlistPage = renderWatchlistPage;
 window.setWatchlistSort = setWatchlistSort;
 
 // ─── 관심종목 비교 모드 ─────────────────────
-let _wlCompareMode = false;
-let _wlCompareIds = [];
+window._wlCompareMode = false;
+window._wlCompareIds = [];
 function toggleCompareMode(){
-  _wlCompareMode = !_wlCompareMode;
-  _wlCompareIds = [];
+  window._wlCompareMode = !window._wlCompareMode;
+  window._wlCompareIds = [];
   const bar = document.getElementById('wlCompareBar');
-  if (bar) bar.style.display = _wlCompareMode ? 'block' : 'none';
+  if (bar) bar.style.display = window._wlCompareMode ? 'block' : 'none';
   const btn = document.getElementById('wlCompareBtn');
-  if (btn) btn.textContent = _wlCompareMode ? '✕ 비교 취소' : '⚖️ 비교하기';
+  if (btn) btn.textContent = window._wlCompareMode ? '✕ 비교 취소' : '⚖️ 비교하기';
   _renderCompareChips();
-  // 카드 리렌더 (비교 모드 표시)
   renderWatchlistPage();
 }
 function _renderCompareChips(){
   const el = document.getElementById('wlCompareChips');
   if (!el) return;
-  el.innerHTML = _wlCompareIds.length
-    ? _wlCompareIds.map(id => {
+  const ids = window._wlCompareIds || [];
+  el.innerHTML = ids.length
+    ? ids.map(id => {
         const m = MASTER[id] || {};
         return `<span class="chip chip-admin" style="background:var(--brand);color:#fff;padding:4px 10px">${esc(m.nm || id)} <span style="margin-left:4px;cursor:pointer" onclick="toggleCompareSelect('${id}');event.stopPropagation()">✕</span></span>`;
       }).join('')
     : '<span style="font-size:11px;color:var(--tx4)">선택된 종목 없음</span>';
 }
 function toggleCompareSelect(id){
-  if (!_wlCompareMode) return;
-  const idx = _wlCompareIds.indexOf(id);
-  if (idx >= 0) _wlCompareIds.splice(idx, 1);
+  if (!window._wlCompareMode) return;
+  const arr = window._wlCompareIds || [];
+  const idx = arr.indexOf(id);
+  if (idx >= 0) arr.splice(idx, 1);
   else {
-    if (_wlCompareIds.length >= 3) { toast('최대 3개까지 선택할 수 있어요'); return; }
-    _wlCompareIds.push(id);
+    if (arr.length >= 3) { toast('최대 3개까지 선택할 수 있어요'); return; }
+    arr.push(id);
   }
+  window._wlCompareIds = arr;
   _renderCompareChips();
   renderWatchlistPage();
 }
 async function runWatchlistCompare(){
-  if (_wlCompareIds.length < 2) return toast('2개 이상 선택해주세요');
-  const ids = [..._wlCompareIds];
+  const ids = [...(window._wlCompareIds || [])];
+  if (ids.length < 2) return toast('2개 이상 선택해주세요');
   om('wlCompareOv');
   const body = document.getElementById('wlCompareBody');
   // 테이블 먼저 렌더
@@ -12052,11 +12056,13 @@ body.stockie-open .float-btn-ai{display:none;}
       </div>
     </div>
     <div class="ai-chat-hdr-actions">
-      <button class="ai-chat-hdr-btn" onclick="openInquiryForm()" title="문의하기" aria-label="문의하기">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <button class="ai-chat-hdr-btn" onclick="openInquiryForm()" title="상담하기" aria-label="상담하기">
+        <!-- 헤드셋 아이콘 — 상담원 -->
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
       </button>
       <button class="ai-chat-hdr-btn" onclick="stockieNewChat()" title="새 대화 시작" aria-label="새 대화">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9"/><polyline points="3 4 3 12 11 12"/></svg>
+        <!-- 말풍선 + 플러스 아이콘 — 새 대화 -->
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="12" y1="8" x2="12" y2="14"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
       </button>
       <button class="ai-chat-hdr-btn" onclick="toggleAiChat()" aria-label="닫기">✕</button>
     </div>
