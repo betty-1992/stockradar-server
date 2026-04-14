@@ -3331,6 +3331,78 @@ html[data-theme="dark"] body .toast,
 [data-theme="dark"] .wl-sub,
 [data-theme="dark"] .detail-meta-row span { color: var(--tx3) !important; }
 
+/* ─── AI 분석 박스 다크모드 ─── */
+[data-theme="dark"] .ai-box,
+[data-theme="dark"] #aiContent {
+  background: linear-gradient(135deg, #1b2740 0%, #1a1a2e 100%) !important;
+  border-color: var(--bdr) !important;
+}
+[data-theme="dark"] .ai-box *,
+[data-theme="dark"] #aiContent * { color: var(--tx) !important; }
+[data-theme="dark"] .ai-hdr-t,
+[data-theme="dark"] .ai-lbl { color: #93c5fd !important; }
+[data-theme="dark"] .ai-warn {
+  background: #2a1a0a !important;
+  color: #fcd34d !important;
+  border-color: #78350f !important;
+}
+[data-theme="dark"] .ai-nokey {
+  background: var(--surf) !important;
+  color: var(--tx2) !important;
+}
+[data-theme="dark"] .ai-nokey p { color: var(--tx2) !important; }
+/* renderAiMarkdown 결과물 (h3·li·p·b·code) */
+[data-theme="dark"] .ai-box h3,
+[data-theme="dark"] #aiContent h3 { color: var(--tx) !important; }
+[data-theme="dark"] .ai-box p,
+[data-theme="dark"] #aiContent p { color: var(--tx2) !important; }
+[data-theme="dark"] .ai-box code,
+[data-theme="dark"] #aiContent code { background: var(--surf) !important; color: #a5b4fc !important; }
+[data-theme="dark"] .stockie-num { color: #60a5fa !important; }
+
+/* AI 로딩 스피너 박스 */
+[data-theme="dark"] .ai-loading { background: var(--surf) !important; color: var(--tx2) !important; }
+
+/* 뉴스 카드 (상세페이지 / 홈) */
+[data-theme="dark"] .news-list,
+[data-theme="dark"] .news-item,
+[data-theme="dark"] .news-body { background: var(--white) !important; color: var(--tx) !important; }
+[data-theme="dark"] .news-title { color: var(--tx) !important; }
+[data-theme="dark"] .news-thumb { background: var(--surf) !important; }
+
+/* 52주 범위 바 */
+[data-theme="dark"] .week52-track { background: var(--surf) !important; }
+[data-theme="dark"] .week52-labels span,
+[data-theme="dark"] .week52-pos { color: var(--tx3) !important; }
+
+/* 회사 정보 그리드 */
+[data-theme="dark"] .info-grid .info-cell { background: var(--surf) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .info-lbl { color: var(--tx4) !important; }
+[data-theme="dark"] .info-val { color: var(--tx) !important; }
+
+/* 지표 바 */
+[data-theme="dark"] .metrics-bar .metric-cell { background: var(--surf) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .metric-cell-lbl { color: var(--tx4) !important; }
+[data-theme="dark"] .metric-cell-val { color: var(--tx) !important; }
+
+/* 차트 섹션 */
+[data-theme="dark"] .chart-hdr { color: var(--tx) !important; }
+[data-theme="dark"] .chart-sec { background: var(--white) !important; border-color: var(--bdr) !important; }
+
+/* 홈 지수 카드 내부 (올라가는/내려가는 화살) */
+[data-theme="dark"] .mc-val { color: var(--tx) !important; }
+[data-theme="dark"] .mc-chg.up { color: var(--up) !important; }
+[data-theme="dark"] .mc-chg.dn { color: var(--dn) !important; }
+[data-theme="dark"] .idx-grid > .card { background: var(--white) !important; }
+
+/* 스크리너 검색 입력 */
+[data-theme="dark"] #screenerSearchInp,
+[data-theme="dark"] #mobScreenerSearch { background: var(--surf) !important; color: var(--tx) !important; }
+
+/* 섹터별 종목 테이블 셀 - 상승/하락 pill */
+[data-theme="dark"] .sec-table .chg-pill.up { background: #2a1113 !important; color: var(--up) !important; }
+[data-theme="dark"] .sec-table .chg-pill.dn { background: #0c1a2e !important; color: var(--dn) !important; }
+
 /* ─── 스톡이 (AI 챗봇) 다크모드 ─── */
 [data-theme="dark"] .ai-chat-panel,
 [data-theme="dark"] #aiChatPanel,
@@ -3673,19 +3745,63 @@ html[data-theme="dark"] body .toast,
    📱 모바일 반응형 (≤768px) — Toss 스타일 컴팩트
    ══════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  html, body { overflow-x: hidden !important; max-width: 100vw; }
-  * { max-width: 100%; }
+  /* ── 가로 스크롤 원천 차단 ── */
+  html, body { overflow-x: hidden !important; max-width: 100vw; width: 100%; }
+  body * { max-width: 100%; }
+  .app, .content, .main-wrap, .scroll { max-width: 100vw !important; min-width: 0 !important; }
+  img, canvas, svg, table, iframe { max-width: 100% !important; }
   html { font-size: 15px; }
 
-  /* 전역 여백 최소화 — 좌우 8px 가 전체 기준 */
-  .scroll { padding: 8px 8px 48px !important; }
-  .page { padding: 0 !important; }
+  /* ── Flex-first 원칙 ──
+     모바일에서 모든 상위 컨테이너는 flex/column 기반으로 동작하고,
+     좌우 여백은 scroll 패딩(12px) 하나로 통일한다. */
+  .scroll {
+    padding: 12px 12px 80px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100%;
+  }
+  .page { padding: 0 !important; width: 100%; }
   .main, .main-wrap, .content { padding: 0 !important; }
 
-  /* 섹션 간 간격 축소 */
+  /* 모든 grid 기반 섹션을 flex column 으로 전환 (깨짐 방지) */
   .g2, .g3, .g4, .stat-grid, .info-grid, .blog-grid,
-  .wl-full-grid, .stock-grid { gap: 8px !important; margin-bottom: 8px !important; }
-  .section { margin-bottom: 8px !important; }
+  .wl-full-grid, .stock-grid, .idx-grid, .metrics-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100%;
+  }
+  /* 지수 카드 행 — 가로 flex 로 스크롤 허용 (작은 공간 효율) */
+  .idx-grid {
+    flex-direction: row !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 8px !important;
+    scroll-snap-type: x mandatory;
+  }
+  .idx-grid::-webkit-scrollbar { display: none; }
+  .idx-grid > .card, .idx-grid > .mc {
+    flex: 0 0 45%; scroll-snap-align: start;
+    min-width: 140px;
+  }
+  /* 지표 바 — 가로 스크롤 유지 */
+  .metrics-bar {
+    flex-direction: row !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 8px !important;
+  }
+  .metrics-bar::-webkit-scrollbar { display: none; }
+  .metric-cell { flex: 0 0 auto; min-width: 92px; }
+
+  /* 섹션/카드 여백 축소 */
+  .section { margin-bottom: 10px !important; }
+  .card, .panel {
+    width: 100%;
+    min-width: 0 !important;
+  }
 
   /* 카드 공통: 패딩 컴팩트, 하단 간격 줄이기 */
   .card, .set-sec, .chart-sec, .panel, .stat,
@@ -3707,6 +3823,12 @@ html[data-theme="dark"] body .toast,
 
   /* 종목발굴 — 기존 .mob-filter-overlay 바텀시트 사용. 데스크탑 .filter-panel 은 숨김 */
   .filter-panel { display: none !important; }
+  .screener-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100%;
+    gap: 10px !important;
+  }
   .scroll:has(#pg-screener.on) {
     flex-direction: column !important;
     overflow-y: auto !important;
@@ -3715,7 +3837,9 @@ html[data-theme="dark"] body .toast,
     overflow-y: visible !important;
     padding: 0 !important;
     width: 100% !important;
+    min-width: 0 !important;
   }
+  .screener-right { width: 100% !important; }
 
   /* 상세 페이지 — 헤더/버튼 컴팩트 */
   .detail-back { margin-bottom: 8px !important; font-size: 12px; }
@@ -3735,11 +3859,16 @@ html[data-theme="dark"] body .toast,
   .metrics-bar::-webkit-scrollbar { display: none; }
   .metric-cell { flex: 0 0 auto; min-width: 88px; scroll-snap-align: start; }
 
-  /* 상세 2열 그리드 → 1열 */
-  #pg-detail div[style*="grid-template-columns:1fr 1fr"] {
-    grid-template-columns: 1fr !important;
+  /* 상세 / 홈 / 어디든 인라인 2열 그리드 → flex column */
+  [style*="grid-template-columns:1fr 1fr"],
+  [style*="grid-template-columns: 1fr 1fr"] {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
     gap: 10px !important;
   }
+  /* 홈 g2 section 도 동일 */
+  .g2.section { display: flex !important; flex-direction: column !important; }
 
   /* 차트 섹션 높이 축소 */
   .chart-sec { padding: 12px !important; }
