@@ -11088,11 +11088,16 @@ function go(el,page){
     const found=[...document.querySelectorAll('.lnb-item')].find(i=>i.onclick?.toString().includes(`'${page}'`));
     if(found)found.classList.add('on');
   }
-  // 네비게이션 전 — 열려 있는 모바일 오버레이·모달 모두 닫기
+  // 네비게이션 전 — 열려 있는 모든 오버레이/딤 강제 해제
   try {
     document.getElementById('mobFilterOverlay')?.classList.remove('on');
     document.getElementById('mobDrawerOv')?.classList.remove('open');
     document.querySelectorAll('.overlay.on').forEach(o => o.classList.remove('on'));
+    document.querySelectorAll('.search-overlay.on').forEach(o => o.classList.remove('on'));
+    document.querySelectorAll('.drawer-ov.on, .drawer.on').forEach(o => o.classList.remove('on'));
+    document.querySelectorAll('.ob-overlay').forEach(o => o.remove());
+    // body overflow 강제 복구 (openMobFilter 등에서 lock 한 것)
+    document.body.style.overflow = '';
   } catch(_){}
   showPage(page);
   pushNav(page);
