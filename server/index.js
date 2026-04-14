@@ -743,6 +743,65 @@ app.get('/api/chart/:symbol', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════
+//  기간별 등락률 배치 조회 — 섹터맵 기간 필터용
+// ════════════════════════════════════════════════
+//  GET /api/period-changes?symbols=AAPL,TSLA,005930&range=5d
+//  Yahoo chart API 를 배치로 호출해서 각 종목의 기간 수익률(%) 을 반환
+//  range: 1d | 5d | 1mo
+app.get('/api/period-changes', async (req, res) => {
+  try {
+    const raw = (req.query.symbols || '').toString().split(',').map(s => s.trim()).filter(Boolean);
+    const range = ['1d','5d','1mo'].includes(req.query.range) ? req.query.range : '5d';
+    if (!raw.length) return res.json({ ok: true, range, changes: {} });
+
+    const cacheKey = `periodChg:${range}:${raw.sort().join(',').slice(0,200)}:${raw.length}`;
+    const cached = getCached(cacheKey, 30 * 60 * 1000); // 30분
+    if (cached) return res.json({ ...cached, cached: true });
+
+    // 각 심볼을 KS/KQ 등으로 해석
+    const resolved = await Promise.all(raw.map(async (r) => {
+      try {
+        const { yahooSym } = await resolveKrSymbol(r);
+        return { raw: r, yahoo: yahooSym };
+      } catch { return null; }
+    }));
+    const ok = resolved.filter(Boolean);
+
+    // Yahoo spark API — 배치 호출 (한 번에 많이)
+    const BATCH = 20;
+    const changes = {};
+    for (let i = 0; i < ok.length; i += BATCH) {
+      const slice = ok.slice(i, i + BATCH);
+      const symParam = slice.map(x => x.yahoo).join(',');
+      const url = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(symParam)}&range=${range}&interval=1d`;
+      try {
+        const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (!r.ok) continue;
+        const j = await r.json();
+        // 응답은 { spark: { result: [{ symbol, response: [{ meta, timestamp, indicators: { quote: [{ close }] } }] }] } }
+        const results = j?.spark?.result || [];
+        results.forEach(row => {
+          const sym = row.symbol;
+          const closes = row.response?.[0]?.indicators?.quote?.[0]?.close || [];
+          const clean = closes.filter(c => c != null && !isNaN(c));
+          if (clean.length >= 2) {
+            const chg = ((clean[clean.length - 1] - clean[0]) / clean[0]) * 100;
+            const matched = slice.find(x => x.yahoo === sym);
+            if (matched) changes[matched.raw] = +chg.toFixed(2);
+          }
+        });
+      } catch(_) {}
+    }
+
+    const result = { ok: true, range, changes };
+    setCached(cacheKey, result);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ════════════════════════════════════════════════
 //  FMP — 재무 / 펀더멘털 데이터
 // ════════════════════════════════════════════════
 const FMP_BASE = 'https://financialmodelingprep.com/stable';

@@ -3130,6 +3130,88 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 [data-theme="dark"] .stock-check-card .ck-summary { background: var(--surf) !important; }
 [data-theme="dark"] .stock-check-card .ck-summary-title { color: var(--tx) !important; }
 
+/* 🎯 인풋/검색창 다크모드 — hover/focus 시 라이트 배경으로 튀지 않게 */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: var(--surf) !important;
+  color: var(--tx) !important;
+  border-color: var(--bdr) !important;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder { color: var(--tx4) !important; }
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus,
+[data-theme="dark"] .search-wrap input:focus,
+[data-theme="dark"] .fp-range input:focus,
+[data-theme="dark"] .fp-input:focus,
+[data-theme="dark"] .ai-chat-inp input:focus {
+  background: var(--white) !important;
+  color: var(--tx) !important;
+  border-color: var(--brand) !important;
+  outline: none !important;
+}
+[data-theme="dark"] input:hover,
+[data-theme="dark"] select:hover {
+  background: var(--surf) !important;
+}
+
+/* 필터 체크박스 카드 — 선택 상태 텍스트 대비 */
+[data-theme="dark"] .fp-qbtn {
+  background: var(--surf) !important;
+  color: var(--tx) !important;
+  border-color: var(--bdr) !important;
+}
+[data-theme="dark"] .fp-qbtn.on {
+  background: rgba(74,143,255,.12) !important;
+  color: #93c5fd !important;
+  border-color: var(--brand) !important;
+}
+[data-theme="dark"] .fp-qbtn .fp-qtitle,
+[data-theme="dark"] .fp-qbtn .fp-qdesc { color: inherit !important; }
+[data-theme="dark"] .fp-qbtn.on .fp-qtitle,
+[data-theme="dark"] .fp-qbtn.on .fp-qdesc { color: #cde1ff !important; }
+
+/* 세그먼트 토글 (다중/단독, 섹터/토픽, 전체/국내/해외) — 선택 상태 색 변경 */
+.tm-view-btn, .km-btn, .wl-sort-btn {
+  transition: all var(--trans);
+}
+.tm-view-btn.on, .km-btn.on, .wl-sort-btn.on {
+  background: var(--brand-lt) !important;
+  color: var(--brand) !important;
+  border: 1.5px solid var(--brand) !important;
+  box-shadow: 0 1px 2px rgba(49,130,246,.15);
+}
+.tm-view-btn.on:hover, .km-btn.on:hover, .wl-sort-btn.on:hover {
+  background: var(--brand) !important;
+  color: #fff !important;
+}
+[data-theme="dark"] .tm-view-btn.on,
+[data-theme="dark"] .km-btn.on,
+[data-theme="dark"] .wl-sort-btn.on {
+  background: rgba(74,143,255,.16) !important;
+  color: #93c5fd !important;
+  border-color: var(--brand) !important;
+}
+[data-theme="dark"] .tm-view-btn.on:hover,
+[data-theme="dark"] .km-btn.on:hover,
+[data-theme="dark"] .wl-sort-btn.on:hover {
+  background: var(--brand) !important;
+  color: #fff !important;
+}
+
+/* 기간 드롭다운 */
+.tm-period-sel {
+  padding: 7px 32px 7px 12px;
+  border: 1.5px solid var(--bdr); border-radius: 10px;
+  background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3l3 4 3-4' stroke='%236b7280' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;
+  font-size: 12px; font-weight: 700; color: var(--tx2);
+  cursor: pointer; appearance: none;
+}
+.tm-period-sel:hover { border-color: var(--brand); color: var(--brand); }
+[data-theme="dark"] .tm-period-sel { background-color: var(--surf) !important; color: var(--tx) !important; }
+
 /* 🎯 최후의 catch-all — 인라인 하드코딩 라이트 배경 강제 오버라이드 */
 [data-theme="dark"] [style*="background:#fff"],
 [data-theme="dark"] [style*="background: #fff"],
@@ -4467,6 +4549,12 @@ html[data-theme="dark"] body .toast,
           <div style="font-size:11px;color:var(--tx4);margin-top:3px" id="treemapLegend">크기=종목 수 · 색=평균 등락</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <!-- 기간 드롭다운 -->
+          <select class="tm-period-sel" id="tmPeriodSel" onchange="setTreemapPeriod(this.value)">
+            <option value="1d" selected>📅 오늘</option>
+            <option value="5d">📊 최근 1주</option>
+            <option value="1mo">📈 최근 1개월</option>
+          </select>
           <!-- 시장 필터: 전체/국내/해외 -->
           <div class="tm-view-toggle" id="tmMarketToggle">
             <button class="tm-view-btn on" data-mkt="all" onclick="setTreemapMarket('all')">전체</button>
@@ -9100,6 +9188,44 @@ const SR_SANS_FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", 
 const SR_MONO_FONT = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
 // liveData에서 섹터별 집계 (실시간)
+// 기간 필터 — '1d' | '5d' | '1mo'
+let _tmPeriod = '1d';
+let _tmPeriodChanges = {}; // { id: change% } — 1d 외 기간일 때 오버라이드
+async function setTreemapPeriod(period){
+  _tmPeriod = ['1d','5d','1mo'].includes(period) ? period : '1d';
+  const el = document.getElementById('tmPeriodSel');
+  if (el) el.value = _tmPeriod;
+  if (_tmPeriod === '1d') {
+    _tmPeriodChanges = {};
+    renderSectorMap();
+    return;
+  }
+  // 현재 시장 필터에 해당하는 심볼만 배치 조회
+  const ids = Object.keys(MASTER).filter(id => _tmMarketMatches(id));
+  // 너무 많으면 상위 시가총액 순으로 제한 (300개)
+  const limited = ids.sort((a,b) => {
+    const ma = (liveData[a]?.mc ?? MASTER[a]?.mc ?? 0);
+    const mb = (liveData[b]?.mc ?? MASTER[b]?.mc ?? 0);
+    return mb - ma;
+  }).slice(0, 300);
+  toast(`${_tmPeriod === '5d' ? '최근 1주' : '최근 1개월'} 수익률 불러오는 중...`);
+  try {
+    const r = await fetch(`${SERVER_URL}/api/period-changes?range=${_tmPeriod}&symbols=${encodeURIComponent(limited.join(','))}`);
+    const j = await r.json();
+    _tmPeriodChanges = j.changes || {};
+  } catch(_) {
+    _tmPeriodChanges = {};
+    toast('기간 데이터 로드 실패');
+  }
+  renderSectorMap();
+}
+window.setTreemapPeriod = setTreemapPeriod;
+// 등락률 추출 헬퍼 — 기간에 따라 liveData vs _tmPeriodChanges
+function _tmChangeFor(id){
+  if (_tmPeriod !== '1d' && _tmPeriodChanges[id] != null) return _tmPeriodChanges[id];
+  return liveData[id]?.changeRate;
+}
+
 // 시장 필터 — 'all' | 'kr' | 'us'
 let _tmMarket = 'all';
 function _tmMarketMatches(id){
@@ -9123,7 +9249,8 @@ function computeSectorData(){
     const sec = m.sec || '기타';
     if(!secMap[sec]) secMap[sec] = {nm:sec, ids:[], changes:[], mcs:[]};
     secMap[sec].ids.push(id);
-    if(d.changeRate != null) secMap[sec].changes.push(d.changeRate);
+    const chg = _tmChangeFor(id);
+    if(chg != null) secMap[sec].changes.push(chg);
     const mc = d.mc ?? m.mc ?? 0;
     if(mc > 0) secMap[sec].mcs.push(mc);
   });
@@ -9258,9 +9385,10 @@ function computeTopicData(){
     if (!topicIdxs || !topicIdxs.length) return;
     const d = liveData[id] || {};
     const mc = d.mc ?? m.mc ?? 0;
+    const chg = _tmChangeFor(id);
     topicIdxs.forEach(ti => {
       agg[ti].ids.add(id);
-      if (d.changeRate != null) agg[ti].changes.push(d.changeRate);
+      if (chg != null) agg[ti].changes.push(chg);
       if (mc > 0) agg[ti].totalMc += mc;
     });
   });
