@@ -1091,10 +1091,26 @@ input,select,textarea{font-family:var(--sans);}
 .detail-meta-row{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--tx3);margin-top:6px;}
 .detail-meta-row span b{color:var(--tx);font-weight:600;}
 .detail-actions{display:flex;gap:7px;align-items:flex-start;}
-.btn-fav{padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;border:1.5px solid var(--brand);color:var(--brand);background:var(--white);transition:.13s;}
-.btn-fav:hover,.btn-fav.on{background:var(--brand);color:#fff;}
-.btn-ext{padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid var(--bdr);color:var(--tx3);background:var(--surf);transition:.13s;}
-.btn-ext:hover{border-color:var(--brand);color:var(--brand);}
+/* 상세 액션 버튼 — 모두 동일 규격 (높이 36px, radius 10, font 12) */
+.btn-fav,
+.btn-ext{
+  height:36px;
+  padding:0 14px;
+  border-radius:10px;
+  font-size:12px;
+  font-weight:700;
+  border:1.5px solid var(--bdr);
+  background:var(--white);
+  color:var(--tx2);
+  transition:all var(--trans);
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  line-height:1;
+  white-space:nowrap;
+}
+.btn-fav{border-color:var(--brand);color:var(--brand);}
+.btn-fav:hover,.btn-fav.on{background:var(--brand);color:#fff;border-color:var(--brand);}
+.btn-ext{background:var(--surf);color:var(--tx3);}
+.btn-ext:hover{border-color:var(--brand);color:var(--brand);background:var(--white);}
 
 /* KEY METRICS BAR */
 .metrics-bar{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--bdr);border-radius:14px;overflow:hidden;border:1px solid var(--bdr);margin-bottom:14px;}
@@ -3799,6 +3815,25 @@ html[data-theme="dark"] body .toast,
 }
 .wl-sort-btn:hover{border-color:var(--brand);color:var(--brand);}
 .wl-sort-btn.on{background:var(--brand);border-color:var(--brand);color:#fff;}
+.wl-btn-divider{
+  display:inline-block;width:1px;height:22px;
+  background:var(--bdr);margin:0 4px;
+}
+.wl-compare-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:7px 14px;border-radius:999px;
+  border:1.5px solid var(--brand);
+  background:var(--brand-lt);color:var(--brand);
+  font-size:12px;font-weight:800;cursor:pointer;
+  transition:all var(--trans);white-space:nowrap;
+}
+.wl-compare-btn:hover{background:var(--brand);color:#fff;}
+.wl-compare-btn:active{transform:scale(.96);}
+[data-theme="dark"] .wl-compare-btn{
+  background:rgba(74,143,255,.14);color:#93c5fd;border-color:var(--brand);
+}
+[data-theme="dark"] .wl-compare-btn:hover{background:var(--brand);color:#fff;}
+[data-theme="dark"] .wl-btn-divider{background:var(--bdr);}
 .wl-full-grid{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;
 }
@@ -4095,7 +4130,7 @@ html[data-theme="dark"] body .toast,
   .detail-hero-top { flex-direction: column; gap: 10px !important; }
   .detail-actions { flex-wrap: wrap; gap: 6px; }
   .detail-actions .btn-fav,
-  .detail-actions .btn-ext { padding: 6px 10px !important; font-size: 11px !important; }
+  .detail-actions .btn-ext { height: 34px !important; padding: 0 12px !important; font-size: 11px !important; }
   .detail-px { font-size: 26px !important; }
   .metrics-bar {
     display: flex !important;
@@ -4535,14 +4570,18 @@ html[data-theme="dark"] body .toast,
           <div style="font-size:18px;font-weight:900;letter-spacing:-.3px;color:var(--tx);margin-bottom:4px">⭐ 내 관심종목</div>
           <div id="watchlistMeta" style="font-size:12px;color:var(--tx4)"></div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <button class="btn btn-g btn-sm" id="wlCompareBtn" onclick="toggleCompareMode()">⚖️ 비교하기</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <div id="watchlistSort" style="display:flex;gap:6px">
             <button class="wl-sort-btn on" data-sort="default" onclick="setWatchlistSort('default')">추가순</button>
             <button class="wl-sort-btn" data-sort="chg_desc" onclick="setWatchlistSort('chg_desc')">상승↓</button>
             <button class="wl-sort-btn" data-sort="chg_asc" onclick="setWatchlistSort('chg_asc')">하락↓</button>
             <button class="wl-sort-btn" data-sort="name" onclick="setWatchlistSort('name')">이름</button>
           </div>
+          <span class="wl-btn-divider"></span>
+          <button class="wl-compare-btn" id="wlCompareBtn" onclick="toggleCompareMode()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:middle"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+            비교하기
+          </button>
         </div>
       </div>
       <div id="wlCompareBar" style="display:none;margin-top:14px;padding:12px 14px;background:var(--brand-lt);border-radius:12px;display:none">
@@ -7791,7 +7830,11 @@ function toggleCompareMode(){
   const bar = document.getElementById('wlCompareBar');
   if (bar) bar.style.display = window._wlCompareMode ? 'block' : 'none';
   const btn = document.getElementById('wlCompareBtn');
-  if (btn) btn.textContent = window._wlCompareMode ? '✕ 비교 취소' : '⚖️ 비교하기';
+  if (btn) {
+    btn.innerHTML = window._wlCompareMode
+      ? '✕ 비교 취소'
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:middle"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>비교하기`;
+  }
   _renderCompareChips();
   renderWatchlistPage();
 }
