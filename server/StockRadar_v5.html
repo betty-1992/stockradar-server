@@ -4106,7 +4106,6 @@ html[data-theme="dark"] body .toast,
   /* AI 챗 패널 — 모바일 풀스크린 + 슬라이드 업/다운 */
   .ai-chat-panel {
     position: fixed !important;
-    inset: 0 !important;
     top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
     width: 100vw !important;
     max-width: 100vw !important;
@@ -4116,14 +4115,18 @@ html[data-theme="dark"] body .toast,
     border-radius: 0 !important;
     background: var(--white) !important;
     z-index: 9500 !important;
-    display: flex !important;
+    display: none !important;
     transform: translateY(100%);
     transition: transform .35s cubic-bezier(.32,.72,0,1);
-    pointer-events: none;
   }
   .ai-chat-panel.on {
+    display: flex !important;
     transform: translateY(0);
-    pointer-events: auto;
+    animation: chatSlideUp .35s cubic-bezier(.32,.72,0,1);
+  }
+  @keyframes chatSlideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
   }
   .ai-chat-body {
     flex: 1; max-height: none !important;
@@ -6925,13 +6928,14 @@ async function doSignup(){
       toast(d.resent ? '인증 메일을 다시 보냈어요' : '인증 메일을 보냈어요. 받은 편지함 확인!');
       return;
     }
-    // (방어) 혹시 needVerification 없이 user 만 온 경우
+    // 서버가 자동 로그인해 줌 → 바로 대시보드로 이동
     if(d.user){
       _currentUser = d.user;
       await migrateLocalToServer();
       await reloadUserData();
       cm('signupOv');
       updateUserUI();
+      toggleLandingByAuth();   // 랜딩 숨기고 .app 표시
       renderHome();
       toast(`${nick}님 환영해요! 🎉`);
     }
@@ -7005,6 +7009,7 @@ async function doLogin(){
     await reloadUserData();
     cm('loginOv');
     updateUserUI();
+    toggleLandingByAuth();   // 랜딩 → 앱
     renderHome();
     toast(`${d.user.nickname}님, 안녕하세요 👋`);
   } catch(e){
