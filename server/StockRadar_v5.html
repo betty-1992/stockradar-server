@@ -7550,7 +7550,12 @@ function renderRecentWidget(){
     catch { return []; }
   })();
   if (!recent.length) {
-    el.innerHTML = '<div style="color:var(--tx4);font-size:12px;padding:8px">최근 본 종목이 없어요</div>';
+    el.innerHTML = `
+      <div style="padding:28px 20px;text-align:center;background:var(--surf);border-radius:14px;border:1px dashed var(--bdr)">
+        <div style="font-size:32px;margin-bottom:8px;opacity:.6">🕘</div>
+        <div style="font-size:13px;font-weight:700;color:var(--tx2);margin-bottom:4px">최근 본 종목이 없어요</div>
+        <div style="font-size:11px;color:var(--tx4);line-height:1.55">종목 상세를 한 번 열어보면<br>여기에 빠른 접근 목록이 생겨요</div>
+      </div>`;
     return;
   }
   el.innerHTML = recent.map(id => {
@@ -7577,26 +7582,54 @@ function renderMarketClockWidget(){
   const el = document.getElementById('marketClock');
   if (!el) return;
   const now = new Date();
-  const kospiOpen = new Date(now); kospiOpen.setHours(9, 0, 0, 0);
-  const kospiClose = new Date(now); kospiClose.setHours(15, 30, 0, 0);
-  const usOpen = new Date(now); usOpen.setHours(22, 30, 0, 0);
-  const usClose = new Date(now); usClose.setDate(now.getDate() + (now.getHours() >= 22 ? 1 : 0)); usClose.setHours(5, 0, 0, 0);
+  const dow = now.getDay(); // 0=일 6=토
+  const isWeekend = dow === 0 || dow === 6;
   const fmt = (ms) => {
-    if (ms < 0) return '—';
+    if (ms < 0) ms = 0;
     const h = Math.floor(ms / 3600000);
     const m = Math.floor((ms % 3600000) / 60000);
+    if (h >= 24) return `${Math.floor(h/24)}일 ${h%24}시간`;
     return h > 0 ? `${h}시간 ${m}분` : `${m}분`;
   };
-  const isKospiOpen = now >= kospiOpen && now <= kospiClose;
-  const isUsOpen = now >= usOpen || now <= usClose; // rough
+  // KOSPI: 평일 09:00~15:30 KST
+  const kospiOpen = new Date(now); kospiOpen.setHours(9, 0, 0, 0);
+  const kospiClose = new Date(now); kospiClose.setHours(15, 30, 0, 0);
+  const isKospiOpen = !isWeekend && now >= kospiOpen && now <= kospiClose;
+  // US 정규장: 22:30~05:00 KST (서머타임 근사)
+  const usOpenToday = new Date(now); usOpenToday.setHours(22, 30, 0, 0);
+  const usCloseToday = new Date(now); usCloseToday.setHours(5, 0, 0, 0);
+  // US 는 전날 22:30 ~ 오늘 05:00 기준
+  let isUsOpen = false;
+  if (now.getHours() < 5 && !isWeekend && dow !== 1) isUsOpen = true; // 오늘 새벽 (월요일 새벽은 일요일 개장 없음)
+  if (now.getHours() >= 22 && now.getMinutes() >= 30 && !isWeekend && dow !== 5) isUsOpen = true;
+  const kospiCell = (() => {
+    if (isWeekend) return { chip:'🛌 주말 휴장', cls:'neu', sub:'월요일 09:00 개장' };
+    if (isKospiOpen) return { chip:'🟢 거래 중', cls:'good', sub:`마감까지 ${fmt(kospiClose - now)}` };
+    // 장 전/후
+    if (now < kospiOpen) return { chip:'⏳ 개장 전', cls:'warn', sub:`개장까지 ${fmt(kospiOpen - now)}` };
+    return { chip:'🔒 마감', cls:'neu', sub:'내일 09:00 개장' };
+  })();
+  const usCell = (() => {
+    if (isWeekend) return { chip:'🛌 주말 휴장', cls:'neu', sub:'월요일 새벽 개장' };
+    if (isUsOpen) return { chip:'🟢 거래 중', cls:'good', sub:'05:00 마감 예정' };
+    return { chip:'🔒 마감', cls:'neu', sub:'22:30 개장 예정' };
+  })();
+  const cellHtml = (flag, name, data) => `
+    <div style="padding:14px 16px;background:var(--surf);border-radius:12px;border:1px solid var(--bdr)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:20px">${flag}</span>
+        <b style="font-size:14px;color:var(--tx);letter-spacing:-.2px">${name}</b>
+      </div>
+      <div style="font-size:13px;font-weight:800;margin-bottom:4px;color:${data.cls==='good'?'var(--c-good)':data.cls==='warn'?'#d97706':'var(--tx3)'}">${data.chip}</div>
+      <div style="font-size:11px;color:var(--tx4);font-family:var(--mono)">${data.sub}</div>
+    </div>`;
   el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <span style="display:inline-flex;width:8px;height:8px;border-radius:50%;background:${isKospiOpen?'#16a34a':'#9ca3af'}"></span>
-      <b>🇰🇷 KOSPI</b> ${isKospiOpen ? `<span style="color:var(--c-good);font-weight:700">거래 중</span> · 마감까지 ${fmt(kospiClose - now)}` : '<span style="color:var(--tx4)">마감</span>'}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${cellHtml('🇰🇷','KOSPI/KOSDAQ', kospiCell)}
+      ${cellHtml('🇺🇸','NASDAQ/S&P', usCell)}
     </div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <span style="display:inline-flex;width:8px;height:8px;border-radius:50%;background:${isUsOpen?'#16a34a':'#9ca3af'}"></span>
-      <b>🇺🇸 US</b> ${isUsOpen ? '<span style="color:var(--c-good);font-weight:700">거래 중</span>' : '<span style="color:var(--tx4)">마감</span>'}
+    <div style="margin-top:10px;font-size:11px;color:var(--tx4);text-align:center">
+      한국 시간 기준 · 거래 시간은 공휴일/서머타임 변동 가능
     </div>
   `;
 }
