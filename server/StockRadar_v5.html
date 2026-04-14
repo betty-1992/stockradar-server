@@ -3672,6 +3672,28 @@ html[data-theme="dark"] body .toast,
 }
 
 /* ══════════════════════════════════════════════
+   📮 CS봇 문의 칩 (스톡이 내부)
+   ══════════════════════════════════════════════ */
+.inquiry-chip-group {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 4px 2px; margin: 4px 0;
+}
+.inquiry-chip {
+  padding: 8px 14px; border-radius: 999px;
+  border: 1.5px solid var(--bdr);
+  background: var(--white); color: var(--tx2);
+  font-size: 12.5px; font-weight: 700; cursor: pointer;
+  transition: all var(--trans);
+}
+.inquiry-chip:hover { border-color: var(--brand); color: var(--brand); background: var(--blue-bg); }
+.inquiry-chip:active { transform: scale(.96); }
+.inquiry-chip.inquiry-cancel { color: var(--tx4); border-color: var(--bdr); }
+.inquiry-chip.inquiry-cancel:hover { background: #fee2e2; color: var(--bad); border-color: #fecaca; }
+[data-theme="dark"] .inquiry-chip { background: var(--surf); color: var(--tx2); border-color: var(--bdr); }
+[data-theme="dark"] .inquiry-chip:hover { background: rgba(74,143,255,.14); color: #93c5fd; border-color: var(--brand); }
+[data-theme="dark"] .inquiry-chip.inquiry-cancel:hover { background: #2a1313; color: #fca5a5; border-color: #5a1f1f; }
+
+/* ══════════════════════════════════════════════
    🏠 홈 관심종목 그리드 (반응형)
    ══════════════════════════════════════════════ */
 .home-wl-grid {
@@ -12403,17 +12425,37 @@ function stockieAskFaq(question){
 }
 
 async function sendAiChat() {
+  const inp  = document.getElementById('aiChatInp');
+  const body = document.getElementById('aiChatBody');
+  if (!inp || !body) return;
+  const q = inp.value.trim();
+  if (!q) return;
+
+  // 문의 모드 — AI 대신 CS 봇 상태 머신으로 처리
+  if (_inquiryState === 'subject') {
+    if (q.length > 200) { toast('제목은 200자 이내로 입력해주세요'); return; }
+    inp.value = '';
+    _inquiryData.subject = q;
+    _appendUserMsg(q);
+    _inquiryState = 'message';
+    _appendBotMsg('감사합니다. 이제 <b>자세한 내용</b>을 입력해주세요.<br><span style="font-size:11px;color:var(--tx4)">(최대 4000자)</span>');
+    return;
+  }
+  if (_inquiryState === 'message') {
+    if (q.length > 4000) { toast('내용이 너무 길어요 (4000자 이내)'); return; }
+    inp.value = '';
+    _inquiryData.message = q;
+    _appendUserMsg(q);
+    await _submitInquiryFromBot();
+    return;
+  }
+
   // 비로그인 차단
   if (!gUser()) {
     toast('로그인 후 이용할 수 있어요');
     om('loginOv');
     return;
   }
-  const inp  = document.getElementById('aiChatInp');
-  const body = document.getElementById('aiChatBody');
-  if (!inp || !body) return;
-  const q = inp.value.trim();
-  if (!q) return;
   if (q.length > 500) { toast('질문이 너무 길어요 (500자 이내)'); return; }
   inp.value = '';
 
@@ -13009,13 +13051,112 @@ function _initOnboardingOnFirstVisit(){
   };
 }
 
+// 문의하기 = 스톡이 CS봇 모드로 인라인 대화
+let _inquiryState = null; // null | 'category' | 'subject' | 'message' | 'submitting' | 'done'
 function openInquiryForm(){
-  const emailField = document.getElementById('inqEmailField');
-  if (emailField) emailField.style.display = gUser() ? 'none' : 'block';
-  ['inqSubject','inqMessage','inqEmail'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  const cat = document.getElementById('inqCat'); if (cat) cat.value = 'general';
-  om('inquiryOv');
+  // 스톡이 패널 열기
+  if (!document.getElementById('aiChatPanel')?.classList.contains('on')) {
+    toggleAiChat();
+  }
+  _inquiryState = 'category';
+  _inquiryData = { category: null, subject: null, message: null };
+  _appendBotMsg(`<div style="font-size:14px;font-weight:800;margin-bottom:4px">📮 CS봇입니다</div>
+    <div>무엇을 도와드릴까요? 아래 카테고리 중 하나를 선택해주세요.</div>`);
+  _appendInquiryChips([
+    { cat:'general',  label:'💬 일반 문의' },
+    { cat:'account',  label:'🔐 계정/로그인' },
+    { cat:'bug',      label:'🐛 버그 신고' },
+    { cat:'feature',  label:'💡 기능 제안' },
+    { cat:'payment',  label:'💳 결제/요금' },
+    { cat:'other',    label:'📝 기타' },
+  ]);
+  setTimeout(() => {
+    const body = document.getElementById('aiChatBody');
+    if (body) body.scrollTop = body.scrollHeight;
+  }, 80);
 }
+let _inquiryData = { category: null, subject: null, message: null };
+const INQUIRY_CAT_LABEL = {
+  general:'일반 문의', account:'계정/로그인', bug:'버그 신고',
+  feature:'기능 제안', payment:'결제/요금', other:'기타',
+};
+function _appendBotMsg(html){
+  const body = document.getElementById('aiChatBody');
+  if (!body) return;
+  const div = document.createElement('div');
+  div.className = 'ai-msg bot';
+  div.innerHTML = html;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+}
+function _appendUserMsg(text){
+  const body = document.getElementById('aiChatBody');
+  if (!body) return;
+  const div = document.createElement('div');
+  div.className = 'ai-msg user';
+  div.textContent = text;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+}
+function _appendInquiryChips(items){
+  const body = document.getElementById('aiChatBody');
+  if (!body) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'inquiry-chip-group';
+  wrap.innerHTML = items.map(it =>
+    `<button class="inquiry-chip" onclick="pickInquiryCategory('${it.cat}')">${it.label}</button>`
+  ).join('') + `<button class="inquiry-chip inquiry-cancel" onclick="cancelInquiry()">✕ 취소</button>`;
+  body.appendChild(wrap);
+}
+function pickInquiryCategory(cat){
+  _inquiryData.category = cat;
+  _inquiryState = 'subject';
+  // chips 제거
+  document.querySelectorAll('.inquiry-chip-group').forEach(g => g.remove());
+  _appendUserMsg(`${INQUIRY_CAT_LABEL[cat] || cat} 선택`);
+  _appendBotMsg(`좋아요. <b>${INQUIRY_CAT_LABEL[cat]}</b>에 대해 어떤 내용인지 <b>한 줄로 제목</b>을 입력해주세요.<br><span style="font-size:11px;color:var(--tx4)">(예: "관심종목이 갑자기 사라졌어요")</span>`);
+  // 입력창 포커스
+  setTimeout(() => document.getElementById('aiChatInp')?.focus(), 60);
+}
+function cancelInquiry(){
+  _inquiryState = null;
+  _inquiryData = { category: null, subject: null, message: null };
+  document.querySelectorAll('.inquiry-chip-group').forEach(g => g.remove());
+  _appendBotMsg('문의를 취소했어요. 궁금한 점 있으면 다시 문의 버튼을 눌러주세요.');
+}
+async function _submitInquiryFromBot(){
+  _inquiryState = 'submitting';
+  _appendBotMsg('<span class="spinner" style="width:13px;height:13px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></span>전송 중...');
+  try {
+    const r = await fetch((window.SERVER_URL || '') + '/api/inquiries', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        category: _inquiryData.category,
+        subject: _inquiryData.subject,
+        message: _inquiryData.message,
+      }),
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || '전송 실패');
+    // 로딩 메시지 제거
+    const body = document.getElementById('aiChatBody');
+    const loading = body?.querySelector('.ai-msg.bot:last-child');
+    if (loading && loading.textContent.includes('전송 중')) loading.remove();
+    _appendBotMsg(`✅ <b>접수 완료!</b><br>문의 번호 #${d.id} · 빠르게 확인 후 답변드릴게요. 감사합니다 🙏`);
+    _inquiryState = 'done';
+    setTimeout(() => { _inquiryState = null; }, 300);
+  } catch (e) {
+    const body = document.getElementById('aiChatBody');
+    const loading = body?.querySelector('.ai-msg.bot:last-child');
+    if (loading && loading.textContent.includes('전송 중')) loading.remove();
+    _appendBotMsg(`⚠️ 전송 실패: ${e.message}. 잠시 후 다시 시도해주세요.`);
+    _inquiryState = null;
+  }
+}
+window.pickInquiryCategory = pickInquiryCategory;
+window.cancelInquiry = cancelInquiry;
 async function submitInquiry(){
   const category = document.getElementById('inqCat').value;
   const subject = document.getElementById('inqSubject').value.trim();
