@@ -3456,6 +3456,18 @@ html[data-theme="dark"] body .toast,
 .landing-divider::before, .landing-divider::after {
   content: ''; flex: 1; height: 1px; background: var(--bdr);
 }
+.landing-inline-form { display: flex; flex-direction: column; gap: 8px; }
+.landing-inline-form .inp {
+  width: 100%; padding: 12px 14px;
+  border-radius: 11px; border: 1.5px solid var(--bdr);
+  background: var(--surf); color: var(--tx); font-size: 13.5px;
+  transition: all var(--trans);
+}
+.landing-inline-form .inp:focus { border-color: var(--brand); background: var(--white); outline: none; }
+.landing-copyright {
+  text-align: center; font-size: 10.5px; color: var(--tx4);
+  margin-top: 24px; line-height: 1.7; letter-spacing: .1px;
+}
 .landing-email-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .landing-email-btn {
   padding: 13px 14px; border-radius: 12px;
@@ -3878,10 +3890,15 @@ html[data-theme="dark"] body .toast,
         </svg>
         <span>Google 계정으로 시작하기</span>
       </button>
-      <div class="landing-divider"><span>또는</span></div>
-      <div class="landing-email-actions">
-        <button class="landing-email-btn" onclick="om('loginOv')">이메일로 로그인</button>
-        <button class="landing-email-btn primary" onclick="om('signupOv')">이메일로 회원가입</button>
+      <div class="landing-divider"><span>또는 이메일로 로그인</span></div>
+      <div class="landing-inline-form">
+        <input id="landingLId" class="inp" type="email" placeholder="이메일" autocomplete="email">
+        <input id="landingLPw" class="inp" type="password" placeholder="비밀번호" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')landingDoLogin()">
+        <button class="btn btn-p btn-full" style="margin-top:6px" onclick="landingDoLogin()">로그인</button>
+      </div>
+      <div style="text-align:center;font-size:13px;color:var(--tx4);margin-top:14px">
+        계정이 없으신가요? <span style="color:var(--brand);font-weight:700;cursor:pointer" onclick="om('signupOv')">이메일로 회원가입</span>
       </div>
       <div class="landing-foot-note">
         가입 후 이용약관·개인정보처리방침에 동의하게 됩니다.
@@ -3891,6 +3908,10 @@ html[data-theme="dark"] body .toast,
         <span>🔐 안전</span>
         <span>📈 실시간</span>
         <span>🤖 AI</span>
+      </div>
+      <div class="landing-copyright">
+        © 2026 StockRadar · All rights reserved.<br>
+        Data provided by Yahoo Finance, FMP, and Google News. Not investment advice.
       </div>
     </div>
   </div>
@@ -6739,6 +6760,24 @@ function _landingApply(){
     d.classList.toggle('on', i === _landingSlideIdx));
 }
 window._landingGoto = _landingGoto;
+
+// 랜딩 인라인 로그인
+async function landingDoLogin(){
+  const email = document.getElementById('landingLId').value.trim();
+  const pw    = document.getElementById('landingLPw').value;
+  if (!email || !pw) return toast('이메일·비밀번호를 입력해주세요');
+  try {
+    const d = await api('/api/auth/login', { method: 'POST', body: { email, password: pw } });
+    _currentUser = d.user;
+    await reloadUserData();
+    updateUserUI();
+    toggleLandingByAuth();
+    toast(`${d.user.nickname || '로그인'} 성공!`);
+  } catch (e) {
+    toast(e?.payload?.error === 'INVALID_CREDENTIALS' ? '아이디 또는 비밀번호가 틀렸어요' : (e.message || '로그인 실패'));
+  }
+}
+window.landingDoLogin = landingDoLogin;
 
 function openCompleteSignupModal(defaultNickname){
   const ov = document.getElementById('completeSignupOv');
