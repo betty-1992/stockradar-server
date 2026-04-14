@@ -3361,6 +3361,28 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 .tm-period-sel:hover { border-color: var(--brand); color: var(--brand); }
 [data-theme="dark"] .tm-period-sel { background-color: var(--surf) !important; color: var(--tx) !important; }
 
+/* ═══ 다크모드 감사 — 하드코딩 라이트 컬러 catch ═══ */
+[data-theme="dark"] .notice-banner.lv-info  { background: #15233e !important; color: #93c5fd !important; }
+[data-theme="dark"] .notice-banner.lv-warn  { background: #2a1f0a !important; color: #fcd34d !important; }
+[data-theme="dark"] .notice-banner.lv-danger{ background: #2a1313 !important; color: #fca5a5 !important; }
+
+/* 회원가입 소셜 버튼 hover 배경 */
+[data-theme="dark"] .social-btn-google:hover { background: #15233e !important; border-color: #4285f4 !important; }
+
+/* issue rule box hover */
+[data-theme="dark"] .issue-rule-box:hover { background: var(--surf) !important; }
+
+/* stockie 채팅 내부 ::before / 연두 강조 */
+[data-theme="dark"] .stockie-bullet-txt code,
+[data-theme="dark"] [style*="background:#f0fdfa"] { background: #0f2a24 !important; color: #5eead4 !important; }
+
+/* fp-qbtn / 설정 필드류 테두리 다시 확인 */
+[data-theme="dark"] .fs-opt { background: var(--white) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .fs-opt.on { background: var(--brand-lt) !important; border-color: var(--brand) !important; }
+[data-theme="dark"] .fs-opt-label { color: var(--tx3) !important; }
+[data-theme="dark"] .theme-opt { background: var(--white) !important; border-color: var(--bdr) !important; }
+[data-theme="dark"] .theme-opt.on { background: var(--brand-lt) !important; border-color: var(--brand) !important; }
+
 /* 🎯 최후의 catch-all — 인라인 하드코딩 라이트 배경 강제 오버라이드 */
 [data-theme="dark"] [style*="background:#fff"],
 [data-theme="dark"] [style*="background: #fff"],
