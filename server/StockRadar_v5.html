@@ -1981,7 +1981,15 @@ input,select,textarea{font-family:var(--sans);}
 .kw-chip-x:hover{opacity:1;background:rgba(0,0,0,.08);}
 
 /* ══ 섹터 딥다이브 모달 ══ */
-.sd-head{display:flex;align-items:center;gap:10px;padding:20px 22px 16px;border-bottom:1px solid var(--bdr);background:linear-gradient(180deg,var(--brand-lt) 0%,#fff 100%);}
+.sd-head{display:flex;align-items:center;gap:10px;padding:20px 22px 16px;border-bottom:1px solid var(--bdr);background:linear-gradient(180deg,var(--brand-lt) 0%,var(--white) 100%);}
+[data-theme="dark"] .sd-head{background:linear-gradient(180deg,#1b2740 0%,var(--white) 100%);}
+.sd-ai-box{
+  background:var(--surf);border:1px solid var(--bdr);border-radius:12px;
+  padding:14px 16px;font-size:13px;line-height:1.7;color:var(--tx2);
+  min-height:60px;
+}
+.sd-ai-box .sd-ai-loading{display:flex;align-items:center;gap:8px;color:var(--tx4);}
+[data-theme="dark"] .sd-ai-box{background:var(--surf-2);}
 .sd-ico{width:44px;height:44px;border-radius:12px;background:var(--white);border:1px solid var(--bdr);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:var(--sh1);}
 .sd-title{font-size:18px;font-weight:800;color:var(--tx);letter-spacing:-.3px;}
 .sd-sub{font-size:11px;color:var(--tx3);margin-top:2px;}
@@ -5328,6 +5336,13 @@ html[data-theme="dark"] body .toast,
     <div class="sd-body">
       <div class="sd-stats" id="sdStats"></div>
       <div class="sd-section">
+        <div class="sd-section-title">
+          🤖 AI 섹터 브리핑
+          <button class="btn btn-g btn-sm" style="padding:4px 10px;font-size:10px;margin-left:auto" onclick="sdRunAI()">다시 분석</button>
+        </div>
+        <div id="sdAi" class="sd-ai-box"></div>
+      </div>
+      <div class="sd-section">
         <div class="sd-section-title">🚀 오늘의 상승 TOP 3</div>
         <div id="sdGainers"></div>
       </div>
@@ -6293,6 +6308,10 @@ function _applyResolvedTheme(mode){
   }
   document.documentElement.setAttribute('data-theme', resolved);
 }
+function _isDarkTheme(){
+  return document.documentElement.getAttribute('data-theme') === 'dark';
+}
+window._isDarkTheme = _isDarkTheme;
 function setTheme(mode){
   const valid = ['light', 'dark', 'auto'];
   if (!valid.includes(mode)) mode = 'light';
@@ -6303,6 +6322,7 @@ function setTheme(mode){
   });
   // 차트 재렌더 (색상 갱신)
   try { if (mainChart) mainChart.update('none'); } catch(_){}
+  try { if (typeof renderSectorMap === 'function' && document.getElementById('pg-sector')?.classList.contains('on')) renderSectorMap(); } catch(_){}
 }
 function restoreTheme(){
   const saved = localStorage.getItem('sr_theme') || 'auto';
@@ -9571,13 +9591,13 @@ function renderSectorMap(){
       },
       scales:{
         x:{
-          grid:{color:'rgba(0,0,0,.04)'},
-          ticks:{font:{size:10,family:SR_MONO_FONT},color:'#9ca3af'},
-          title:{display:true,text:'평균 등락률(%)',font:{size:10,family:SR_SANS_FONT}}
+          grid:{color: _isDarkTheme() ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'},
+          ticks:{font:{size:10,family:SR_MONO_FONT},color: _isDarkTheme() ? '#8b95a1' : '#9ca3af'},
+          title:{display:true,text:'평균 등락률(%)',font:{size:10,family:SR_SANS_FONT},color: _isDarkTheme() ? '#c8ccd4' : '#4e5968'}
         },
         y:{
           grid:{display:false},
-          ticks:{font:{size:11,family:SR_SANS_FONT},color:'#111827'}
+          ticks:{font:{size:11,family:SR_SANS_FONT},color: _isDarkTheme() ? '#f2f4f6' : '#191f28'}
         }
       }
     }
@@ -9601,6 +9621,38 @@ function filterSec(sec){renderSecStocks(sec);}
 // 섹터 딥다이브 모달
 // ══════════════════════════════════════════════
 let _curSectorDeep = null;
+
+let _curSectorDeepData = null;
+async function sdRunAI(){
+  const el = document.getElementById('sdAi');
+  if (!el || !_curSectorDeepData) return;
+  if (!gUser()) {
+    el.innerHTML = `<div style="text-align:center;padding:10px;color:var(--tx4);font-size:12px">로그인 후 이용 가능</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="sd-ai-loading"><div class="spinner" style="width:14px;height:14px;border-width:2px"></div>AI 분석 중...</div>`;
+  try {
+    const { sec, displayName, data, gainers, losers } = _curSectorDeepData;
+    const r = await fetch(`${SERVER_URL}/api/ai-sector`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sector: displayName,
+        avgChg: data.avgChg,
+        count: data.count,
+        gainers: gainers.map(g => ({ id: g.id, name: g.m?.nm, chg: g.cr })),
+        losers: losers.map(l => ({ id: l.id, name: l.m?.nm, chg: l.cr })),
+      }),
+    });
+    const j = await r.json();
+    if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+    el.innerHTML = renderAiMarkdown(j.analysis || '', j.model);
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--tx4);font-size:12px">AI 분석 실패: ${e.message}</div>`;
+  }
+}
+window.sdRunAI = sdRunAI;
 
 const SECTOR_ICONS = {
   'Technology':'💻', 'Healthcare':'🧬', 'Financials':'🏦', 'Consumer':'🛍️',
@@ -9677,6 +9729,18 @@ function openSectorDeepDive(sec){
   document.getElementById('sdLosers').innerHTML = losers.length
     ? losers.map(moverHtml).join('')
     : `<div class="sd-empty">하락 종목 데이터가 없어요</div>`;
+
+  // AI 섹터 브리핑 — 비로그인은 CTA 로 유도
+  const aiEl = document.getElementById('sdAi');
+  if (!gUser()) {
+    aiEl.innerHTML = `<div style="text-align:center;padding:10px">
+      <div style="font-size:12px;color:var(--tx4);margin-bottom:8px">로그인하면 AI 섹터 분석을 볼 수 있어요</div>
+      <button class="btn btn-p btn-sm" onclick="om('loginOv')">로그인</button>
+    </div>`;
+  } else {
+    _curSectorDeepData = { sec, displayName, data, gainers, losers };
+    sdRunAI();
+  }
 
   // 관련 뉴스
   const sdNewsEl = document.getElementById('sdNews');
@@ -10138,7 +10202,30 @@ const BLOG_ARTICLES = [
 ];
 
 let _blogCat = 'all';
+let _serverArticles = []; // 어드민에서 AI 로 발행한 글
+async function _loadServerArticles(){
+  try {
+    const r = await fetch(`${SERVER_URL}/api/articles`);
+    const j = await r.json();
+    if (j.ok && Array.isArray(j.articles)) {
+      _serverArticles = j.articles.map(a => ({
+        id: 'srv-' + a.id,
+        cat: a.category || 'basics',
+        emoji: a.emoji || '📖',
+        title: a.title,
+        summary: a.summary,
+        readMin: a.read_min || 4,
+        body: a.body,
+      }));
+    }
+  } catch(_) {}
+}
 function renderGuide(){
+  // 서버 글 + 로컬 하드코딩 글 머지
+  _loadServerArticles().then(() => { _renderGuideInner(); });
+  _renderGuideInner();
+}
+function _renderGuideInner(){
   // 카테고리 필터 버튼
   const catsEl = document.getElementById('blogCats');
   if (catsEl) {
@@ -10146,10 +10233,11 @@ function renderGuide(){
       <button class="blog-cat-btn ${_blogCat===c.key?'on':''}" onclick="setBlogCat('${c.key}')">${c.label}</button>
     `).join('');
   }
-  // 카드 그리드
+  // 카드 그리드 — 서버 발행 글을 맨 위에, 하드코딩 글을 뒤에
   const gridEl = document.getElementById('blogGrid');
   if (!gridEl) return;
-  const filtered = _blogCat === 'all' ? BLOG_ARTICLES : BLOG_ARTICLES.filter(a => a.cat === _blogCat);
+  const all = [..._serverArticles, ...BLOG_ARTICLES];
+  const filtered = _blogCat === 'all' ? all : all.filter(a => a.cat === _blogCat);
   gridEl.innerHTML = filtered.map(a => `
     <div class="blog-card" onclick="openGuideArticle('${a.id}')">
       <div class="blog-card-hero bh-${a.cat}">${a.emoji}</div>
@@ -10169,7 +10257,7 @@ function setBlogCat(key){
   renderGuide();
 }
 function openGuideArticle(id){
-  const a = BLOG_ARTICLES.find(x => x.id === id);
+  const a = [..._serverArticles, ...BLOG_ARTICLES].find(x => x.id === id);
   if (!a) return;
   const catLabel = (BLOG_CATS.find(c=>c.key===a.cat)||{}).label || a.cat;
   const body = document.getElementById('blogArticleBody');

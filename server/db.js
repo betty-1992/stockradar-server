@@ -188,6 +188,30 @@ const migrations = [
   (db) => {
     db.exec(`ALTER TABLE ai_usage ADD COLUMN context TEXT`);
   },
+  // v7 — 투자 가이드 글 (어드민에서 AI 로 작성·발행)
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS articles (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        slug         TEXT UNIQUE NOT NULL,
+        category     TEXT NOT NULL DEFAULT 'basics',
+        emoji        TEXT NOT NULL DEFAULT '📖',
+        title        TEXT NOT NULL,
+        summary      TEXT NOT NULL DEFAULT '',
+        body         TEXT NOT NULL DEFAULT '',
+        read_min     INTEGER NOT NULL DEFAULT 4,
+        status       TEXT NOT NULL DEFAULT 'draft',  -- draft | published | archived
+        author_id    INTEGER,
+        created_at   INTEGER NOT NULL,
+        updated_at   INTEGER NOT NULL,
+        published_at INTEGER,
+        FOREIGN KEY(author_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(status);
+      CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category);
+      CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at);
+    `);
+  },
 ];
 
 function runMigrations() {

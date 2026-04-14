@@ -1586,6 +1586,83 @@ ${stockBlock}${historyBlock}${legacy}
   }
 });
 
+// POST /api/ai-sector → 섹터/토픽 요약 + 등락 원인 추정 + 산업 전망
+app.post('/api/ai-sector', async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ ok: false, error: 'AUTH_REQUIRED' });
+    const { sector, avgChg, count, gainers = [], losers = [] } = req.body || {};
+    if (!sector) return res.status(400).json({ ok: false, error: 'sector 필요' });
+
+    const cacheKey = `ai-sec:${sector}:${Math.round((avgChg||0)*10)}`;
+    const cached = getCached(cacheKey, 30 * 60 * 1000);
+    if (cached) return res.json({ ...cached, cached: true });
+
+    // 섹터 관련 최근 뉴스 컨텍스트
+    let newsBlock = '';
+    try {
+      const news = await Promise.race([
+        fetchGoogleNews(sector, 6),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('news timeout')), 5000)),
+      ]);
+      if (news && news.length) {
+        newsBlock = '\n[최근 관련 뉴스]\n' + news.slice(0, 6).map(n => {
+          const t = n.publishedAt ? new Date(n.publishedAt).toLocaleString('ko-KR', { month:'short', day:'numeric' }) : '';
+          return `- ${t} · ${n.title}`;
+        }).join('\n');
+      }
+    } catch(_) {}
+
+    const gainersText = gainers.length
+      ? '상승 Top: ' + gainers.map(g => `${g.name || g.id}(${g.chg>=0?'+':''}${Number(g.chg||0).toFixed(2)}%)`).join(', ')
+      : '';
+    const losersText = losers.length
+      ? '하락 Top: ' + losers.map(l => `${l.name || l.id}(${Number(l.chg||0).toFixed(2)}%)`).join(', ')
+      : '';
+
+    const prompt = `당신은 주식·섹터 애널리스트입니다. "${sector}" 섹터/토픽에 대해 **쉬운 한국어**로 간결하게 분석해주세요.
+
+[섹터 정보]
+- 이름: ${sector}
+- 종목 수: ${count || 0}
+- 평균 등락률: ${avgChg >= 0 ? '+' : ''}${Number(avgChg||0).toFixed(2)}%
+${gainersText ? '- ' + gainersText : ''}
+${losersText ? '- ' + losersText : ''}
+${newsBlock}
+
+[출력 형식] 각 섹션 2~3문장 이내, 굵은 글씨 활용:
+
+## 📊 오늘의 움직임
+(오늘 왜 올랐/내렸는지, 뉴스·거시 요인 중심으로)
+
+## 🏢 산업 전망
+(향후 1~3년 성장 동력·리스크)
+
+## 💰 가치 평가
+(현재 밸류에이션 수준, 매력도)
+
+마지막에 한 줄 **"💡 한 줄 총평:"** 으로 마무리.
+투자 권유는 하지 마시고 정보 제공 목적임을 유지해주세요.`;
+
+    const { text: analysis, model: usedModel, usage } = await callGemini(prompt);
+    logAiUsage({
+      userId: req.user?.id || null,
+      endpoint: 'ai-sector',
+      model: usedModel,
+      promptTokens: usage?.promptTokens || 0,
+      completionTokens: usage?.completionTokens || 0,
+      totalTokens: usage?.totalTokens || 0,
+      context: { sector, avgChg, count },
+    });
+    logEvent({ userId: req.user?.id, type: 'ai_analyze', target: `sector:${sector}`, ip: req.ip });
+
+    const result = { ok: true, sector, analysis, model: usedModel, generatedAt: new Date().toISOString() };
+    setCached(cacheKey, result);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ════════════════════════════════════════════════
 //  정적 HTML 서빙 (배포 환경용 — API 라우트 뒤에 배치)
 // ════════════════════════════════════════════════
@@ -1625,6 +1702,33 @@ app.post('/api/events', (req, res) => {
     ip: req.ip,
   });
   res.json({ ok: true });
+});
+
+// ─── 공개: 투자 가이드 글 (발행된 것만) ─────
+app.get('/api/articles', (_req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT id, slug, category, emoji, title, summary, body, read_min, published_at
+      FROM articles
+      WHERE status = 'published'
+      ORDER BY published_at DESC, id DESC
+    `).all();
+    res.json({ ok: true, articles: rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+app.get('/api/articles/:slug', (req, res) => {
+  try {
+    const row = db.prepare(`
+      SELECT id, slug, category, emoji, title, summary, body, read_min, published_at
+      FROM articles WHERE slug = ? AND status = 'published'
+    `).get(req.params.slug);
+    if (!row) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+    res.json({ ok: true, article: row });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 // ─── 공개: 활성 공지사항 (사용자 페이지 상단 배너용) ──

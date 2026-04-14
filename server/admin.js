@@ -738,6 +738,142 @@ router.get('/analytics', (_req, res) => {
   });
 });
 
+// ─── 투자 가이드 글 관리 ─────────────────────
+router.get('/articles', (_req, res) => {
+  const rows = db.prepare(`
+    SELECT a.*, u.email AS author_email
+    FROM articles a LEFT JOIN users u ON u.id = a.author_id
+    ORDER BY a.id DESC
+  `).all();
+  res.json({ ok: true, articles: rows });
+});
+const articleSchema = z.object({
+  slug: z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/, 'slug 은 영문 소문자·숫자·하이픈만'),
+  category: z.enum(['basics','chart','value','risk','master','psych']).default('basics'),
+  emoji: z.string().trim().min(1).max(8).default('📖'),
+  title: z.string().trim().min(1).max(200),
+  summary: z.string().trim().max(500).optional().default(''),
+  body: z.string().max(20000).optional().default(''),
+  read_min: z.number().int().min(1).max(60).optional().default(4),
+  status: z.enum(['draft','published','archived']).optional().default('draft'),
+});
+router.post('/articles', (req, res) => {
+  const parsed = articleSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, error: 'INVALID_INPUT', issues: parsed.error.issues });
+  const d = parsed.data;
+  const now = Date.now();
+  try {
+    const r = db.prepare(`
+      INSERT INTO articles (slug, category, emoji, title, summary, body, read_min, status, author_id, created_at, updated_at, published_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(d.slug, d.category, d.emoji, d.title, d.summary, d.body, d.read_min, d.status, req.user.id, now, now, d.status === 'published' ? now : null);
+    logAudit({ userId: req.user.id, action: 'admin_create_article', target: d.slug, ip: clientIp(req) });
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE')) return res.status(409).json({ ok: false, error: 'SLUG_EXISTS' });
+    throw e;
+  }
+});
+router.patch('/articles/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const parsed = articleSchema.partial().safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, error: 'INVALID_INPUT' });
+  const cur = db.prepare(`SELECT * FROM articles WHERE id = ?`).get(id);
+  if (!cur) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const updates = []; const args = [];
+  for (const [k, v] of Object.entries(parsed.data)) { updates.push(`${k} = ?`); args.push(v); }
+  updates.push('updated_at = ?'); args.push(Date.now());
+  // 발행 시점 갱신
+  if (parsed.data.status === 'published' && !cur.published_at) {
+    updates.push('published_at = ?'); args.push(Date.now());
+  }
+  args.push(id);
+  db.prepare(`UPDATE articles SET ${updates.join(', ')} WHERE id = ?`).run(...args);
+  logAudit({ userId: req.user.id, action: 'admin_update_article', target: String(id), meta: parsed.data, ip: clientIp(req) });
+  res.json({ ok: true });
+});
+router.delete('/articles/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  db.prepare(`DELETE FROM articles WHERE id = ?`).run(id);
+  logAudit({ userId: req.user.id, action: 'admin_delete_article', target: String(id), ip: clientIp(req) });
+  res.json({ ok: true });
+});
+
+// POST /api/admin/articles/draft → AI 초안 생성 (저장 X)
+//  body: { topic, category, angle, readMin }
+router.post('/articles/draft', async (req, res) => {
+  try {
+    const { topic, category, angle, readMin } = req.body || {};
+    if (!topic) return res.status(400).json({ ok: false, error: 'topic 필요' });
+    const fetchFn = globalThis.fetch || require('node-fetch');
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return res.status(500).json({ ok: false, error: 'GEMINI_API_KEY 미설정' });
+
+    const categoryNames = {
+      basics: '기초', chart: '차트', value: '가치 평가', risk: '리스크', master: '대가의 원칙', psych: '투자 심리',
+    };
+    const categoryLabel = categoryNames[category] || '기초';
+
+    const prompt = `당신은 한국 주식 투자 초보자를 위한 블로그 작가입니다.
+아래 주제로 ${readMin || 5}분 분량의 블로그 글을 작성해주세요.
+
+[주제] ${topic}
+[카테고리] ${categoryLabel}
+${angle ? `[관점/포인트] ${angle}` : ''}
+
+[출력 형식 — 반드시 JSON 만 출력. 다른 텍스트 금지]
+{
+  "title": "매력적인 제목 (60자 이내)",
+  "summary": "글의 한 줄 요약 (80자 이내)",
+  "emoji": "글의 성격에 맞는 이모지 1개",
+  "body": "HTML 형식 본문. <p>, <h3>, <ul><li>, <b>, <code>, <div class='tip'>💡 ...</div>, <div class='warn'>⚠️ ...</div> 태그만 사용. 문단 사이 구분은 <h3> 로. 구체적 수치·예시 포함. 투자 권유 금지."
+}`;
+
+    const r = await fetchFn(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.8, maxOutputTokens: 3000, thinkingConfig: { thinkingBudget: 0 } },
+      }),
+    });
+    if (!r.ok) {
+      const t = await r.text().catch(() => '');
+      throw new Error(`Gemini ${r.status}: ${t.slice(0, 200)}`);
+    }
+    const j = await r.json();
+    const text = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // 가끔 ```json 래퍼가 붙음
+    const cleaned = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+    let parsed;
+    try { parsed = JSON.parse(cleaned); }
+    catch { throw new Error('AI 응답 파싱 실패 — 다시 시도해주세요'); }
+
+    // slug 자동 생성
+    const slug = `${category || 'basics'}-` + (parsed.title || topic).toLowerCase()
+      .replace(/[^a-z0-9가-힣\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .slice(0, 60)
+      .replace(/^-+|-+$/g, '');
+
+    res.json({
+      ok: true,
+      draft: {
+        title: parsed.title || topic,
+        summary: parsed.summary || '',
+        emoji: parsed.emoji || '📖',
+        body: parsed.body || '',
+        category: category || 'basics',
+        read_min: readMin || 5,
+        slug,
+        status: 'draft',
+      },
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ─── POST /api/admin/change-password ──────────
 //  현재 어드민 본인 비밀번호 변경 (시드 계정 changeme1234 교체용)
 router.post('/change-password', async (req, res) => {
