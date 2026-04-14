@@ -3672,6 +3672,24 @@ html[data-theme="dark"] body .toast,
 }
 
 /* ══════════════════════════════════════════════
+   🏠 홈 관심종목 그리드 (반응형)
+   ══════════════════════════════════════════════ */
+.home-wl-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+@media (min-width: 600px)  { .home-wl-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 960px)  { .home-wl-grid { grid-template-columns: repeat(4, 1fr); gap: 12px; } }
+@media (min-width: 1280px) { .home-wl-grid { grid-template-columns: repeat(6, 1fr); gap: 14px; } }
+@media (min-width: 1600px) { .home-wl-grid { grid-template-columns: repeat(8, 1fr); } }
+
+/* 홈 페이지 전체 — 1600 max-width + auto center */
+@media (min-width: 1024px) {
+  #pg-home { max-width: 1600px; margin: 0 auto; }
+}
+
+/* ══════════════════════════════════════════════
    🏠 대시보드 위젯
    ══════════════════════════════════════════════ */
 #dashboardWidgets { display: flex; flex-direction: column; gap: 16px; }
@@ -7563,9 +7581,14 @@ function renderHomeWL(){
     el.innerHTML=`<div class="card" style="padding:18px;text-align:center;color:var(--tx4);font-size:13px"><div style="font-size:30px;margin-bottom:8px">⭐</div>아직 관심종목이 없어요<br>종목발굴에서 추가해보세요!</div>`;
     return;
   }
-  // 홈에서는 최대 4개까지만 미리보기 (나머지는 "관심종목" 페이지에서)
-  const HOME_WL_LIMIT = 4;
-  const visible = wl.slice(0, HOME_WL_LIMIT);
+  // 해상도별 표시 개수 — 모바일 2, 태블릿 4, 데스크탑 6, 와이드 8
+  const w = window.innerWidth || 1024;
+  let limit;
+  if (w < 600)        limit = 2;
+  else if (w < 960)   limit = 4;
+  else if (w < 1280)  limit = 6;
+  else                limit = 8;
+  const visible = wl.slice(0, limit);
   const items=visible.map(id=>{
     const m=MASTER[id]||{}; const d=liveData[id]||{};
     const cr=d.changeRate??0; const isUp=cr>=0;
@@ -7578,11 +7601,22 @@ function renderHomeWL(){
       <div class="wl-spark"><canvas id="ws-${id}" style="width:100%;height:32px"></canvas></div>
     </div>`;
   }).join('');
-  const more = wl.length > HOME_WL_LIMIT
-    ? `<div style="text-align:center;padding:12px;color:var(--brand);font-size:12px;font-weight:700;cursor:pointer" onclick="go(null,'watchlist')">+ ${wl.length - HOME_WL_LIMIT}개 더 보기 →</div>`
+  const more = wl.length > limit
+    ? `<div style="text-align:center;padding:12px;color:var(--brand);font-size:12px;font-weight:700;cursor:pointer" onclick="go(null,'watchlist')">+ ${wl.length - limit}개 더 보기 →</div>`
     : '';
-  el.innerHTML=`<div class="g2" style="grid-template-columns:repeat(2,1fr);gap:8px">${items}</div>${more}`;
+  el.innerHTML=`<div class="home-wl-grid">${items}</div>${more}`;
   visible.forEach(id=>setTimeout(()=>drawSpark(`ws-${id}`,liveData[id]?.closes,(liveData[id]?.changeRate??0)>=0),100));
+}
+// 뷰포트 크기 변경 시 재렌더 (데스크탑 ↔ 태블릿 전환)
+if (typeof window !== 'undefined' && !window._homeWLResizeHooked) {
+  window._homeWLResizeHooked = true;
+  let _wlResizeT = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(_wlResizeT);
+    _wlResizeT = setTimeout(() => {
+      if (document.getElementById('pg-home')?.classList.contains('on')) renderHomeWL();
+    }, 180);
+  });
 }
 
 // ─── 관심종목 전용 페이지 ─────────────────────
