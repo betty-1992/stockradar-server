@@ -3142,6 +3142,76 @@ button:active, .btn:active, .btn-p:active, .btn-refresh:active {
 [data-theme="dark"] .stock-check-card .ck-summary { background: var(--surf) !important; }
 [data-theme="dark"] .stock-check-card .ck-summary-title { color: var(--tx) !important; }
 
+/* ─── 홈 오늘 주목 종목: 분류 뱃지 / 부가 chips — 라이트 + 다크 대응 ─── */
+.hl-badge.hl-pri-kw { background: #eef2ff; color: #4f46e5; border-color: #c7d2fe; }
+.hl-badge.hl-pri-up { background: #fff5f5; color: #c92a2a; border-color: #fecaca; }
+.hl-badge.hl-pri-dn { background: #e7f5ff; color: #1864ab; border-color: #bfdbfe; }
+.hl-badge.hl-pri-neu{ background: #f3f4f6; color: #6b7280; border-color: #e5e7eb; }
+.hl-sub-chip.hl-reason-rk { background: var(--blue-bg); color: var(--brand); }
+.hl-sub-chip.hl-reason-rs { background: #fff5f5; color: #c92a2a; }
+.hl-sub-chip.hl-reason-rp { background: #e7f5ff; color: #1864ab; }
+.hl-sub-chip.hl-reason-rh { background: #f3f0ff; color: #6741d9; }
+.hl-sub-chip.hl-reason-rd { background: #ebfbee; color: #0b7a3d; }
+[data-theme="dark"] .hl-badge.hl-pri-kw { background: #1b2740 !important; color: #93c5fd !important; border-color: #1e3a5f !important; }
+[data-theme="dark"] .hl-badge.hl-pri-up { background: #2a0d0d !important; color: #ff8787 !important; border-color: #5a1f1f !important; }
+[data-theme="dark"] .hl-badge.hl-pri-dn { background: #0c1a2e !important; color: #60a5fa !important; border-color: #1e3a5f !important; }
+[data-theme="dark"] .hl-badge.hl-pri-neu{ background: #1a1d23 !important; color: #8b95a1 !important; border-color: #2d333e !important; }
+[data-theme="dark"] .hl-sub-chip.hl-reason-rk { background: #1b2740 !important; color: #93c5fd !important; }
+[data-theme="dark"] .hl-sub-chip.hl-reason-rs { background: #2a0d0d !important; color: #ff8787 !important; }
+[data-theme="dark"] .hl-sub-chip.hl-reason-rp { background: #0c1a2e !important; color: #60a5fa !important; }
+[data-theme="dark"] .hl-sub-chip.hl-reason-rh { background: #1e1a33 !important; color: #a78bfa !important; }
+[data-theme="dark"] .hl-sub-chip.hl-reason-rd { background: #0f2a1a !important; color: #34d399 !important; }
+
+/* ─── 지표 평가 3단계 (좋음/보통/주의) 다크모드 반전 ─── */
+[data-theme="dark"] {
+  --c-good:    #34d399;
+  --c-good-bg: #0f2a1a;
+  --c-good-bd: #16a34a;
+  --c-warn:    #cbd5e1;
+  --c-warn-bg: #1a1d23;
+  --c-warn-bd: #3b4048;
+  --c-bad:     #fbbf24;
+  --c-bad-bg:  #2a1f0a;
+  --c-bad-bd:  #d97706;
+  --c-neutral: #6b7684;
+}
+[data-theme="dark"] .good,
+[data-theme="dark"] .cc-grade[style*="--c-good"],
+[data-theme="dark"] [style*="color:var(--c-good)"],
+[data-theme="dark"] [style*="color: var(--c-good)"] { color: var(--c-good) !important; }
+[data-theme="dark"] .warn,
+[data-theme="dark"] [style*="color:var(--c-warn)"],
+[data-theme="dark"] [style*="color: var(--c-warn)"] { color: var(--c-warn) !important; }
+[data-theme="dark"] .bad,
+[data-theme="dark"] [style*="color:var(--c-bad)"],
+[data-theme="dark"] [style*="color: var(--c-bad)"] { color: var(--c-bad) !important; }
+[data-theme="dark"] [style*="background:var(--c-good-bg)"],
+[data-theme="dark"] [style*="background: var(--c-good-bg)"] { background: var(--c-good-bg) !important; }
+[data-theme="dark"] [style*="background:var(--c-warn-bg)"],
+[data-theme="dark"] [style*="background: var(--c-warn-bg)"] { background: var(--c-warn-bg) !important; }
+[data-theme="dark"] [style*="background:var(--c-bad-bg)"],
+[data-theme="dark"] [style*="background: var(--c-bad-bg)"] { background: var(--c-bad-bg) !important; }
+
+/* 지표 셀 내부 판정 pill/grade 박스 — 전 영역 반전 */
+[data-theme="dark"] .cc-grade { background: var(--surf) !important; }
+[data-theme="dark"] .ind-card,
+[data-theme="dark"] .ind-good,
+[data-theme="dark"] .ind-bad { background: var(--surf) !important; color: var(--tx2) !important; }
+[data-theme="dark"] .ind-good { color: var(--c-good) !important; }
+[data-theme="dark"] .ind-bad { color: var(--c-bad) !important; }
+
+/* ─── 홈 섹션 다크모드 — 투명 wrapper (widget/panel/g2/section) ─── */
+[data-theme="dark"] #pg-home .panel,
+[data-theme="dark"] #pg-home .section,
+[data-theme="dark"] #pg-home .widget,
+[data-theme="dark"] #pg-home .g2,
+[data-theme="dark"] #pg-home .g3,
+[data-theme="dark"] #pg-home .g4 {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 /* 🎯 인풋/검색창 다크모드 — hover/focus 시 라이트 배경으로 튀지 않게 */
 [data-theme="dark"] input,
 [data-theme="dark"] select,
@@ -3906,10 +3976,12 @@ html[data-theme="dark"] body .toast,
     background: var(--white) !important;
   }
 
-  /* 홈 위젯 카드 패딩 */
-  .widget { padding: 14px !important; }
-  .widget-hdr { margin-bottom: 10px !important; }
-  .widget-title { font-size: 14px !important; }
+  /* 홈 위젯 — 컨테이너 패딩 0 (내부 아이템이 스크롤 가로 전체 채우도록) */
+  #pg-home .widget,
+  #pg-home .panel,
+  #pg-home .section { padding: 0 !important; margin: 0 !important; }
+  #pg-home .widget-hdr { padding: 0 2px !important; margin-bottom: 10px !important; }
+  #pg-home .widget-title { font-size: 14px !important; }
 
   /* 홈 관심종목 카드 내부 — 너무 많은 정보 줄임 */
   .wl-card { padding: 10px 12px !important; min-width: 0 !important; }
@@ -7759,30 +7831,20 @@ function renderHomeHL(){
 
   // 종목별 "이유 태그" 계산
   // 각 태그는 {label, color, bg, weight} — weight는 선별 점수에 반영
+  // CSS 클래스 기반 — 라이트/다크 각각에 대응되는 변수 사용
   const getReasons = (s) => {
     const reasons = [];
     const cr = s.changeRate || 0;
     const matched = kwHit(s);
-    if (matched) {
-      reasons.push({ label: `🎯 ${matched}`, color: 'var(--brand)', bg: 'var(--blue-bg)', w: 4 });
-    }
-    if (cr >= 5) {
-      reasons.push({ label: `🔥 급등 +${cr.toFixed(1)}%`, color: '#c92a2a', bg: '#fff5f5', w: 3 });
-    } else if (cr >= 2) {
-      reasons.push({ label: `📈 상승 +${cr.toFixed(1)}%`, color: '#c92a2a', bg: '#fff5f5', w: 2 });
-    } else if (cr <= -5) {
-      reasons.push({ label: `📉 급락 ${cr.toFixed(1)}%`, color: '#1864ab', bg: '#e7f5ff', w: 3 });
-    } else if (cr <= -2) {
-      reasons.push({ label: `📉 하락 ${cr.toFixed(1)}%`, color: '#1864ab', bg: '#e7f5ff', w: 2 });
-    }
+    if (matched) reasons.push({ label: `🎯 ${matched}`, cls: 'rk', w: 4 });
+    if      (cr >= 5)  reasons.push({ label: `🔥 급등 +${cr.toFixed(1)}%`, cls: 'rs', w: 3 });
+    else if (cr >= 2)  reasons.push({ label: `📈 상승 +${cr.toFixed(1)}%`, cls: 'rs', w: 2 });
+    else if (cr <= -5) reasons.push({ label: `📉 급락 ${cr.toFixed(1)}%`,  cls: 'rp', w: 3 });
+    else if (cr <= -2) reasons.push({ label: `📉 하락 ${cr.toFixed(1)}%`,  cls: 'rp', w: 2 });
     const drop = s.drop || 0;
-    if (drop >= 20) {
-      reasons.push({ label: `💹 고점대비 -${drop}%`, color: '#6741d9', bg: '#f3f0ff', w: 2 });
-    }
+    if (drop >= 20) reasons.push({ label: `💹 고점대비 -${drop}%`, cls: 'rh', w: 2 });
     const div = s.div || 0;
-    if (div >= 4) {
-      reasons.push({ label: `💰 고배당 ${div}%`, color: '#0b7a3d', bg: '#ebfbee', w: 1 });
-    }
+    if (div >= 4)   reasons.push({ label: `💰 고배당 ${div}%`,     cls: 'rd', w: 1 });
     return reasons;
   };
 
@@ -7857,31 +7919,21 @@ function renderHomeHL(){
     const reasons = getReasons(s);
     const isKr = /^\d{6}$/.test(s.id);
 
-    // 핵심 분류 뱃지 — 화살표 대신 의미 있는 라벨
-    //  · 급등 / 상승 / 보합 / 하락 / 급락 + 컬러 코딩
-    //  · 관심 키워드 hit 가 있으면 "키워드" 뱃지 우선 노출
-    let primary;
+    // 핵심 분류 뱃지 — CSS 클래스 기반 (라이트/다크 각각 대응)
+    let primaryCls = 'hl-pri-neu', primaryLabel = '◯ 보합';
     const matched = kwHit(s);
-    if (matched) {
-      primary = { label: `🎯 ${matched}`, color: '#4f46e5', bg: '#eef2ff', bd: '#c7d2fe' };
-    } else if (cr >= 5) {
-      primary = { label: '🔥 급등', color: '#c92a2a', bg: '#fff5f5', bd: '#fecaca' };
-    } else if (cr >= 2) {
-      primary = { label: '📈 상승', color: '#c92a2a', bg: '#fff5f5', bd: '#fecaca' };
-    } else if (cr <= -5) {
-      primary = { label: '📉 급락', color: '#1864ab', bg: '#e7f5ff', bd: '#bfdbfe' };
-    } else if (cr <= -2) {
-      primary = { label: '🔻 하락', color: '#1864ab', bg: '#e7f5ff', bd: '#bfdbfe' };
-    } else {
-      primary = { label: '◯ 보합', color: '#6b7280', bg: '#f3f4f6', bd: '#e5e7eb' };
-    }
+    if (matched)         { primaryCls = 'hl-pri-kw';    primaryLabel = `🎯 ${matched}`; }
+    else if (cr >= 5)    { primaryCls = 'hl-pri-up';    primaryLabel = '🔥 급등'; }
+    else if (cr >= 2)    { primaryCls = 'hl-pri-up';    primaryLabel = '📈 상승'; }
+    else if (cr <= -5)   { primaryCls = 'hl-pri-dn';    primaryLabel = '📉 급락'; }
+    else if (cr <= -2)   { primaryCls = 'hl-pri-dn';    primaryLabel = '🔻 하락'; }
 
-    // 부가 사유 (고점대비 / 고배당 등)
+    // 부가 사유 chips — class 로 렌더
     const subReasons = reasons.filter(r => !r.label.startsWith('🎯') && !r.label.includes('급등') && !r.label.includes('급락') && !r.label.includes('상승') && !r.label.includes('하락')).slice(0, 2);
     const subChips = subReasons.length
       ? `<div class="hl-sub-chips">` +
         subReasons.map(r =>
-          `<span class="hl-sub-chip" style="background:${r.bg};color:${r.color}">${r.label}</span>`
+          `<span class="hl-sub-chip hl-reason-${r.cls}">${r.label}</span>`
         ).join('') +
         `</div>`
       : '';
@@ -7889,7 +7941,7 @@ function renderHomeHL(){
     return `<div class="hl-item" onclick="openDetail('${s.id}')">
       <div class="hl-rank">${rank + 1}</div>
       <div class="hl-main">
-        <div class="hl-badge" style="background:${primary.bg};color:${primary.color};border-color:${primary.bd}">${primary.label}</div>
+        <div class="hl-badge ${primaryCls}">${primaryLabel}</div>
         <div class="hl-nm">${s.nm} <span class="hl-mkt">${isKr ? 'KR' : 'US'}</span></div>
         ${subChips}
       </div>
@@ -11185,7 +11237,21 @@ function goLegal(which){
   if (scroll) scroll.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
 }
 
+function _closeAllOverlays(){
+  try {
+    document.getElementById('mobFilterOverlay')?.classList.remove('on');
+    document.getElementById('mobDrawerOv')?.classList.remove('open');
+    document.querySelectorAll('.overlay.on').forEach(o => o.classList.remove('on'));
+    document.querySelectorAll('.search-overlay.on').forEach(o => o.classList.remove('on'));
+    document.querySelectorAll('.drawer-ov.on, .drawer.on').forEach(o => o.classList.remove('on'));
+    document.querySelectorAll('.ob-overlay').forEach(o => o.remove());
+    document.body.style.overflow = '';
+  } catch(_){}
+}
+window._closeAllOverlays = _closeAllOverlays;
+
 function showPage(page){
+  _closeAllOverlays();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   const pg=document.getElementById(`pg-${page}`);
   if(pg)pg.classList.add('on');
@@ -11814,13 +11880,13 @@ body.stockie-open .float-btn-ai{display:none;}
   position: fixed; bottom: 0; left: 0; right: 0;
   z-index: 490;
   background: var(--white);
-  border: none !important;
+  border: 0 none !important;
   margin: 0 !important;
   padding: 6px 6px calc(4px + env(safe-area-inset-bottom));
   justify-content: space-around;
   align-items: stretch;
   gap: 2px;
-  box-shadow: 0 -1px 0 var(--bdr);
+  box-shadow: none !important;
 }
 [data-theme="dark"] .mob-bottom-nav {
   background: var(--white);
