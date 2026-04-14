@@ -3721,6 +3721,22 @@ html[data-theme="dark"] body .toast,
 [data-theme="dark"] .inquiry-chip:hover { background: rgba(74,143,255,.14); color: #93c5fd; border-color: var(--brand); }
 [data-theme="dark"] .inquiry-chip.inquiry-cancel:hover { background: #2a1313; color: #fca5a5; border-color: #5a1f1f; }
 
+/* 대시보드 편집 버튼 — 고스트 스타일 (작고 얇게) */
+.dash-edit-btn {
+  background: transparent;
+  border: none;
+  color: var(--tx4);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--trans-fast);
+  letter-spacing: -.1px;
+}
+.dash-edit-btn:hover { color: var(--brand); background: var(--brand-lt); }
+.dash-edit-btn:active { transform: scale(.96); }
+
 /* ══════════════════════════════════════════════
    🏠 홈 관심종목 그리드 (반응형)
    ══════════════════════════════════════════════ */
@@ -4500,8 +4516,8 @@ html[data-theme="dark"] body .toast,
   <!-- ══ 홈 ══ -->
   <div class="page on" id="pg-home">
     <!-- 대시보드 편집 툴바 -->
-    <div id="dashToolbar" style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px">
-      <button class="btn btn-g btn-sm" id="dashEditBtn" onclick="toggleDashEdit()">✏️ 편집</button>
+    <div id="dashToolbar" style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:4px">
+      <button class="dash-edit-btn" id="dashEditBtn" onclick="toggleDashEdit()">✏️ 대시보드 편집</button>
     </div>
 
     <!-- 위젯 슬롯 — 순서는 sr_dashboard_layout 에 따름, JS 가 채움 -->
@@ -7468,7 +7484,7 @@ function _saveDashLayout(arr){
 let _dashEditMode = false;
 function toggleDashEdit(){
   _dashEditMode = !_dashEditMode;
-  document.getElementById('dashEditBtn').textContent = _dashEditMode ? '✓ 완료' : '✏️ 편집';
+  document.getElementById('dashEditBtn').textContent = _dashEditMode ? '✓ 편집 완료' : '✏️ 대시보드 편집';
   document.getElementById('dashboardWidgets').classList.toggle('editing', _dashEditMode);
   renderDashboard();
 }
