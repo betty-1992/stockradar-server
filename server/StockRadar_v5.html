@@ -2818,9 +2818,9 @@ input,select,textarea{font-family:var(--sans);}
     <div class="topbar-r">
       <div class="clk" id="clk" style="font-size:11px;color:var(--tx4);font-family:var(--mono)"></div>
       <div class="refresh-wrap">
-        <button class="btn-refresh" onclick="refreshAll()" style="padding:7px 9px;display:flex;align-items:center;gap:5px">
+        <button class="btn-refresh" onclick="refreshAll()" title="서버 캐시를 우회하고 모든 시세·지수를 최신으로 다시 가져와요" style="padding:7px 11px;display:flex;align-items:center;gap:6px">
         <svg id="refreshIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        <span style="font-size:12px">새로고침</span>
+        <span style="font-size:12px;font-weight:600">최신 데이터 가져오기</span>
         </button>
         <div class="refresh-tooltip">
           주가·등락률 — 최근 시세 (약 1~15분 지연)<br>
@@ -3201,6 +3201,10 @@ input,select,textarea{font-family:var(--sans);}
               <path d="M12 2.8l2.9 5.88 6.5.94-4.7 4.58 1.11 6.47L12 17.6l-5.81 3.06 1.11-6.47L2.6 9.62l6.5-.94z"/>
             </svg>
             <span>관심종목</span>
+          </button>
+          <button class="btn-ext" id="detailRefreshBtn" onclick="refreshDetail()" title="이 종목의 시세·차트·AI 분석을 새로 가져와요">
+            <svg id="detailRefreshIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            새로고침
           </button>
           <button class="btn-ext" id="naverBtn" onclick="openLink('naver')">네이버금융</button>
           <button class="btn-ext" id="yahooBtn" onclick="openLink('yahoo')">Yahoo</button>
@@ -6535,6 +6539,37 @@ function goBack(){
   // 브라우저 히스토리 뒤로가기와 일관되게 동작
   history.back();
 }
+
+// ─── 이 종목만 새로고침 ─────────────────────────
+async function refreshDetail(){
+  if (!curStock?.id) return;
+  const id = curStock.id;
+  const btn = document.getElementById('detailRefreshBtn');
+  const ico = document.getElementById('detailRefreshIcon');
+  if (btn) btn.disabled = true;
+  if (ico) ico.style.animation = 'spin .8s linear infinite';
+  try {
+    try {
+      const r = await fetch(`${SERVER_URL}/api/quote/${encodeURIComponent(id)}?nocache=${Date.now()}`);
+      const j = await r.json();
+      if (j && j.price != null) liveData[id] = { ...(liveData[id]||{}), ...j };
+    } catch(_) {}
+    if (!/^\d{6}$/.test(id) && !_fmpRateLimited) {
+      try {
+        const r = await fetch(`${SERVER_URL}/api/profile/${encodeURIComponent(id)}?nocache=${Date.now()}`);
+        if (r.status === 429) markFmpRateLimited();
+      } catch(_) {}
+    }
+    await openDetail(id);
+    toast('최신 데이터로 업데이트됐어요');
+  } catch(e) {
+    toast('새로고침 실패: ' + (e.message || ''));
+  } finally {
+    if (btn) btn.disabled = false;
+    if (ico) ico.style.animation = '';
+  }
+}
+window.refreshDetail = refreshDetail;
 
 function openLink(type){
   if(!curStock)return;
