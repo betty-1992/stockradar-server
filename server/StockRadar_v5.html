@@ -4377,9 +4377,64 @@ html[data-theme="dark"] body .toast,
   .btn-refresh { padding: 6px 8px !important; }
   .btn-refresh span { display: none !important; }
 
-  /* 섹터맵 토글 묶음 */
+  /* 섹터맵 모바일 최적화 */
   .tm-view-toggle { flex-shrink: 0; }
   #pg-sector .sh { flex-wrap: wrap; gap: 8px !important; }
+  #pg-sector .sec-chart-wrap { display: none !important; }
+  #pg-sector .sec-table,
+  #pg-sector .sec-table thead { display: none !important; }
+  #pg-sector .sec-table-card { padding: 0 !important; background: transparent !important; border: none !important; box-shadow: none !important; overflow: visible !important; }
+  #pg-sector #secTbody { display: flex !important; flex-direction: column !important; gap: 12px !important; }
+  #pg-sector #secTbody tr {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    grid-template-areas: "name price" "meta chg" "bar bar" !important;
+    gap: 4px 10px !important;
+    padding: 14px 16px !important;
+    background: var(--white) !important;
+    border: 1px solid var(--bdr) !important;
+    border-radius: var(--r-md) !important;
+    box-shadow: var(--sh1) !important;
+    cursor: pointer;
+  }
+  #pg-sector #secTbody tr:hover { border-color: var(--brand) !important; }
+  #pg-sector #secTbody tr td {
+    display: block !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    text-align: left !important;
+    font-size: 12px !important;
+    color: var(--tx2) !important;
+  }
+  #pg-sector #secTbody tr td:nth-child(1) { grid-area: name !important; font-weight: 800 !important; color: var(--tx) !important; }
+  #pg-sector #secTbody tr td:nth-child(2) { grid-area: price !important; text-align: right !important; font-family: var(--mono) !important; font-weight: 800 !important; color: var(--tx) !important; font-size: 14px !important; }
+  #pg-sector #secTbody tr td:nth-child(3) { grid-area: chg !important; text-align: right !important; font-family: var(--mono) !important; font-weight: 700 !important; }
+  #pg-sector #secTbody tr td:nth-child(4),
+  #pg-sector #secTbody tr td:nth-child(5),
+  #pg-sector #secTbody tr td:nth-child(6) {
+    grid-area: meta !important; display: inline-block !important; color: var(--tx4) !important; font-size: 11px !important; margin-right: 8px !important;
+  }
+  #pg-sector #secTbody tr td:nth-child(7) { grid-area: bar !important; }
+  #pg-sector .sec-popover { display: none !important; }
+
+  /* GNB(topbar)는 모바일에서 숨김 — 페이지 타이틀로 충분 */
+  .gnb, .topbar { display: none !important; }
+  .content { height: 100vh !important; }
+  /* 모바일: 페이지 최상단에 타이틀 자동 노출 (JS 가 삽입한 .mob-page-title 대상) */
+  .mob-page-title {
+    display: block !important;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -.5px;
+    color: var(--tx);
+    padding: 10px 2px 14px;
+    margin: 0;
+  }
+}
+/* 데스크탑에서는 숨김 */
+@media (min-width: 769px) {
+  .mob-page-title { display: none !important; }
 
   /* 가이드 블로그 */
   .blog-cats { gap: 6px !important; margin-bottom: 12px !important; }
@@ -5278,7 +5333,7 @@ html[data-theme="dark"] body .toast,
       </div>
       <div class="treemap" id="treemap"></div>
     </div>
-    <div class="card section">
+    <div class="card section sec-chart-wrap">
       <div class="sh">
         <div class="st">📊 섹터별 오늘 등락률</div>
         <div style="font-size:11px;color:var(--tx4)" id="secChartLabel">최근 시세 기준</div>
@@ -5336,6 +5391,18 @@ html[data-theme="dark"] body .toast,
   <div class="page" id="pg-settings">
     <div style="max-width:600px;margin:0 auto">
       <div class="set-sec" id="setAccount"></div>
+
+      <!-- 데이터 새로고침 -->
+      <div class="set-sec">
+        <div class="set-title">🔄 데이터</div>
+        <div style="font-size:12.5px;color:var(--tx3);margin-bottom:12px;line-height:1.55">
+          서버 캐시를 우회하고 모든 시세·지수를 최신으로 다시 가져와요.
+        </div>
+        <button class="btn btn-g btn-full" onclick="refreshAll();toast('최신 데이터를 가져오고 있어요')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          최신 데이터 가져오기
+        </button>
+      </div>
 
       <!-- 보기 설정 (테마 + 글씨 크기) -->
       <div class="set-sec">
@@ -11605,6 +11672,18 @@ function showPage(page){
   if(pg)pg.classList.add('on');
   const topTitle = document.getElementById('topTitle');
   if (topTitle) topTitle.textContent = PAGE_TITLES[page] || '';
+  // 모바일: 활성 페이지 최상단에 페이지 타이틀 주입 (GNB 대체)
+  try {
+    if (pg && page !== 'detail') {
+      let mt = pg.querySelector(':scope > .mob-page-title');
+      if (!mt) {
+        mt = document.createElement('h1');
+        mt.className = 'mob-page-title';
+        pg.prepend(mt);
+      }
+      mt.textContent = PAGE_TITLES[page] || '';
+    }
+  } catch(_){}
   if (typeof trackEvent === 'function') trackEvent('page_view', page);
   // 스톡이 컨텍스트 — 대화가 비어 있을 때만 페이지 이동 시 인사말 리프레시
   try {
@@ -12256,6 +12335,8 @@ body.stockie-open .float-btn-ai{display:none;}
   gap: 2px;
   box-shadow: none !important;
 }
+/* 중복 방지 — 구 .mob-tabbar 는 항상 숨김 */
+.mob-tabbar { display: none !important; }
 [data-theme="dark"] .mob-bottom-nav {
   background: var(--white);
   box-shadow: 0 -8px 24px rgba(0,0,0,.5);
