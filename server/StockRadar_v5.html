@@ -9567,6 +9567,10 @@ function buildLineChart(candles, vols){
 }
 
 function chartOptions(yRange){
+  const dark = (typeof _isDarkTheme === 'function') ? _isDarkTheme() : false;
+  const gridColor = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.03)';
+  const tickColor = dark ? '#8b95a1' : '#9ca3af';
+  const legendColor = dark ? '#c8ccd4' : '#6b7280';
   const opt = {
     responsive:true, maintainAspectRatio:false, animation:{duration:200},
     interaction:{mode:'index', intersect:false},
@@ -9575,7 +9579,7 @@ function chartOptions(yRange){
         // 레전드 클릭 비활성화 — 지표는 상단 체크박스로만 토글
         onClick: () => {},
         labels:{
-          font:{size:10}, boxWidth:12, padding:8, color:'#6b7280',
+          font:{size:10}, boxWidth:12, padding:8, color:legendColor,
           // '_' prefix 필터 + hidden 항목은 완전히 숨김 (취소선 X)
           filter:(item) => {
             if (/^_/.test(item.text || '')) return false;
@@ -9613,16 +9617,14 @@ function chartOptions(yRange){
     scales:{
       x:{
         display:true,
-        // offset:true 로 슬롯 중심에 포인트 배치 → 캔들이 가장자리에 붙지 않고
-        // 볼륨 차트(bar type 기본 offset:true)와 수직 정렬됨
         offset:true,
-        grid:{color:'rgba(0,0,0,.03)'},
-        ticks:{color:'#9ca3af', font:{size:9, family:'monospace'}, maxTicksLimit:12, autoSkip:true},
+        grid:{color: gridColor},
+        ticks:{color: tickColor, font:{size:9, family:'monospace'}, maxTicksLimit:12, autoSkip:true},
       },
       y:{
         display:true, position:'right',
-        grid:{color:'rgba(0,0,0,.03)'},
-        ticks:{color:'#9ca3af', font:{size:9, family:'monospace'}},
+        grid:{color: gridColor},
+        ticks:{color: tickColor, font:{size:9, family:'monospace'}},
       },
     },
     // 메인·볼륨 차트 x축이 같은 너비·여백을 갖도록 layout padding 고정
