@@ -9790,7 +9790,8 @@ function buildRsiChart(_ignoredCloses, _ignoredLabels){
           display:true, position:'right',
           min:0, max:100,
           ticks:{
-            color:'#9ca3af', font:{size:9, family:'monospace'},
+            color: (typeof _isDarkTheme==='function' && _isDarkTheme()) ? '#8b95a1' : '#9ca3af',
+            font:{size:9, family:'monospace'},
             stepSize:20, autoSkip:false,
             callback:(v) => (v === 30 || v === 50 || v === 70) ? v : '',
           },
