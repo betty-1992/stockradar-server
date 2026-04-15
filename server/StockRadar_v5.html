@@ -1232,7 +1232,11 @@ input,select,textarea{font-family:var(--sans);}
 .investor-card-badge{
   font-size:10px;font-weight:700;
   padding:3px 9px;border-radius:999px;
-  background:#fef3c7;color:#b45309;
+  background:var(--amber-bg);color:var(--amber);
+  border:1px solid var(--amber-lt);
+}
+[data-theme="dark"] .investor-card-badge{
+  background:#2a1f0a !important;color:#fcd34d !important;border-color:#78350f !important;
 }
 .investor-placeholder{
   padding:22px;background:var(--surf);border-radius:11px;
