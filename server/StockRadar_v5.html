@@ -4287,9 +4287,12 @@ html[data-theme="dark"] body .toast,
   /* 홈 g2 section 도 동일 */
   .g2.section { display: flex !important; flex-direction: column !important; }
 
-  /* 차트 섹션 높이 축소 */
-  .chart-sec { padding: 12px !important; }
-  #chartArea { height: 220px !important; }
+  /* 차트 섹션 높이 축소 + overflow 방지 */
+  .chart-sec { padding: 12px !important; overflow: hidden !important; }
+  #chartArea, #chartArea canvas { height: 220px !important; max-width: 100% !important; }
+  #volChart, #rsiChart { max-width: 100% !important; }
+  /* 기간 탭 overflow-x 스크롤 */
+  .chart-hdr, .period-tabs { flex-wrap: wrap !important; gap: 6px !important; }
 
   /* 체크리스트 카드 컴팩트 */
   .stock-check-card .ck-summary { padding: 12px !important; gap: 10px !important; }
