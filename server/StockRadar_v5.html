@@ -7048,8 +7048,14 @@ function setTheme(mode){
   document.querySelectorAll('.theme-opt').forEach(b => {
     b.classList.toggle('on', b.dataset.theme === mode);
   });
-  // 차트 재렌더 (색상 갱신)
-  try { if (mainChart) mainChart.update('none'); } catch(_){}
+  // 차트 재렌더 (색상 갱신) — 현재 보고 있는 상세페이지가 있으면 차트 재로드
+  try {
+    if (typeof curStock !== 'undefined' && curStock && curStock.id && typeof loadChart === 'function') {
+      const ptab = document.querySelector('.ptab.on');
+      const m = ptab?.getAttribute('onclick')?.match(/'([^']+)','([^']+)'/);
+      if (m) loadChart(curStock.id, m[1], m[2]);
+    }
+  } catch(_){}
   try { if (typeof renderSectorMap === 'function' && document.getElementById('pg-sector')?.classList.contains('on')) renderSectorMap(); } catch(_){}
 }
 function restoreTheme(){
