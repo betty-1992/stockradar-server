@@ -4,7 +4,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { z } = require('zod');
-const { db, logAudit, GEMINI_PRICING } = require('./db');
+const { db, logAudit, logAiUsage, GEMINI_PRICING } = require('./db');
 const { requireAdmin, clientIp } = require('./middleware');
 
 const router = express.Router();
@@ -843,18 +843,32 @@ ${angle ? `[관점/포인트] ${angle}` : ''}
     }
     const j = await r.json();
     const text = j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // 사용량 기록 — 관리자가 AI 로 글쓰기 한 것도 총 비용에 반영
+    const um = j?.usageMetadata || {};
+    logAiUsage({
+      userId: req.user?.id || null,
+      endpoint: 'ai-article-draft',
+      model: 'gemini-2.5-flash',
+      promptTokens: um.promptTokenCount || 0,
+      completionTokens: um.candidatesTokenCount || 0,
+      totalTokens: um.totalTokenCount || 0,
+      context: { topic: (topic || '').slice(0,200), category, readMin },
+    });
     // 가끔 ```json 래퍼가 붙음
     const cleaned = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
     let parsed;
     try { parsed = JSON.parse(cleaned); }
     catch { throw new Error('AI 응답 파싱 실패 — 다시 시도해주세요'); }
 
-    // slug 자동 생성
-    const slug = `${category || 'basics'}-` + (parsed.title || topic).toLowerCase()
-      .replace(/[^a-z0-9가-힣\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .slice(0, 60)
-      .replace(/^-+|-+$/g, '');
+    // slug 자동 생성 — 한글/특수문자 모두 제거하고 영문·숫자·하이픈만 허용
+    //  (articleSchema 의 정규식 ^[a-z0-9-]+$ 준수)
+    let base = (parsed.title || topic || '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')  // 영문·숫자 이외 전부 하이픈
+      .replace(/-+/g, '-')           // 연속 하이픈 압축
+      .replace(/^-+|-+$/g, '');      // 양끝 하이픈 제거
+    // 한글 제목이라 base 가 비면 timestamp 로 대체
+    if (!base) base = 'post-' + Date.now().toString(36);
+    const slug = `${category || 'basics'}-${base}`.slice(0, 80).replace(/-+$/g, '');
 
     res.json({
       ok: true,
