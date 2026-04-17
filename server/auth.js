@@ -538,4 +538,49 @@ router.get('/google/callback', async (req, res) => {
   }
 });
 
+// ─── 포트폴리오(나의 투자) — user_holdings CRUD ─────
+//  v9 마이그레이션에서 추가된 테이블. PK (user_id, stock_id) 복합키로 upsert.
+router.get('/holdings', requireAuth, (req, res) => {
+  const rows = db.prepare(`
+    SELECT stock_id, quantity, avg_price, memo, updated_at
+    FROM user_holdings
+    WHERE user_id = ?
+    ORDER BY updated_at DESC
+  `).all(req.user.id);
+  res.json({ ok: true, holdings: rows });
+});
+
+router.post('/holdings', requireAuth, (req, res) => {
+  const { stock_id, quantity, avg_price, memo } = req.body || {};
+  if (typeof stock_id !== 'string' || stock_id.length < 1 || stock_id.length > 50) {
+    return res.status(400).json({ ok: false, error: 'INVALID_STOCK_ID' });
+  }
+  if (typeof quantity !== 'number' || !(quantity > 0)) {
+    return res.status(400).json({ ok: false, error: 'INVALID_QUANTITY' });
+  }
+  if (typeof avg_price !== 'number' || !(avg_price >= 0)) {
+    return res.status(400).json({ ok: false, error: 'INVALID_AVG_PRICE' });
+  }
+  const sid = stock_id.toUpperCase();
+  const memoStr = (typeof memo === 'string' && memo.length <= 500) ? memo : null;
+  const now = Date.now();
+  db.prepare(`
+    INSERT INTO user_holdings (user_id, stock_id, quantity, avg_price, memo, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, stock_id) DO UPDATE SET
+      quantity   = excluded.quantity,
+      avg_price  = excluded.avg_price,
+      memo       = excluded.memo,
+      updated_at = excluded.updated_at
+  `).run(req.user.id, sid, quantity, avg_price, memoStr, now, now);
+  res.json({ ok: true });
+});
+
+router.delete('/holdings/:stockId', requireAuth, (req, res) => {
+  const sid = String(req.params.stockId || '').toUpperCase();
+  if (!sid) return res.status(400).json({ ok: false, error: 'INVALID_STOCK_ID' });
+  db.prepare(`DELETE FROM user_holdings WHERE user_id = ? AND stock_id = ?`).run(req.user.id, sid);
+  res.json({ ok: true });
+});
+
 module.exports = router;

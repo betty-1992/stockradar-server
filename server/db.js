@@ -26,6 +26,7 @@ db.pragma('synchronous = NORMAL');
 // ─── 스키마 마이그레이션 ─────────────────────────
 //  user_version 을 이용한 단순 버전 기반 마이그레이션
 //  새 버전을 추가할 때 migrations 배열 끝에 함수 append 만 하면 됨
+//  현재 버전: v10 (stocks + stock_curation 추가)
 const migrations = [
   // v1 — 초기 스키마
   (db) => {
@@ -234,6 +235,72 @@ const migrations = [
       CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status);
       CREATE INDEX IF NOT EXISTS idx_inquiries_user ON inquiries(user_id);
       CREATE INDEX IF NOT EXISTS idx_inquiries_created ON inquiries(created_at);
+    `);
+  },
+  // v9 — 포트폴리오(나의 투자) 보유 종목
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS user_holdings (
+        user_id     INTEGER NOT NULL,
+        stock_id    TEXT    NOT NULL,
+        quantity    REAL    NOT NULL,
+        avg_price   REAL    NOT NULL,
+        memo        TEXT,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL,
+        PRIMARY KEY (user_id, stock_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_holdings_user ON user_holdings(user_id);
+    `);
+  },
+  // v10 — 종목 마스터 DB 전환 (Phase 0)
+  //   stocks: FMP/큐레이션 기반 종목 원천 데이터
+  //   stock_curation: 수기 정성값 (score/geo/inst/note) 분리 — 재수집 시 덮어쓰기 방지
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS stocks (
+        symbol          TEXT    PRIMARY KEY,
+        market          TEXT    NOT NULL,
+        name            TEXT    NOT NULL,
+        name_kr         TEXT,
+        exchange        TEXT,
+        sector          TEXT,
+        industry        TEXT,
+        market_cap      REAL,
+        currency        TEXT,
+        is_etf          INTEGER NOT NULL DEFAULT 0,
+        etf_index       TEXT,
+        tags            TEXT,
+        per             REAL,
+        pbr             REAL,
+        roe             REAL,
+        dividend_yield  REAL,
+        revenue_growth  REAL,
+        source          TEXT    NOT NULL DEFAULT 'unknown',
+        is_curated      INTEGER NOT NULL DEFAULT 0,
+        is_active       INTEGER NOT NULL DEFAULT 1,
+        last_fetched_at INTEGER,
+        last_seen_at    INTEGER,
+        created_at      INTEGER NOT NULL,
+        updated_at      INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_stocks_market ON stocks(market);
+      CREATE INDEX IF NOT EXISTS idx_stocks_sector ON stocks(market, sector);
+      CREATE INDEX IF NOT EXISTS idx_stocks_mcap   ON stocks(market_cap DESC);
+      CREATE INDEX IF NOT EXISTS idx_stocks_active ON stocks(is_active, market);
+      CREATE INDEX IF NOT EXISTS idx_stocks_etf    ON stocks(is_etf);
+
+      CREATE TABLE IF NOT EXISTS stock_curation (
+        symbol      TEXT    PRIMARY KEY,
+        score       INTEGER,
+        geo         INTEGER DEFAULT 0,
+        inst        INTEGER DEFAULT 0,
+        note        TEXT,
+        updated_by  INTEGER,
+        updated_at  INTEGER NOT NULL,
+        FOREIGN KEY (symbol) REFERENCES stocks(symbol) ON DELETE CASCADE
+      );
     `);
   },
 ];

@@ -4617,6 +4617,10 @@ html[data-theme="dark"] body .toast,
       <span class="lnb-item-ico" style="margin-right:8px;display:inline-flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8l2.9 5.88 6.5.94-4.7 4.58 1.11 6.47L12 17.6l-5.81 3.06 1.11-6.47L2.6 9.62l6.5-.94z"/></svg></span>
       <span class="lnb-item-txt">관심종목</span>
     </div>
+    <div class="lnb-item" onclick="go(this,'portfolio')">
+      <span class="lnb-item-ico" style="margin-right:8px;display:inline-flex;align-items:center;font-size:14px">💼</span>
+      <span class="lnb-item-txt">나의 투자</span>
+    </div>
     <div class="lnb-item" onclick="go(this,'issue')">
       <span class="lnb-item-ico" style="margin-right:8px;display:inline-flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
       <span class="lnb-item-txt">트렌드 트래커</span>
@@ -4779,6 +4783,21 @@ html[data-theme="dark"] body .toast,
       </div>
     </div>
     <div id="watchlistGrid" class="wl-full-grid"></div>
+  </div>
+
+  <!-- ══ 나의 투자 (포트폴리오) ══ -->
+  <div class="page" id="pg-portfolio">
+    <div class="page-inner">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <h2 style="font-size:18px;font-weight:700;margin:0">나의 투자</h2>
+        <div style="display:flex;gap:8px">
+          <button onclick="openHoldingImport()" style="padding:6px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:var(--tx)">가져오기</button>
+          <button onclick="openAddHolding()" style="padding:6px 14px;border-radius:8px;background:var(--brand);color:#fff;font-size:13px;cursor:pointer;border:none;font-weight:600">+ 추가</button>
+        </div>
+      </div>
+      <div id="portfolioSummary" style="margin-bottom:16px"></div>
+      <div id="portfolioList"></div>
+    </div>
   </div>
 
   <!-- ══ 관심종목 비교 결과 모달 ══ -->
@@ -5221,6 +5240,10 @@ html[data-theme="dark"] body .toast,
         <div class="chart-sec">
           <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--tx)">🏢 기업 정보</div>
           <div class="info-grid" id="companyInfo"></div>
+        </div>
+        <div class="chart-sec" id="holdingPanel" style="padding:14px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--tx)">💼 내 보유현황</div>
+          <div id="holdingPanelBody"></div>
         </div>
         <div class="chart-sec stock-check-card">
           <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
@@ -7351,6 +7374,7 @@ async function reloadUserData(){
     S.set('sr_wl',  fav.favorites || []);
     S.set('sr_kws', kw.keywords   || []);
   } catch(e){ /* 조회 실패 무시 */ }
+  try { await syncPortfolioFromServer(); } catch(_){}
 }
 
 // 소셜 로그인 — Phase 4 에서 OAuth 실제 연동 예정
@@ -9114,6 +9138,9 @@ async function openDetail(id){
       <div class="info-val">${c.val}</div>
     </div>`
   ).join('');
+
+  // 내 보유현황 패널
+  renderDetailHoldingPanel(id, d.price);
 
   // 외부 링크
   const isKR = /^\d{6}$/.test(id);
@@ -11547,7 +11574,7 @@ window.openGuideArticle = openGuideArticle;
 // ══════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════
-const PAGE_TITLES={home:'홈',watchlist:'관심종목',screener:'종목 발굴',detail:'종목 상세',issue:'트렌드 트래커',sector:'섹터맵',guide:'투자 가이드',settings:'설정',terms:'이용약관',privacy:'개인정보 처리방침',disclaimer:'투자 면책 고지'};
+const PAGE_TITLES={home:'홈',watchlist:'관심종목',portfolio:'나의 투자',screener:'종목 발굴',detail:'종목 상세',issue:'트렌드 트래커',sector:'섹터맵',guide:'투자 가이드',settings:'설정',terms:'이용약관',privacy:'개인정보 처리방침',disclaimer:'투자 면책 고지'};
 
 // ══════════════════════════════════════════════
 // 브라우저 히스토리 관리 (SPA 뒤로가기)
@@ -11696,6 +11723,7 @@ function showPage(page){
   if(page==='guide')renderGuide();
   if(page==='home')renderHome();
   if(page==='watchlist')renderWatchlistPage();
+  if(page==='portfolio')renderPortfolioPage();
   if(page==='screener'){applyFilters(); setTimeout(restoreSimpleView, 50);}
   // 모바일 바텀 네비 active 동기화
   try {
@@ -12396,6 +12424,9 @@ body.stockie-open .float-btn-ai{display:none;}
   <button class="mob-nav-item" data-page="watchlist" onclick="go(null,'watchlist')">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8l2.9 5.88 6.5.94-4.7 4.58 1.11 6.47L12 17.6l-5.81 3.06 1.11-6.47L2.6 9.62l6.5-.94z"/></svg>
     <span>관심</span>
+  </button>
+  <button class="mob-nav-item" data-page="portfolio" onclick="go(null,'portfolio')">
+    <span>💼</span><span>나의 투자</span>
   </button>
   <button class="mob-nav-item" data-page="sector" onclick="go(null,'sector')">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
@@ -13843,8 +13874,341 @@ function updateMobFilterCount(){
 }
 
 
+// ══════════════════════════════════════════════
+// 포트폴리오 (나의 투자) — v9 user_holdings
+// ══════════════════════════════════════════════
+const gPortfolio = () => S.get('sr_pf') || [];
+const sPortfolio = (arr) => S.set('sr_pf', arr);
+const _isKR = (sid) => /^\d{6}$/.test(sid);
+
+async function syncPortfolioFromServer() {
+  if (!gUser()) return;
+  try {
+    const data = await api('/api/auth/holdings');
+    if (data && Array.isArray(data.holdings)) sPortfolio(data.holdings);
+  } catch (e) { /* 조용히 실패 */ }
+}
+
+async function savePortfolioRow(stock_id, quantity, avg_price, memo, isEdit) {
+  const sid = String(stock_id || '').trim().toUpperCase();
+  if (!sid) { toast('종목 심볼을 입력하세요'); return false; }
+  const qty = Number(quantity), avg = Number(avg_price);
+  if (!(qty > 0)) { toast('수량은 0보다 커야 합니다'); return false; }
+  if (!(avg >= 0)) { toast('평균 매수가를 확인하세요'); return false; }
+  const memoStr = (typeof memo === 'string') ? memo : '';
+  if (gUser()) {
+    try {
+      await api('/api/auth/holdings', { method:'POST', body:{ stock_id: sid, quantity: qty, avg_price: avg, memo: memoStr } });
+    } catch (e) {
+      toast('저장 실패: ' + (e.message || 'error'));
+      return false;
+    }
+  }
+  const list = gPortfolio();
+  const idx = list.findIndex(h => h.stock_id === sid);
+  const row = { stock_id: sid, quantity: qty, avg_price: avg, memo: memoStr, updated_at: Date.now() };
+  if (idx >= 0) list[idx] = row; else list.unshift(row);
+  sPortfolio(list);
+  toast(isEdit ? '수정되었습니다' : '추가되었습니다');
+  renderPortfolioPage();
+  try { if (typeof curStock !== 'undefined' && curStock?.id) { const p = (typeof liveData !== 'undefined' && liveData[curStock.id]?.price) || 0; renderDetailHoldingPanel(curStock.id, p); } } catch(_){}
+  return true;
+}
+
+async function removePortfolioRow(stock_id) {
+  const sid = String(stock_id || '').toUpperCase();
+  if (!sid) return;
+  if (!confirm('삭제하시겠어요?')) return;
+  if (gUser()) {
+    try { await api('/api/auth/holdings/' + encodeURIComponent(sid), { method:'DELETE' }); }
+    catch (e) { toast('삭제 실패: ' + (e.message || 'error')); return; }
+  }
+  const list = gPortfolio().filter(h => h.stock_id !== sid);
+  sPortfolio(list);
+  toast('삭제되었습니다');
+  renderPortfolioPage();
+  try { if (typeof curStock !== 'undefined' && curStock?.id) { const p = (typeof liveData !== 'undefined' && liveData[curStock.id]?.price) || 0; renderDetailHoldingPanel(curStock.id, p); } } catch(_){}
+}
+
+async function renderPortfolioPage() {
+  const listEl = document.getElementById('portfolioList');
+  const sumEl = document.getElementById('portfolioSummary');
+  if (!listEl || !sumEl) return;
+
+  if (!gUser()) {
+    sumEl.innerHTML = '';
+    listEl.innerHTML = `<div class="card" style="padding:40px 20px;text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">💼</div>
+      <div style="font-size:16px;font-weight:800;margin-bottom:6px">로그인이 필요해요</div>
+      <div style="font-size:13px;color:var(--tx4);margin-bottom:16px">포트폴리오는 계정에 저장됩니다</div>
+      <button class="btn btn-p" onclick="om('loginOv')">로그인하기</button>
+    </div>`;
+    return;
+  }
+
+  const holdings = gPortfolio();
+  if (!holdings.length) {
+    sumEl.innerHTML = '';
+    listEl.innerHTML = `<div class="card" style="padding:48px 20px;text-align:center">
+      <div style="font-size:56px;margin-bottom:14px">💼</div>
+      <div style="font-size:16px;font-weight:800;margin-bottom:6px">아직 보유 종목이 없어요</div>
+      <div style="font-size:13px;color:var(--tx4);line-height:1.6;margin-bottom:18px">보유중인 종목과 평균 매수가를<br>등록해 손익을 관리해보세요</div>
+      <button class="btn btn-p" onclick="openAddHolding()">+ 보유 종목 추가</button>
+    </div>`;
+    return;
+  }
+
+  // 현재가 일괄 조회
+  const priceMap = {};
+  try {
+    const symbols = holdings.map(h => h.stock_id).join(',');
+    const data = await api('/api/quotes?symbols=' + encodeURIComponent(symbols));
+    const q = data && data.quotes ? data.quotes : {};
+    Object.keys(q).forEach(sid => { priceMap[sid] = q[sid]?.price ?? 0; });
+  } catch (e) { /* 실패 시 0 */ }
+
+  // 통화별 집계
+  const summary = { KR: { mv:0, cost:0, count:0 }, US: { mv:0, cost:0, count:0 } };
+  const rows = holdings.map(h => {
+    const price = priceMap[h.stock_id] ?? 0;
+    const mv = h.quantity * price;
+    const cost = h.quantity * h.avg_price;
+    const pl = mv - cost;
+    const plPct = cost > 0 ? (pl / cost * 100) : 0;
+    const ccy = _isKR(h.stock_id) ? 'KR' : 'US';
+    summary[ccy].mv += mv;
+    summary[ccy].cost += cost;
+    summary[ccy].count += 1;
+    return { ...h, price, mv, cost, pl, plPct, ccy };
+  });
+
+  renderPortfolioSummary(summary);
+  renderPortfolioTable(rows, summary);
+}
+
+function renderPortfolioSummary(s) {
+  const sumEl = document.getElementById('portfolioSummary');
+  if (!sumEl) return;
+  const fmt = (n, ccy) => {
+    if (ccy === 'KR') return '₩' + Math.round(n).toLocaleString('ko-KR');
+    return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  };
+  const card = (label, data, ccy) => {
+    if (data.count === 0) return '';
+    const pl = data.mv - data.cost;
+    const plPct = data.cost > 0 ? (pl / data.cost * 100) : 0;
+    const up = pl >= 0;
+    const col = up ? 'var(--up, #e53935)' : 'var(--dn, #1e88e5)';
+    return `<div class="card" style="flex:1;min-width:240px;padding:16px 18px;background:var(--bg2);border:1px solid var(--border, var(--bdr));border-radius:12px">
+      <div style="font-size:12px;color:var(--tx4);font-weight:700;margin-bottom:8px">${label} · ${data.count}종목</div>
+      <div style="font-size:20px;font-weight:900;color:var(--tx);margin-bottom:6px">${fmt(data.mv, ccy)}</div>
+      <div style="display:flex;gap:12px;font-size:13px;font-weight:700">
+        <span style="color:${col}">${up?'▲':'▼'} ${fmt(Math.abs(pl), ccy)}</span>
+        <span style="color:${col}">${up?'+':''}${plPct.toFixed(2)}%</span>
+      </div>
+      <div style="font-size:11px;color:var(--tx4);margin-top:4px">원금 ${fmt(data.cost, ccy)}</div>
+    </div>`;
+  };
+  sumEl.innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap">${card('🇺🇸 미국', s.US, 'US')}${card('🇰🇷 한국', s.KR, 'KR')}</div>`;
+}
+
+function renderPortfolioTable(rows, summary) {
+  const listEl = document.getElementById('portfolioList');
+  if (!listEl) return;
+  const fmt = (n, ccy) => ccy === 'KR'
+    ? '₩' + Math.round(n).toLocaleString('ko-KR')
+    : '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  const totalMvByCcy = { KR: summary.KR.mv, US: summary.US.mv };
+
+  const body = rows.map(r => {
+    const total = totalMvByCcy[r.ccy] || 0;
+    const weight = total > 0 ? (r.mv / total * 100) : 0;
+    const up = r.pl >= 0;
+    const col = up ? 'var(--up, #e53935)' : 'var(--dn, #1e88e5)';
+    const name = (typeof MASTER !== 'undefined' && MASTER[r.stock_id]?.nm) || r.stock_id;
+    return `<tr style="border-bottom:1px solid var(--bdr)">
+      <td style="padding:12px 10px">
+        <div style="font-weight:800;color:var(--tx)">${name}</div>
+        <div style="font-size:11px;color:var(--tx4)">${r.stock_id} · ${r.ccy==='KR'?'🇰🇷':'🇺🇸'}</div>
+      </td>
+      <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums">${r.quantity.toLocaleString('en-US',{maximumFractionDigits:4})}</td>
+      <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt(r.price, r.ccy)}</td>
+      <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--tx4)">${fmt(r.avg_price, r.ccy)}</td>
+      <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700">${fmt(r.mv, r.ccy)}</td>
+      <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--tx4)">${weight.toFixed(1)}%</td>
+      <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums;color:${col};font-weight:800">
+        ${up?'+':''}${r.plPct.toFixed(2)}%
+        <div style="font-size:11px;font-weight:600">${up?'+':''}${fmt(r.pl, r.ccy)}</div>
+      </td>
+      <td style="padding:12px 10px;text-align:right;white-space:nowrap">
+        <button onclick="openEditHolding('${r.stock_id}')" title="수정" style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px">✏️</button>
+        <button onclick="removePortfolioRow('${r.stock_id}')" title="삭제" style="background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  listEl.innerHTML = `<div class="card" style="padding:0;overflow-x:auto;background:var(--bg2);border:1px solid var(--bdr);border-radius:12px">
+    <table style="width:100%;min-width:720px;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:var(--surf, var(--bg2));border-bottom:1px solid var(--bdr)">
+          <th style="padding:12px 10px;text-align:left;font-size:11px;color:var(--tx4);font-weight:700">종목</th>
+          <th style="padding:12px 10px;text-align:right;font-size:11px;color:var(--tx4);font-weight:700">수량</th>
+          <th style="padding:12px 10px;text-align:right;font-size:11px;color:var(--tx4);font-weight:700">현재가</th>
+          <th style="padding:12px 10px;text-align:right;font-size:11px;color:var(--tx4);font-weight:700">평균매수가</th>
+          <th style="padding:12px 10px;text-align:right;font-size:11px;color:var(--tx4);font-weight:700">평가금액</th>
+          <th style="padding:12px 10px;text-align:right;font-size:11px;color:var(--tx4);font-weight:700">비중</th>
+          <th style="padding:12px 10px;text-align:right;font-size:11px;color:var(--tx4);font-weight:700">수익률</th>
+          <th style="padding:12px 10px;text-align:right;font-size:11px;color:var(--tx4);font-weight:700">액션</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
+}
+
+function openAddHolding(prefillSymbol = '') {
+  const t = document.getElementById('holdingOvTitle'); if (t) t.textContent = '보유 종목 추가';
+  const btn = document.getElementById('holdingSaveBtn'); if (btn) { btn.textContent = '저장'; btn.dataset.mode = 'add'; btn.dataset.orig = ''; }
+  const s = document.getElementById('holdingSymbol'); if (s) { s.value = prefillSymbol || ''; s.disabled = false; }
+  const q = document.getElementById('holdingQty'); if (q) q.value = '';
+  const p = document.getElementById('holdingPrice'); if (p) p.value = '';
+  const m = document.getElementById('holdingMemo'); if (m) m.value = '';
+  om('holdingOv');
+  setTimeout(() => { (prefillSymbol ? document.getElementById('holdingQty') : document.getElementById('holdingSymbol'))?.focus(); }, 80);
+}
+
+function openEditHolding(stock_id) {
+  const sid = String(stock_id || '').toUpperCase();
+  const row = gPortfolio().find(h => h.stock_id === sid);
+  if (!row) { toast('종목을 찾을 수 없습니다'); return; }
+  const t = document.getElementById('holdingOvTitle'); if (t) t.textContent = '보유 종목 수정';
+  const btn = document.getElementById('holdingSaveBtn'); if (btn) { btn.textContent = '수정 저장'; btn.dataset.mode = 'edit'; btn.dataset.orig = sid; }
+  const s = document.getElementById('holdingSymbol'); if (s) { s.value = sid; s.disabled = true; }
+  const q = document.getElementById('holdingQty'); if (q) q.value = row.quantity;
+  const p = document.getElementById('holdingPrice'); if (p) p.value = row.avg_price;
+  const m = document.getElementById('holdingMemo'); if (m) m.value = row.memo || '';
+  om('holdingOv');
+}
+
+async function submitHoldingForm() {
+  const btn = document.getElementById('holdingSaveBtn');
+  const isEdit = btn?.dataset.mode === 'edit';
+  const sid = document.getElementById('holdingSymbol').value;
+  const qty = parseFloat(document.getElementById('holdingQty').value);
+  const avg = parseFloat(document.getElementById('holdingPrice').value);
+  const memo = document.getElementById('holdingMemo').value;
+  const ok = await savePortfolioRow(sid, qty, avg, memo, isEdit);
+  if (ok) cm('holdingOv');
+}
+
+function openHoldingImport() {
+  const ta = document.getElementById('holdingImportText'); if (ta) ta.value = '';
+  om('holdingImportOv');
+  setTimeout(() => ta?.focus(), 80);
+}
+
+async function submitHoldingImport() {
+  const raw = document.getElementById('holdingImportText').value || '';
+  const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!lines.length) { toast('입력이 비어 있어요'); return; }
+  let ok = 0, fail = 0;
+  for (const line of lines) {
+    const parts = line.split(',').map(s => s.trim());
+    if (parts.length < 3) { fail++; continue; }
+    const [sid, qtyStr, priceStr, ...memoArr] = parts;
+    const qty = parseFloat(qtyStr), avg = parseFloat(priceStr);
+    if (!sid || !(qty > 0) || !(avg >= 0)) { fail++; continue; }
+    const success = await savePortfolioRow(sid, qty, avg, memoArr.join(',') || '', false);
+    if (success) ok++; else fail++;
+  }
+  toast(`${ok}건 추가 완료${fail?` · ${fail}건 실패`:''}`);
+  if (ok > 0) cm('holdingImportOv');
+}
+
+function renderDetailHoldingPanel(stock_id, currentPrice) {
+  const panel = document.getElementById('holdingPanel');
+  const body = document.getElementById('holdingPanelBody');
+  if (!panel || !body) return;
+  if (!gUser()) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  const sid = String(stock_id || '').toUpperCase();
+  const row = gPortfolio().find(h => h.stock_id === sid);
+  const ccy = _isKR(sid) ? 'KR' : 'US';
+  const fmt = (n) => ccy === 'KR'
+    ? '₩' + Math.round(n).toLocaleString('ko-KR')
+    : '$' + (Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  if (!row) {
+    body.innerHTML = `<button onclick="openAddHolding('${sid}')" style="width:100%;padding:12px;border:1px dashed var(--bdr);border-radius:10px;background:transparent;color:var(--brand);font-size:13px;font-weight:700;cursor:pointer">+ 내 포트폴리오에 추가</button>`;
+    return;
+  }
+  const price = Number(currentPrice) || 0;
+  const mv = row.quantity * price;
+  const cost = row.quantity * row.avg_price;
+  const pl = mv - cost;
+  const plPct = cost > 0 ? (pl / cost * 100) : 0;
+  const up = pl >= 0;
+  const col = up ? 'var(--up, #e53935)' : 'var(--dn, #1e88e5)';
+  body.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><div style="font-size:11px;color:var(--tx4);margin-bottom:2px">보유 수량</div><div style="font-size:14px;font-weight:800;color:var(--tx)">${row.quantity.toLocaleString('en-US',{maximumFractionDigits:4})}</div></div>
+      <div><div style="font-size:11px;color:var(--tx4);margin-bottom:2px">평균 매수가</div><div style="font-size:14px;font-weight:800;color:var(--tx)">${fmt(row.avg_price)}</div></div>
+      <div><div style="font-size:11px;color:var(--tx4);margin-bottom:2px">평가 금액</div><div style="font-size:14px;font-weight:800;color:var(--tx)">${fmt(mv)}</div></div>
+      <div><div style="font-size:11px;color:var(--tx4);margin-bottom:2px">손익</div><div style="font-size:14px;font-weight:800;color:${col}">${up?'+':''}${fmt(pl)} (${up?'+':''}${plPct.toFixed(2)}%)</div></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="openEditHolding('${sid}')" style="flex:1;padding:8px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:13px;font-weight:700;cursor:pointer">✏️ 수정</button>
+      <button onclick="removePortfolioRow('${sid}')" style="flex:1;padding:8px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:13px;font-weight:700;cursor:pointer">🗑 삭제</button>
+    </div>`;
+}
+window.renderDetailHoldingPanel = renderDetailHoldingPanel;
+
+window.renderPortfolioPage = renderPortfolioPage;
+window.openAddHolding = openAddHolding;
+window.openEditHolding = openEditHolding;
+window.removePortfolioRow = removePortfolioRow;
+window.openHoldingImport = openHoldingImport;
+window.submitHoldingForm = submitHoldingForm;
+window.submitHoldingImport = submitHoldingImport;
+window.syncPortfolioFromServer = syncPortfolioFromServer;
 
 </script>
+
+<!-- ══ 포트폴리오: 보유 종목 추가/수정 모달 ══ -->
+<div class="overlay" id="holdingOv" onclick="if(event.target===this)cm('holdingOv')">
+  <div class="modal" style="max-width:420px;padding:0;overflow:hidden">
+    <div class="modal-hdr" style="padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
+      <div class="modal-title" id="holdingOvTitle" style="font-size:16px;font-weight:800">보유 종목 추가</div>
+      <button class="modal-x" onclick="cm('holdingOv')" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--tx4)">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <input id="holdingSymbol" placeholder="종목 심볼 (예: AAPL, 005930)" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;box-sizing:border-box" />
+      <input id="holdingQty" type="number" inputmode="decimal" placeholder="수량" min="0.0001" step="0.0001" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;box-sizing:border-box" />
+      <input id="holdingPrice" type="number" inputmode="decimal" placeholder="평균 매수가 (USD 또는 KRW)" min="0" step="0.01" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;box-sizing:border-box" />
+      <input id="holdingMemo" placeholder="메모 (선택)" maxlength="500" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;box-sizing:border-box" />
+      <button id="holdingSaveBtn" onclick="submitHoldingForm()" data-mode="add" style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--brand);color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 포트폴리오: 텍스트 가져오기 모달 ══ -->
+<div class="overlay" id="holdingImportOv" onclick="if(event.target===this)cm('holdingImportOv')">
+  <div class="modal" style="max-width:480px;padding:0;overflow:hidden">
+    <div class="modal-hdr" style="padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
+      <div class="modal-title" style="font-size:16px;font-weight:800">보유 종목 가져오기</div>
+      <button class="modal-x" onclick="cm('holdingImportOv')" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--tx4)">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:12px;color:var(--tx4);line-height:1.6">
+        한 줄에 하나씩, <code>심볼,수량,평균매수가[,메모]</code> 형식으로 입력하세요.<br>
+        예시:<br>
+        <code>AAPL,10,150.5</code><br>
+        <code>005930,5,70000,장기보유</code>
+      </div>
+      <textarea id="holdingImportText" rows="8" placeholder="AAPL,10,150.5&#10;005930,5,70000" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:13px;font-family:ui-monospace,Menlo,Consolas,monospace;box-sizing:border-box;resize:vertical"></textarea>
+      <button onclick="submitHoldingImport()" style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--brand);color:#fff;font-size:14px;font-weight:700;cursor:pointer">분석하기</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
