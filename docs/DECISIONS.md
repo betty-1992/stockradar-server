@@ -17,6 +17,7 @@
 | 2026-04-18 | Phase 2 is_curated=1 은 identity·재무지표 모두 "완전 보호" — upsert 스킵 | 큐레이터 의도가 최우선. 재무지표 리프레시가 필요하면 stock_curation.note 수동 flag 또는 별도 refresh 스크립트로 분리 |
 | 2026-04-18 | KR 수집은 Yahoo Finance quoteSummary 비공식 엔드포인트 사용 — cookies+crumb 디스크 캐시, 429 시 5s 백오프, 기본 딜레이 1s | 공식 API 없음, crumb 엔드포인트 IP rate-limit 이 공격적이라 세션 재사용 필수 |
 | 2026-04-18 | **US 수집도 Yahoo Finance 로 전환** (FMP Starter → Yahoo). `lib/yahoo-fetch.js` 공통 모듈로 KR/US 통합, 유니버스만 datahub CSV(`s-and-p-500-companies`) 유지 | FMP 스킴이 2025-08-31 이후 변경됨 (legacy v3 전부 403). `/stable/` 경로는 `profile` 만 전 심볼 200, `key-metrics-ttm`/`ratios-ttm`/`income-statement-growth` 는 AAPL 등 대형주 외에 **402 "Special Endpoint: not available under your current subscription"** — Starter 플랜은 재무지표 심볼 게이트. 상위 플랜 업그레이드는 비용 부담 + 게이트 해제 보장 없음. Yahoo 는 무료, KR 과 스킴 통일, 필드 1:1 매칭 가능. 트레이드오프: 비공식 API 로 스킴 변경/차단 리스크 있음 — 추후 재검토 조건은 INSIGHTS.md 참조 |
+| 2026-04-18 | **Phase 3: `/api/universe` 라우트를 `stocks` 테이블(DB) 조회로 전환**. 기존 Yahoo 스크리너 9카테고리 병합 + 하드코딩 티커 + Yahoo quote 호출 방식 폐기 | 기존 방식은 (1) Yahoo 스크리너 결과가 매일 변동해 유니버스 안정성 없음 (2) Phase 0~2 로 쌓아둔 `stocks` 테이블과 프론트가 연결 안 되는 구조적 문제 (3) 호출당 Yahoo 10+ 회 fetch 로 지연·rate-limit 부담. DB 전환으로 유니버스 안정화 + Phase 2 수집기로 자연 확장. 프론트 스키마 무변경 원칙 유지 (`price: null` 호환 필드) |
 
 ---
 
