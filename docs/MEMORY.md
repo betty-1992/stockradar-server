@@ -89,16 +89,6 @@
 
 ## 완료된 항목
 
-- [x] **Phase 3: `/api/universe` DB 전환** — 2026-04-18
-  - `server/index.js` `/api/universe` 핸들러 재작성: Yahoo 스크리너 9카테고리 + 하드코딩 유니버스 조립 로직 전부 제거. `stocks` 테이블 단일 조회로 교체 (`WHERE is_active=1 ORDER BY (market_cap IS NULL), market_cap DESC, symbol ASC`)
-  - 버킷 분류: market/is_etf 조합으로 us/kr/krEtf/usEtf 자동 분배
-  - 응답 스키마 유지: `{ok, counts:{us,kr,krEtf,usEtf,total}, us[], kr[], krEtf[], usEtf[]}`. 엔트리 필드 `{symbol, name(name_kr 우선), exchange, marketCap, price:null, sector, industry(industry ?? etf_index), isEtf, tags?}`. price 는 프론트 미사용 확인 후 null 상수
-  - tags JSON 파싱: stocks.tags 가 JSON 문자열이면 배열로, 아니면 무시
-  - 캐시 키 변경: `universe` → `universe-db` (이전 캐시 무효화 효과)
-  - 로컬 스모크 (PORT=3099): total 311 정상 반환, NVDA 시총 내림차순 최상위 확인
-  - 프로덕션 배포 직후 영향: `/api/universe total` 804 → **307 (seed 원본)** 로 즉시 감소. Phase 2 Yahoo 수집 돌려야 ~830 복귀
-  - 프론트 `loadUniverse` (StockRadar_v5.html:6797) 무변경 — 스키마 호환성 유지
-
 - [x] **Phase 2 US 수집 FMP → Yahoo 전환** — 2026-04-18
   - 배경 (2026-04-18 재개 중 발견): FMP legacy v3 전 엔드포인트 403 (2025-08-31 cutoff). `/stable/` 경로도 Starter 플랜에서 `sp500-constituent` 402, `profile` 은 전 심볼 200 이지만 `key-metrics-ttm`·`ratios-ttm`·`income-statement-growth` 는 AAPL 등 극소수만 200 나머지 **402 "Special Endpoint: not available under your current subscription"** — 재무지표 심볼 게이트 확인. 결과: US 수집기로 4종목(ACN/ABT/AOS/MMM) insert 됐으나 전부 재무지표 null
   - 결정 (DECISIONS.md 2026-04-18): **US 도 Yahoo Finance 로 전환**. 비용 0, KR 과 스킴 통일, 필드 1:1 매칭. 트레이드오프 및 재검토 조건은 INSIGHTS.md 참조
