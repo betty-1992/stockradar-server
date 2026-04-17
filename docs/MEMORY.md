@@ -88,16 +88,25 @@
 | 2026-04-18 | KR 수집은 Yahoo Finance quoteSummary 비공식 엔드포인트 사용 — cookies+crumb 디스크 캐시, 429 시 5s 백오프, 기본 딜레이 1s | 공식 API 없음, crumb 엔드포인트 IP rate-limit 이 공격적이라 세션 재사용 필수 |
 
 ## 완료된 항목
+
+- [x] **Phase 2 US 수집 FMP → Yahoo 전환** — 2026-04-18
+  - 배경 (2026-04-18 재개 중 발견): FMP legacy v3 전 엔드포인트 403 (2025-08-31 cutoff). `/stable/` 경로도 Starter 플랜에서 `sp500-constituent` 402, `profile` 은 전 심볼 200 이지만 `key-metrics-ttm`·`ratios-ttm`·`income-statement-growth` 는 AAPL 등 극소수만 200 나머지 **402 "Special Endpoint: not available under your current subscription"** — 재무지표 심볼 게이트 확인. 결과: US 수집기로 4종목(ACN/ABT/AOS/MMM) insert 됐으나 전부 재무지표 null
+  - 결정 (DECISIONS.md 2026-04-18): **US 도 Yahoo Finance 로 전환**. 비용 0, KR 과 스킴 통일, 필드 1:1 매칭. 트레이드오프 및 재검토 조건은 INSIGHTS.md 참조
+  - 공통 모듈 추출: `server/scripts/lib/yahoo-fetch.js` — `getYahooAuth()` (6h 디스크 캐시 + YAHOO_COOKIE/CRUMB env 오버라이드) / `fetchQuoteSummary(sym, suffixes[])` / `extractFinancials(sym, yahoo, {market, defaultCurrency, computeExchange})`
+  - `fetch-kr-stocks.js` 리팩터: 공통 모듈 import, 동작 동일 (접미사 `.KS`/`.KQ` 순차 시도)
+  - `fetch-us-stocks.js` 재작성: datahub CSV 유니버스 유지, Yahoo quoteSummary 호출, 심볼 변환 `BRK.B → BRK-B` (Yahoo 의 클래스 구분자 표기). 이전 FMP 호출 로직 전부 제거. FMP_API_KEY 의존성 제거됨
+  - 기존 DB 오염: smoke test 로 남은 ACN/ABT/AOS/MMM 4개는 `is_curated=0 · source='fmp'` 상태로 잔존 — 다음 Yahoo 실행 시 정상 UPDATE 로 재무지표 채워질 예정 (즉 자연 복구)
+  - 테스트 상태: **Yahoo IP rate-limit 지속 중 — smoke 미완**. 코드 3개 파일 검증 대기 (lib/yahoo-fetch.js 신규, fetch-kr/us 리팩터)
+  - 다음 단계: (1) rate-limit 해제 (30~60분 후) → `cd server && node scripts/fetch-kr-stocks.js` (KR_LIMIT=3 smoke). (2) 성공 시 `node scripts/fetch-us-stocks.js` (US_LIMIT=5 smoke). (3) 둘 다 OK 면 full LIMIT 실행. (4) 완료 후 db-schema.md v11 + research 섹션 업데이트
+
 - [x] **종목 마스터 DB 전환 Phase 2 (대량 수집기 스캐폴드)** — 2026-04-18
   - DB: v11 마이그레이션 — `stocks.peg` · `stocks.fcf` 컬럼 추가 (ALTER TABLE ADD COLUMN, idempotent)
   - 공통 유틸: `server/scripts/lib/fetch-utils.js` — openDb / httpGetJson (타임아웃·백오프) / makeUpsertStock (is_curated=1 완전 스킵, 0·신규만 upsert) / makeProgress / num·numNoZero
-  - US 수집기: `server/scripts/fetch-us-stocks.js` — FMP Starter, S&P500 구성종목 → 심볼당 4 엔드포인트 (profile · key-metrics-ttm · ratios-ttm · income-statement-growth) 병렬 fetch → ROE/PER/PBR/PEG/FCF(절대값)/revenue_growth/market_cap 수집. 기본 LIMIT=500, DELAY 150ms
-  - KR 수집기: `server/scripts/fetch-kr-stocks.js` — Yahoo Finance quoteSummary (modules: summaryProfile · price · defaultKeyStatistics · financialData · summaryDetail). 인증(A3 cookie + crumb) 디스크 캐시 `server/scripts/.yahoo-cache.json` (6h TTL) + `YAHOO_COOKIE`/`YAHOO_CRUMB` env 오버라이드. 기본 LIMIT=100, DELAY 1000ms, 429 백오프 5→10→20s
-  - 유니버스 소스: US = FMP `sp500_constituent`, KR = `index.js` 의 `KOREAN_TICKERS` 배열 상위 N (KR_SYMBOLS env 오버라이드 가능)
-  - 실행 흐름: 서버 1회 기동(v11 마이그 자동) → `node scripts/fetch-us-stocks.js` (FMP_API_KEY 필요) → `node scripts/fetch-kr-stocks.js`
+  - ⚠️ 이 항목 당시의 US FMP 수집기는 2026-04-18 Yahoo 전환으로 폐기됨 (위 "FMP → Yahoo 전환" 항목 참조)
+  - 유니버스 소스: US = datahub CSV (원래 FMP `sp500_constituent` → 전환), KR = `index.js` 의 `KOREAN_TICKERS` 배열 상위 N (KR_SYMBOLS env 오버라이드 가능)
+  - 실행 흐름: 서버 1회 기동(v11 마이그 자동) → `node scripts/fetch-kr-stocks.js` → `node scripts/fetch-us-stocks.js` (순서 무관, FMP_API_KEY 불필요)
   - 리포트: inserted / updated / unchanged / skipped_curated / failed 5구간 카운트 + 실패 심볼 상위 10
   - 한계: Yahoo getcrumb IP rate-limit — 첫 실행 시 crumb 받으면 캐시 재사용. 쿼터 초과 시 30~60분 대기 후 재시도 또는 다른 네트워크/브라우저에서 `/tmp/ycookies` + `/v1/test/getcrumb` 로 수동 획득 후 env 주입
-  - 테스트 상태: 로컬 smoke (KR LIMIT=3) 은 Yahoo IP rate-limit 으로 실제 insert 확인 못 함. 스크립트 코드·DB 마이그레이션 검증됨. 실제 수집은 rate-limit 해제 후 Betty 가 수동 실행 예정
   - 문서: `docs/MEMORY.md` (본 항목) — db-schema.md 의 v11 섹션 업데이트 필요 (후속)
 
 - [x] **종목 마스터 DB 전환 Phase 0~1** — 2026-04-16

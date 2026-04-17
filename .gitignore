@@ -18,3 +18,6 @@ server/sessions.db-shm
 
 # 로그
 *.log
+
+# Yahoo Finance 인증 캐시 (장비별, 6h TTL)
+server/scripts/.yahoo-cache.json
