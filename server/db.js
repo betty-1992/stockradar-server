@@ -26,7 +26,7 @@ db.pragma('synchronous = NORMAL');
 // ─── 스키마 마이그레이션 ─────────────────────────
 //  user_version 을 이용한 단순 버전 기반 마이그레이션
 //  새 버전을 추가할 때 migrations 배열 끝에 함수 append 만 하면 됨
-//  현재 버전: v10 (stocks + stock_curation 추가)
+//  현재 버전: v11 (stocks 재무지표 peg/fcf 컬럼 추가)
 const migrations = [
   // v1 — 초기 스키마
   (db) => {
@@ -302,6 +302,18 @@ const migrations = [
         FOREIGN KEY (symbol) REFERENCES stocks(symbol) ON DELETE CASCADE
       );
     `);
+  },
+  // v11 — Phase 2 대량 수집기 대비: 재무지표 peg/fcf 컬럼 추가
+  //   peg : Price/Earnings to Growth (성장률 대비 PER)
+  //   fcf : Free Cash Flow (단위: 해당 종목 통화의 절대값)
+  (db) => {
+    const cols = db.prepare("PRAGMA table_info(stocks)").all().map(r => r.name);
+    if (!cols.includes('peg')) {
+      db.exec(`ALTER TABLE stocks ADD COLUMN peg REAL;`);
+    }
+    if (!cols.includes('fcf')) {
+      db.exec(`ALTER TABLE stocks ADD COLUMN fcf REAL;`);
+    }
   },
 ];
 

@@ -84,8 +84,22 @@
 | 2026-04-15 | 포트폴리오 통화 혼합 V1은 분리 카드 | 환율 적용 로직·실시간 환율 캐시 추가 복잡도 회피 |
 | 2026-04-15 | 포트폴리오 거래 이력 V2로 미룸 | MVP는 현재 보유 스냅샷 충분, 이력은 매도/실현손익과 묶어 일괄 추가 |
 | 2026-04-15 | 종목 마스터 DB 전환 시작 — stocks(v10) + stock_curation 테이블, PK=symbol 단일, Phase 0~4 계획 | 하드코딩 MASTER/KOREAN_TICKERS/KR_INFO → DB 기반 전환. 정량/정성값 분리로 재수집 덮어쓰기 방지. 기존 `/api/universe` 응답 스키마 유지해 프론트 무변경 |
+| 2026-04-18 | Phase 2 is_curated=1 은 identity·재무지표 모두 "완전 보호" — upsert 스킵 | 큐레이터 의도가 최우선. 재무지표 리프레시가 필요하면 stock_curation.note 수동 flag 또는 별도 refresh 스크립트로 분리 |
+| 2026-04-18 | KR 수집은 Yahoo Finance quoteSummary 비공식 엔드포인트 사용 — cookies+crumb 디스크 캐시, 429 시 5s 백오프, 기본 딜레이 1s | 공식 API 없음, crumb 엔드포인트 IP rate-limit 이 공격적이라 세션 재사용 필수 |
 
 ## 완료된 항목
+- [x] **종목 마스터 DB 전환 Phase 2 (대량 수집기 스캐폴드)** — 2026-04-18
+  - DB: v11 마이그레이션 — `stocks.peg` · `stocks.fcf` 컬럼 추가 (ALTER TABLE ADD COLUMN, idempotent)
+  - 공통 유틸: `server/scripts/lib/fetch-utils.js` — openDb / httpGetJson (타임아웃·백오프) / makeUpsertStock (is_curated=1 완전 스킵, 0·신규만 upsert) / makeProgress / num·numNoZero
+  - US 수집기: `server/scripts/fetch-us-stocks.js` — FMP Starter, S&P500 구성종목 → 심볼당 4 엔드포인트 (profile · key-metrics-ttm · ratios-ttm · income-statement-growth) 병렬 fetch → ROE/PER/PBR/PEG/FCF(절대값)/revenue_growth/market_cap 수집. 기본 LIMIT=500, DELAY 150ms
+  - KR 수집기: `server/scripts/fetch-kr-stocks.js` — Yahoo Finance quoteSummary (modules: summaryProfile · price · defaultKeyStatistics · financialData · summaryDetail). 인증(A3 cookie + crumb) 디스크 캐시 `server/scripts/.yahoo-cache.json` (6h TTL) + `YAHOO_COOKIE`/`YAHOO_CRUMB` env 오버라이드. 기본 LIMIT=100, DELAY 1000ms, 429 백오프 5→10→20s
+  - 유니버스 소스: US = FMP `sp500_constituent`, KR = `index.js` 의 `KOREAN_TICKERS` 배열 상위 N (KR_SYMBOLS env 오버라이드 가능)
+  - 실행 흐름: 서버 1회 기동(v11 마이그 자동) → `node scripts/fetch-us-stocks.js` (FMP_API_KEY 필요) → `node scripts/fetch-kr-stocks.js`
+  - 리포트: inserted / updated / unchanged / skipped_curated / failed 5구간 카운트 + 실패 심볼 상위 10
+  - 한계: Yahoo getcrumb IP rate-limit — 첫 실행 시 crumb 받으면 캐시 재사용. 쿼터 초과 시 30~60분 대기 후 재시도 또는 다른 네트워크/브라우저에서 `/tmp/ycookies` + `/v1/test/getcrumb` 로 수동 획득 후 env 주입
+  - 테스트 상태: 로컬 smoke (KR LIMIT=3) 은 Yahoo IP rate-limit 으로 실제 insert 확인 못 함. 스크립트 코드·DB 마이그레이션 검증됨. 실제 수집은 rate-limit 해제 후 Betty 가 수동 실행 예정
+  - 문서: `docs/MEMORY.md` (본 항목) — db-schema.md 의 v11 섹션 업데이트 필요 (후속)
+
 - [x] **종목 마스터 DB 전환 Phase 0~1** — 2026-04-16
   - Phase 0: v10 마이그레이션 — `stocks` + `stock_curation` 테이블 추가 (PK=symbol 단일, FK CASCADE)
   - Phase 0.5: FMP 무료 쿼터 실측 — `company-screener`/`sp500-constituent`/`profile-bulk` 전부 402 프리미엄 게이트 확인. Betty 가 FMP Starter($19/월) 유료 구독 결정

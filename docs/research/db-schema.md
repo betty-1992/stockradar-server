@@ -4,7 +4,7 @@
 - **저장 위치**: `server/data.db` (로컬) / `DATA_DIR` env (Railway 볼륨 `/data/data.db`)
 - **PRAGMA**: `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`
 - **마이그레이션 방식**: `user_version` PRAGMA 기반 순차 실행 (`runMigrations()`)
-- **현재 버전**: **v10**
+- **현재 버전**: **v11**
 
 ---
 
@@ -115,6 +115,8 @@
 | roe | REAL | ❌ | NULL | 〃 |
 | dividend_yield | REAL | ❌ | NULL | 〃 |
 | revenue_growth | REAL | ❌ | NULL | 〃 |
+| **peg** (v11) | REAL | ❌ | NULL | Price/Earnings to Growth ratio — FMP key-metrics-ttm · Yahoo defaultKeyStatistics |
+| **fcf** (v11) | REAL | ❌ | NULL | Free Cash Flow (절대값, 해당 종목 통화) — FMP: FCF/share × shares · Yahoo: financialData.freeCashflow |
 | source | TEXT | ✅ | `unknown` | `fmp` \| `krx` \| `curation` \| `yahoo` \| `unknown` |
 | is_curated | INTEGER | ✅ | 0 | 수기 큐레이션 플래그 — 대량 재수집 시 덮어쓰기 차단 |
 | is_active | INTEGER | ✅ | 1 | 상장폐지/비활성 soft-delete (hard-delete 금지 — 포트폴리오 참조 보호) |
@@ -346,13 +348,14 @@ users (id)
 | **v8** | `inquiries` 테이블 추가 — 고객 문의 (CS봇 접수 + 관리자 답변) |
 | **v9** | `user_holdings` 테이블 추가 — 포트폴리오(나의 투자) 보유 종목: 복합 PK `(user_id, stock_id)`, upsert 패턴 |
 | **v10** | `stocks` + `stock_curation` 테이블 추가 — 종목 마스터 DB 전환 Phase 0 (하드코딩 MASTER/KOREAN_TICKERS/KR_INFO 대체 준비) |
+| **v11** | `stocks` 에 `peg` · `fcf` 컬럼 추가 (ALTER TABLE ADD COLUMN, idempotent) — Phase 2 대량 수집기 재무지표 확장 |
 
 ---
 
 ## 5. 다음 마이그레이션 주의사항
 
-### 반드시 **v11** 로 증가
-- 현재 `user_version = 10`. 새 마이그레이션은 **`migrations` 배열 끝에 함수 하나 append** 하면 자동으로 v11 로 올라감.
+### 반드시 **v12** 로 증가
+- 현재 `user_version = 11`. 새 마이그레이션은 **`migrations` 배열 끝에 함수 하나 append** 하면 자동으로 v12 로 올라감.
 - 버전 번호를 건너뛰거나 중간에 끼워 넣지 말 것 — `user_version` 은 인덱스(길이) 기반으로 관리됨.
 
 ### 변경 전 체크리스트
