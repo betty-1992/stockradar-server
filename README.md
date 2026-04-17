@@ -4,8 +4,9 @@
 실시간 시세(Yahoo), 재무(FMP), AI 분석(Gemini), 뉴스(Google News), 이메일(Resend) 기반.
 
 - **Repo**: github.com/betty-1992/stockradar-server
+- **Production**: https://stockradar-server-production-394b.up.railway.app (Railway 기본 도메인, 커스텀 도메인 미연결)
 - **Stack**: Node.js 18+ · Express 5 · better-sqlite3 · Vanilla JS SPA
-- **Deploy**: Railway (백엔드) + Vercel (프론트, 예정)
+- **Deploy**: Railway (풀스택 단일 배포. Vercel 프론트 분리는 향후 과제)
 
 ---
 
@@ -130,13 +131,13 @@ node index.js
 - **배포 방식**: `main` 브랜치 push → GitHub webhook → Railway 자동 빌드·재배포
 - **커스텀 도메인**: Settings → Networking → Generate Domain 또는 Custom Domain
 
-### Vercel (프론트, 예정)
+### Vercel (프론트, 향후 예정)
 
-현재는 `server/StockRadar_v5.html` + `admin.html` 이 Express 같은 오리진에서 정적 서빙되지만, **향후 SPA 분리 후 Vercel 로 분리 배포** 예정.
+현재는 `server/StockRadar_v5.html` + `admin.html` 이 Express 같은 오리진에서 정적 서빙되어 Railway 단일 배포로 운영 중. **SPA 분리 후 Vercel 로 프론트 분리 배포**는 향후 과제.
 
-예상 구성:
+분리 시 예상 구성:
 - **루트**: Vercel 정적 자산 (HTML/CSS/JS bundle)
-- **API**: `stockradar-server.up.railway.app` 로 직접 호출
+- **API**: `stockradar-server-production-394b.up.railway.app` 로 직접 호출
 - **CORS**: Railway 측 `index.js` 에 Vercel 도메인 화이트리스트 추가 필요
 - **세션 쿠키**: SameSite=None + Secure 로 교차 도메인 전송 허용 (현재는 `lax`)
 

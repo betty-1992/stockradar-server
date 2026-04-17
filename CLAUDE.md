@@ -11,8 +11,9 @@
 **StockRadar** — 한국+미국 주식 스크리너 SaaS (상용화 준비 중).
 운영자: Betty (비개발자 솔로 파운더)
 
-- 스택: Node.js(Express 5) / better-sqlite3 / Railway(백엔드) + Vercel(프론트)
+- 스택: Node.js(Express 5) / better-sqlite3 / Railway (풀스택 단일 배포, Vercel 프론트 분리는 향후 과제)
 - GitHub: `betty-1992/stockradar-server`
+- **배포 URL (production)**: https://stockradar-server-production-394b.up.railway.app — Railway 기본 도메인. 커스텀 도메인 미연결
 
 ---
 

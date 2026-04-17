@@ -7,9 +7,18 @@
 ## 스택
 
 - **백엔드**: Node.js 20 / Express 5 / better-sqlite3 (→ PostgreSQL 전환 예정, `MEMORY.md` 참조)
-- **프론트엔드**: 단일 HTML SPA (`StockRadar_v5.html`, ~15k 줄)
-- **배포**: Railway (백엔드) + Vercel (프론트)
-- **외부 API**: Yahoo Finance, FMP (US), Gemini (AI), Resend (이메일)
+- **프론트엔드**: 단일 HTML SPA (`StockRadar_v5.html`, ~15k 줄) — 현재 백엔드에서 함께 서빙
+- **배포**: Railway (풀스택 단일 배포). Vercel 프론트 분리는 향후 과제
+- **외부 API**: Yahoo Finance (KR+US 재무지표), Gemini (AI), Resend (이메일)
+
+## 배포 URL
+
+| 환경 | URL | 비고 |
+|------|-----|------|
+| Production | https://stockradar-server-production-394b.up.railway.app | Railway 기본 도메인. 커스텀 도메인 미연결 (Phase 후반 예정) |
+
+- 헬스체크: `GET /api/universe` → `{ ok: true, counts: {...} }`
+- Railway 대시보드: Betty 계정 `stockradar / production` 프로젝트
 
 ---
 
