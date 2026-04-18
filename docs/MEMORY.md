@@ -1,5 +1,43 @@
 # StockRadar — 기술 부채 & 의사결정 기록
 
+---
+
+## 🌅 내일(2026-04-19) 이어가기 체크리스트
+
+### 어제(2026-04-18) 상황 요약
+- Phase 2 US 수집을 FMP → Yahoo 로 전환 (✅ 배포됨, commit `7c166ae`)
+- 문서 체계 표준화 + 프로덕션 URL 등록 (✅ 배포됨, commit `0cfaeda`)
+- Phase 3 (`/api/universe` DB 전환) 시도 → **프로덕션 장애 발생 후 revert** (commit `31ec855`). 원인: 프로덕션 DB 의 `stocks` 테이블이 비어있어서 total=0 반환 → 즉시 롤백 완료, 현재 Yahoo 스크리너 방식으로 복구됨 (total 806 확인)
+- 현재 프로덕션: https://stockradar-server-production-394b.up.railway.app — Yahoo 스크리너 기반 동적 유니버스 정상 동작 중
+
+### 🧠 내일 시작 전 반드시 기억할 것 — **Phase 3 는 종목 수 확장이 아니다**
+Betty 가 이 작업을 시작한 진짜 동기는 **"현재 800 종목이 적게 느껴진다"** 였음. 그런데 Phase 3 (DB 전환) 은 구조 변경일 뿐이고, 내가 계산 착오로 "Phase 2 수집 후 830 복귀"라고 안내한 게 틀렸음. 실제로는:
+
+| 시점 | US | KR | ETF | Total |
+|------|----|----|-----|-------|
+| 현재 (Yahoo 스크리너) | 587 (동적) | 114 | 103 | **804~806** |
+| Phase 3 + seed | 142 | 165 | 103 | **310** (감소!) |
+| Phase 3 + Phase 2 수집 | 500 (S&P500 한계) | 165 (KOREAN_TICKERS 한계) | 103 | **~768** (여전히 감소) |
+
+**구조적 원인**: 유니버스 소스 자체가 작음 (S&P500 500개, KOREAN_TICKERS 하드코딩 116개). 종목 수 확장은 유니버스 소스 확장으로만 가능.
+
+### 🎯 내일 시작 전 Betty 결정 대기 사항
+
+**Q1. 종목 수 스케일** (Betty 가 원하는 규모 확정 필요)
+- [ ] (a) ~1,000개 — KOSPI 전체(~900) + S&P500(500) + ETF, 비교적 빠른 확장
+- [ ] (b) ~2,500개 — KOSPI + KOSDAQ 주요 + Russell 1000 + ETF, 중형 스크리너
+- [ ] (c) 3,000+ — KOSPI + KOSDAQ 전체 + Russell 2000 + ETF, 풀커버
+
+**Q2. "없어서 불편했던 종목"** 구체적 예 수집 (스케일 결정의 근거)
+
+### 📋 내일 작업 순서 (위 결정 확정 후)
+1. **유니버스 소스 확장** — 스케일에 맞춰 KRX 상장사 CSV, Russell 1000 CSV 등 소스 추가. `index.js` 하드코딩 KOREAN_TICKERS 제거 예정
+2. **프로덕션 seed 자동화** — `db.js` 마이그레이션 직후 `stocks` 비어있으면 `seed-stocks.js` 자동 실행. **Phase 3 재시도 전 필수** (어제 장애 재발 방지, Betty 승인 'A 옵션' 이 이것)
+3. **Phase 2 Yahoo 수집** — rate-limit 해제 후 `fetch-kr-stocks.js` + `fetch-us-stocks.js` 실행. 확장된 유니버스에 재무지표 채움
+4. **Phase 3 재배포** — DB 에 충분한 데이터 쌓인 뒤, `/api/universe` DB 전환 재시도
+
+---
+
 ## 현재 기술 부채
 
 ### 🔴 높은 우선순위

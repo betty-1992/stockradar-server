@@ -17,6 +17,7 @@
 | 2026-04-18 | Phase 2 is_curated=1 은 identity·재무지표 모두 "완전 보호" — upsert 스킵 | 큐레이터 의도가 최우선. 재무지표 리프레시가 필요하면 stock_curation.note 수동 flag 또는 별도 refresh 스크립트로 분리 |
 | 2026-04-18 | KR 수집은 Yahoo Finance quoteSummary 비공식 엔드포인트 사용 — cookies+crumb 디스크 캐시, 429 시 5s 백오프, 기본 딜레이 1s | 공식 API 없음, crumb 엔드포인트 IP rate-limit 이 공격적이라 세션 재사용 필수 |
 | 2026-04-18 | **US 수집도 Yahoo Finance 로 전환** (FMP Starter → Yahoo). `lib/yahoo-fetch.js` 공통 모듈로 KR/US 통합, 유니버스만 datahub CSV(`s-and-p-500-companies`) 유지 | FMP 스킴이 2025-08-31 이후 변경됨 (legacy v3 전부 403). `/stable/` 경로는 `profile` 만 전 심볼 200, `key-metrics-ttm`/`ratios-ttm`/`income-statement-growth` 는 AAPL 등 대형주 외에 **402 "Special Endpoint: not available under your current subscription"** — Starter 플랜은 재무지표 심볼 게이트. 상위 플랜 업그레이드는 비용 부담 + 게이트 해제 보장 없음. Yahoo 는 무료, KR 과 스킴 통일, 필드 1:1 매칭 가능. 트레이드오프: 비공식 API 로 스킴 변경/차단 리스크 있음 — 추후 재검토 조건은 INSIGHTS.md 참조 |
+| 2026-04-18 | **Phase 3 (`/api/universe` DB 전환) 시도 → 즉시 revert** (commit `d9d5a7e` → `31ec855`). 재시도 전 프로덕션 DB seed 선행 + 유니버스 확장 선행 필수 | 배포 직후 total=0 응답 확인. 원인: 프로덕션 Railway 볼륨의 `stocks` 테이블이 비어있음 (v10/v11 마이그는 돌았지만 `seed-stocks.js` 미실행). 로컬 DB 기준 "307행 시드됨" 으로 착각 — 메모리의 Phase 0~1 완료 항목이 로컬/프로덕션 구분 없이 기록돼있던 게 근본 원인. 추가로 Phase 3 는 구조 변경일 뿐 종목 수 확장 효과가 없음을 계산 실수로 잘못 안내 (828 "복귀" 가능하다고 했으나 실제 ~768). Betty 의 원 목적은 "종목 수 확장" 이었으므로 유니버스 소스 자체 확장(KOSPI 전체·Russell 등) 이 선행돼야 의미 있음. 내일 재검토 예정 |
 
 ---
 
