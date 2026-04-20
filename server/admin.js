@@ -970,6 +970,7 @@ const path = require('path');
 
 const ALLOWED_SCRIPTS = new Set([
   'fetch-krx-universe',
+  'fetch-kr-etfs',
   'fetch-kr-stocks',
   'fetch-us-stocks',
 ]);
