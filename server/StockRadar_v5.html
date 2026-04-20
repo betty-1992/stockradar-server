@@ -1333,6 +1333,19 @@ input,select,textarea{font-family:var(--sans);}
 .ai-sum b{font-weight:700;}
 [data-theme="dark"] .ai-sum{background:linear-gradient(135deg,rgba(99,102,241,.18),rgba(99,102,241,.08));color:var(--tx);}
 [data-theme="dark"] .ai-sum b{color:#c7d2fe;}
+
+/* 시뮬레이터 스톡이 해설 카드 — 본문은 살짝 dim, 볼드만 선명 */
+.sim-ai-card{padding:18px 20px;background:var(--bg2);border:1px solid var(--bdr);border-left:3px solid var(--brand);border-radius:10px;margin-bottom:8px;}
+.sim-ai-hdr{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:800;color:var(--brand);margin-bottom:12px;letter-spacing:-.2px;}
+.sim-ai-hdr .ico{font-size:18px;line-height:1;}
+.sim-ai-list{padding-left:20px;margin:0;line-height:1.75;font-size:13px;color:var(--tx2);}
+.sim-ai-list li{margin-bottom:8px;}
+.sim-ai-list li:last-child{margin-bottom:0;}
+.sim-ai-list li b{color:var(--tx);font-weight:700;}
+.sim-ai-warn{margin-top:10px;padding:9px 12px;background:rgba(229,57,53,.06);border-left:3px solid var(--dn);border-radius:6px;font-size:11.5px;color:var(--tx2);}
+[data-theme="dark"] .sim-ai-list{color:rgba(231,234,240,.72);}
+[data-theme="dark"] .sim-ai-list li b{color:#fff;font-weight:700;}
+[data-theme="dark"] .sim-ai-warn{background:rgba(229,57,53,.10);color:rgba(231,234,240,.82);}
 .ai-secs{display:flex;flex-direction:column;gap:7px;}
 .ai-sec{background:var(--surf);border-radius:9px;padding:9px 11px;}
 .ai-sec-t{font-size:11.5px;font-weight:700;color:var(--tx);margin-bottom:4px;display:flex;align-items:center;gap:5px;letter-spacing:-.01em;}
@@ -14754,23 +14767,29 @@ async function askSimAi(){
     });
     if (!res?.ok) throw new Error(res?.error || '분석 실패');
     const md = String(res.answer || '').trim();
-    // 간단 마크다운 → HTML (불릿 · 볼드 처리)
-    const html = md
-      .split('\n')
-      .map(line => {
-        const t = line.trim();
-        if (!t) return '';
-        if (t.startsWith('- ')) return `<li>${_simMdInline(t.slice(2))}</li>`;
-        if (t.startsWith('⚠')) return `<div style="padding:10px 12px;background:rgba(229,57,53,.08);border-left:3px solid var(--dn);border-radius:6px;font-size:12px;color:var(--tx2);margin-top:8px">${esc(t)}</div>`;
-        return `<div style="margin-bottom:6px">${_simMdInline(t)}</div>`;
-      }).join('\n');
-    const wrapped = html.includes('<li>') ? `<ul style="padding-left:18px;margin:6px 0;line-height:1.8;font-size:13px;color:var(--tx)">${html.replace(/<\/li>\n?/g, '</li>')}</ul>` : html;
+    // 마크다운 라인 분류: 불릿 / ⚠️ 경고 / 일반 문단
+    const bulletLines = [];
+    const warnLines = [];
+    const paraLines = [];
+    md.split('\n').map(l => l.trim()).filter(Boolean).forEach(line => {
+      if (line.startsWith('- ') || line.startsWith('* ')) bulletLines.push(_simMdInline(line.slice(2)));
+      else if (line.startsWith('⚠') || line.startsWith('경고') || /^⚠️/.test(line)) warnLines.push(_simMdInline(line.replace(/^⚠️?\s*/, '')));
+      else paraLines.push(_simMdInline(line));
+    });
 
-    block.innerHTML = `<div class="card" style="padding:16px 18px;margin-bottom:8px;border-left:3px solid var(--brand)">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12.5px;font-weight:800;color:var(--brand)">
-        <span style="font-size:18px">🤖</span> 스톡이의 해설
-      </div>
-      ${wrapped}
+    const bulletHtml = bulletLines.length
+      ? `<ul class="sim-ai-list">${bulletLines.map(x => `<li>${x}</li>`).join('')}</ul>`
+      : '';
+    const paraHtml = paraLines.length
+      ? `<div class="sim-ai-list" style="padding-left:0">${paraLines.map(x => `<div style="margin-bottom:8px">${x}</div>`).join('')}</div>`
+      : '';
+    const warnHtml = warnLines.length
+      ? `<div class="sim-ai-warn">⚠️ ${warnLines.join(' ')}</div>`
+      : '';
+
+    block.innerHTML = `<div class="sim-ai-card">
+      <div class="sim-ai-hdr"><span class="ico">🤖</span> 스톡이의 해설</div>
+      ${paraHtml}${bulletHtml}${warnHtml}
     </div>`;
   } catch (e) {
     block.innerHTML = `<div class="card" style="padding:12px 14px;margin-bottom:8px;color:var(--dn);font-size:12px">⚠️ 오류: ${esc(e.message)}</div>`;
