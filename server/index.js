@@ -573,105 +573,58 @@ const fetchYahooScreener = async (scrId, count = 100) => {
 };
 
 // GET /api/universe → 전체 종목 리스트 (미국 + 한국)
+// /api/universe — stocks 테이블(DB) 기반 유니버스.
+// Phase 3 (2026-04-18): 이전 Yahoo 스크리너 실시간 병합 + 하드코딩 티커 병합 방식에서 DB 조회로 전환.
+// 프론트 loadUniverse 스키마 무변경: { ok, counts, us[], kr[], krEtf[], usEtf[] }.
+// 엔트리 필드: { symbol, name, exchange, marketCap, price:null, sector, industry, isEtf, tags? }.
+// price 는 frontend 에서 사용 안 함 (MASTER 병합 경로에서 참조 없음). 시세는 /api/batch · /api/quote 로 별도 조회.
 app.get('/api/universe', async (req, res) => {
   try {
-    const cacheKey = 'universe';
+    const cacheKey = 'universe-db';
     const cached = getCached(cacheKey, 24 * 60 * 60 * 1000); // 24시간 캐시
     if (cached) return res.json({ ...cached, cached: true });
 
-    // 1) 미국: Yahoo 스크리너 여러 카테고리 병합
-    const scrIds = [
-      'most_actives', 'day_gainers', 'day_losers',
-      'trending_tickers', 'growth_technology_stocks',
-      'undervalued_large_caps', 'aggressive_small_caps',
-      'undervalued_growth_stocks', 'small_cap_gainers'
-    ];
-    const chunks = await Promise.all(scrIds.map(id =>
-      fetchYahooScreener(id, 100).catch(() => [])
-    ));
-    const usMap = new Map();
-    chunks.flat().forEach(q => { if (!usMap.has(q.symbol)) usMap.set(q.symbol, q); });
-    // 시총 순 정렬
-    const usList = [...usMap.values()].sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
+    const rows = db.prepare(`
+      SELECT symbol, name, name_kr, exchange, sector, industry,
+             market_cap, currency, is_etf, etf_index, tags, market
+      FROM stocks
+      WHERE is_active = 1
+      ORDER BY (market_cap IS NULL), market_cap DESC, symbol ASC
+    `).all();
 
-    // 2) 한국 주식: 하드코딩 티커
-    const krUnique = [...new Set(KOREAN_TICKERS)];
-    const krResults = await Promise.all(
-      krUnique.map(t =>
-        fetchYahooQuote(t).then(d => {
-          const info = KR_INFO[t] || {};
-          return {
-            symbol: t,
-            name: info.nm || d.name || t,
-            exchange: d.exchange,
-            marketCap: null,
-            price: d.price,
-            sector: info.sec || null,
-            industry: null,
-            isEtf: false,
-          };
-        }).catch(() => null)
-      )
-    );
-    const krList = krResults.filter(Boolean);
+    const us = [], kr = [], krEtf = [], usEtf = [];
+    for (const r of rows) {
+      let tagArr = [];
+      if (r.tags) {
+        try { const parsed = JSON.parse(r.tags); if (Array.isArray(parsed)) tagArr = parsed; }
+        catch { /* tags 가 JSON 이 아니면 무시 */ }
+      }
+      const entry = {
+        symbol:    r.symbol,
+        name:      r.name_kr || r.name || r.symbol,
+        exchange:  r.exchange,
+        marketCap: r.market_cap,
+        price:     null, // 스키마 호환 (프론트 미사용)
+        sector:    r.sector,
+        industry:  r.industry || r.etf_index || null,
+        isEtf:     r.is_etf === 1,
+      };
+      if (entry.isEtf || tagArr.length) entry.tags = tagArr;
 
-    // 3) 국내 ETF
-    const krEtfKeys = Object.keys(KR_ETFS);
-    const krEtfResults = await Promise.all(
-      krEtfKeys.map(t =>
-        fetchYahooQuote(t).then(d => {
-          const info = KR_ETFS[t];
-          return {
-            symbol: t,
-            name: info.nm,
-            exchange: d.exchange,
-            marketCap: null,
-            price: d.price,
-            sector: info.sec,          // 예: 'ETF-미국지수'
-            industry: info.idx || null,// 추적 지수
-            tags: info.tag || [],
-            isEtf: true,
-          };
-        }).catch(() => null)
-      )
-    );
-    const krEtfList = krEtfResults.filter(Boolean);
-
-    // 4) 미국 ETF
-    const usEtfKeys = Object.keys(US_ETFS);
-    const usEtfResults = await Promise.all(
-      usEtfKeys.map(t =>
-        fetchYahooQuote(t).then(d => {
-          const info = US_ETFS[t];
-          return {
-            symbol: t,
-            name: info.nm,
-            exchange: d.exchange,
-            marketCap: null,
-            price: d.price,
-            sector: info.sec,
-            industry: info.idx || null,
-            tags: info.tag || [],
-            isEtf: true,
-          };
-        }).catch(() => null)
-      )
-    );
-    const usEtfList = usEtfResults.filter(Boolean);
+      if (r.market === 'KR')      (entry.isEtf ? krEtf : kr).push(entry);
+      else if (r.market === 'US') (entry.isEtf ? usEtf : us).push(entry);
+    }
 
     const result = {
       ok: true,
       counts: {
-        us:    usList.length,
-        kr:    krList.length,
-        krEtf: krEtfList.length,
-        usEtf: usEtfList.length,
-        total: usList.length + krList.length + krEtfList.length + usEtfList.length,
+        us:    us.length,
+        kr:    kr.length,
+        krEtf: krEtf.length,
+        usEtf: usEtf.length,
+        total: us.length + kr.length + krEtf.length + usEtf.length,
       },
-      us: usList,
-      kr: krList,
-      krEtf: krEtfList,
-      usEtf: usEtfList,
+      us, kr, krEtf, usEtf,
     };
     setCached(cacheKey, result);
     res.json(result);
