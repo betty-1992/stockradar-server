@@ -11681,6 +11681,7 @@ window.addEventListener('popstate', (e) => {
       showPage(s.page || 'home');
       updateLnbHighlight(s.page || 'home');
     }
+    try { if (typeof relocateFooter === 'function') relocateFooter(s.page || 'home'); } catch(_){}
   } finally {
     _navFromPop = false;
   }
@@ -12145,6 +12146,8 @@ updateClk();
     showPage(startPage);
     updateLnbHighlight(startPage);
   }
+  // 초기 로드에서도 푸터 위치 정리 (go() 경유하지 않아 relocateFooter 누락 방지)
+  try { if (typeof relocateFooter === 'function') relocateFooter(startPage); } catch(_){}
   // 기본 정렬 툴팁
   // 기본 추천순 설명 표시
   const _rd = document.getElementById('recommendDesc');
@@ -14100,6 +14103,22 @@ async function removePortfolioRow(stock_id) {
 }
 
 async function renderPortfolioPage() {
+  try {
+    return await _renderPortfolioPageInner();
+  } catch (e) {
+    console.error('[portfolio] render failed', e);
+    const listEl = document.getElementById('portfolioList');
+    if (listEl) {
+      listEl.innerHTML = `<div class="card" style="padding:30px 20px;text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">⚠️</div>
+        <div style="font-size:14px;font-weight:800;margin-bottom:6px">포트폴리오 렌더링 오류</div>
+        <div style="font-size:12px;color:var(--tx4);margin-bottom:12px">${String(e?.message || e).slice(0, 200)}</div>
+        <button class="btn btn-p" onclick="renderPortfolioPage()" style="padding:8px 16px">다시 시도</button>
+      </div>`;
+    }
+  }
+}
+async function _renderPortfolioPageInner() {
   const listEl = document.getElementById('portfolioList');
   const sumEl = document.getElementById('portfolioSummary');
   if (!listEl || !sumEl) return;
