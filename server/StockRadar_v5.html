@@ -8871,6 +8871,14 @@ function applyFilters(){
   document.getElementById('resultCnt').textContent=f.length;
   updateActiveFilterCount();
   renderGrid(f);
+
+  // lazy 시세 보충 — 화면 상위 200개 중 liveData 없는 것만 (중복 차단됨)
+  try {
+    const top = f.slice(0, 200).map(x => x.id).filter(id => !liveData[id]?.price);
+    if (top.length > 0 && typeof ensureLivePrices === 'function') {
+      ensureLivePrices(top);
+    }
+  } catch(_){}
 }
 
 // ── 무한 스크롤 상태 ──────────────────────────────────
@@ -11838,9 +11846,68 @@ function rebuildStocksFromLive(){
   });
 }
 
+// 초기 로드 대상 선정 — KR 유니버스 2,898개 전체를 매 진입마다 불러오면
+// 10~40초 + 네트워크 부하. 실제 화면에 동시 노출되는 건 수십 개뿐이라
+// 시총 상위 500 + 관심/보유 종목만 즉시 로드, 나머지는 스크리너 필터 결과
+// 기준으로 ensureLivePrices 에서 lazy 보충.
+function _pickInitialPriceIds(){
+  const scored = Object.keys(MASTER).map(id => ({ id, mc: Number(MASTER[id]?.mc || 0) }));
+  scored.sort((a, b) => b.mc - a.mc);
+  const topByMc = scored.slice(0, 500).map(x => x.id);
+  const holdings = (typeof gPortfolio === 'function') ? (gPortfolio() || []).map(h => h.stock_id) : [];
+  const watch    = (typeof gWL === 'function') ? (gWL() || []) : [];
+  return Array.from(new Set([...topByMc, ...holdings, ...watch])).filter(id => MASTER[id]);
+}
+
+// 주어진 심볼 중 liveData 가 없거나 오래된 것만 채워 넣는 lazy 헬퍼
+// — 스크리너/상세 진입 시 호출해 현재 보이는 종목만 보충
+let _ensureBusy = false;
+const _ensureRecent = new Set();  // 같은 심볼 중복 호출 방지
+async function ensureLivePrices(symbols){
+  const ids = Array.from(new Set((symbols || []).filter(Boolean)))
+    .filter(id => !liveData[id]?.price && !_ensureRecent.has(id))
+    .slice(0, 300);
+  if (ids.length === 0) return 0;
+  ids.forEach(id => _ensureRecent.add(id));
+  if (_ensureBusy) return 0;
+  _ensureBusy = true;
+  try {
+    const BATCH = 150;
+    for (let i = 0; i < ids.length; i += BATCH) {
+      const chunk = ids.slice(i, i + BATCH);
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12000);
+        const res = await fetch(`${SERVER_URL}/api/quotes?symbols=${chunk.join(',')}`, { signal: ctrl.signal });
+        clearTimeout(timer);
+        const d = await res.json();
+        if (!d?.ok) continue;
+        Object.entries(d.quotes).forEach(([rawId, q]) => {
+          if (q.error) return;
+          const m = MASTER[rawId]; if (!m) return;
+          const px = q.price || 0;
+          const h52 = q.fiftyTwoWeekHigh || 0;
+          const drop = h52 > 0 ? Math.round(((px - h52) / h52) * -100) : m.drop;
+          liveData[rawId] = {
+            price: px, change: q.change || 0, changeRate: q.changePercent || 0,
+            volume: q.volume || 0, high52: h52, low52: q.fiftyTwoWeekLow || 0,
+            drop, name: q.name || m.nm, yahooSym: q.symbol || rawId,
+          };
+        });
+      } catch(_) { /* 해당 청크 실패는 조용히 스킵 */ }
+    }
+    rebuildStocksFromLive();
+    if (typeof applyFilters === 'function') applyFilters();
+    return ids.length;
+  } finally {
+    _ensureBusy = false;
+  }
+}
+window.ensureLivePrices = ensureLivePrices;
+
 async function loadPrices(){
-  const ids = Object.keys(MASTER);
-  setLoadingStatus(true, `서버에서 ${ids.length}개 종목 시세 로딩 중...`);
+  const ids = _pickInitialPriceIds();
+  setLoadingStatus(true, `시세 로딩 중... (${ids.length}개)`);
   let loaded = 0;
 
   // 2026-04-20: KR 유니버스 2898개로 확장되면서 기존 BATCH=50 × 순차 → 2분 소요.
