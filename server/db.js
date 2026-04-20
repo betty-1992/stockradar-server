@@ -411,6 +411,38 @@ function seedStocksIfEmpty() {
 }
 seedStocksIfEmpty();
 
+// KR 유니버스/ETF 자동 확장 — CSV 가 repo 에 있고 stocks 테이블이 작으면 자동 주입
+// 임계값은 "확장이 이미 된 상태" 와 확실히 구분되는 보수적 값으로 설정
+function expandKrUniverseIfNeeded() {
+  const { execSync } = require('child_process');
+  const run = (script) => {
+    try {
+      console.log(`[db] ${script} 자동 실행...`);
+      execSync(`node ${path.join(__dirname, 'scripts', script + '.js')}`, {
+        stdio: 'inherit',
+        cwd: __dirname,
+        env: { ...process.env, DB_PATH },
+      });
+    } catch (e) {
+      console.warn(`[db] ${script} 실패:`, e.message);
+    }
+  };
+  try {
+    const rows = db.prepare(
+      `SELECT is_etf, COUNT(*) AS c FROM stocks WHERE market='KR' GROUP BY is_etf`
+    ).all();
+    const stockCnt = rows.find(r => r.is_etf === 0)?.c || 0;
+    const etfCnt   = rows.find(r => r.is_etf === 1)?.c || 0;
+    // 확장 임계값: 주식 < 1,000 이면 fetch-krx-universe (원래 2,700+ 예상),
+    //              ETF  <   500 이면 fetch-kr-etfs (원래 ~870 예상)
+    if (stockCnt < 1000) run('fetch-krx-universe');
+    if (etfCnt   <  500) run('fetch-kr-etfs');
+  } catch (e) {
+    console.warn('[db] KR 유니버스 확장 체크 실패:', e.message);
+  }
+}
+expandKrUniverseIfNeeded();
+
 async function seedAdminIfNeeded() {
   const email = process.env.ADMIN_SEED_EMAIL;
   const password = process.env.ADMIN_SEED_PASSWORD;
