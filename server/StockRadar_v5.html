@@ -4803,13 +4803,50 @@ html[data-theme="dark"] body .toast,
         <h2 style="font-size:18px;font-weight:700;margin:0">나의 투자</h2>
         <div style="display:flex;gap:8px">
           <button onclick="openHoldingImport()" style="padding:6px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:var(--tx)">가져오기</button>
+          <button onclick="openTxRecord()" style="padding:6px 14px;border:1px solid var(--brand);border-radius:8px;background:var(--bg2);color:var(--brand);font-size:13px;cursor:pointer;font-weight:600">📝 거래 기록</button>
           <button onclick="openAddHolding()" style="padding:6px 14px;border-radius:8px;background:var(--brand);color:#fff;font-size:13px;cursor:pointer;border:none;font-weight:600">+ 추가</button>
         </div>
       </div>
       <div id="portfolioSummary" style="margin-bottom:16px"></div>
       <div id="portfolioList"></div>
+      <div id="portfolioTxHistory" style="margin-top:24px"></div>
     </div>
   </div>
+
+  <!-- ══ 거래 기록 다이얼로그 ══ -->
+  <div class="overlay" id="txRecordOv" onclick="if(event.target===this)cm('txRecordOv')">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-hdr">
+        <div style="font-size:17px;font-weight:800">📝 거래 기록</div>
+        <button class="modal-x" onclick="cm('txRecordOv')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <button type="button" id="txSideBuy" onclick="setTxSide('buy')" class="tx-side-btn on">매수</button>
+          <button type="button" id="txSideSell" onclick="setTxSide('sell')" class="tx-side-btn">매도</button>
+        </div>
+        <label style="display:block;font-size:12px;color:var(--tx2);margin-bottom:6px;font-weight:700">종목</label>
+        <input type="text" id="txSymbol" placeholder="예: 005930 또는 AAPL" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;margin-bottom:12px">
+        <label style="display:block;font-size:12px;color:var(--tx2);margin-bottom:6px;font-weight:700">수량</label>
+        <input type="number" id="txQty" placeholder="예: 10" step="any" min="0" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;margin-bottom:12px">
+        <label style="display:block;font-size:12px;color:var(--tx2);margin-bottom:6px;font-weight:700">1주당 가격</label>
+        <input type="number" id="txPrice" placeholder="예: 70000" step="any" min="0" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;margin-bottom:12px">
+        <label style="display:block;font-size:12px;color:var(--tx2);margin-bottom:6px;font-weight:700">거래 일시</label>
+        <input type="datetime-local" id="txTradedAt" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;margin-bottom:12px">
+        <label style="display:block;font-size:12px;color:var(--tx2);margin-bottom:6px;font-weight:700">메모 (선택)</label>
+        <input type="text" id="txMemo" maxlength="500" placeholder="메모" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;margin-bottom:16px">
+        <div id="txFormErr" style="color:var(--dn);font-size:12px;margin-bottom:10px;display:none"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="cm('txRecordOv')" style="flex:1;padding:10px;border-radius:8px;background:var(--bg2);color:var(--tx);border:1px solid var(--bdr)">취소</button>
+          <button class="btn btn-p" onclick="submitTxRecord()" style="flex:1;padding:10px;border-radius:8px">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <style>
+    .tx-side-btn{flex:1;padding:10px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--tx);font-weight:700;font-size:13px;cursor:pointer}
+    .tx-side-btn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  </style>
 
   <!-- ══ 관심종목 비교 결과 모달 ══ -->
   <div class="overlay" id="wlCompareOv" onclick="if(event.target===this)cm('wlCompareOv')">
@@ -14030,6 +14067,7 @@ async function renderPortfolioPage() {
 
   renderPortfolioSummary(summary, fxUsdKrw);
   renderPortfolioTable(rows, summary);
+  renderTxHistory();
 }
 
 function renderPortfolioSummary(s, fxRate) {
@@ -14241,6 +14279,155 @@ window.openHoldingImport = openHoldingImport;
 window.submitHoldingForm = submitHoldingForm;
 window.submitHoldingImport = submitHoldingImport;
 window.syncPortfolioFromServer = syncPortfolioFromServer;
+
+// ═══════════════════════════════════════════════════════════════
+//  거래 기록 (V2 — 2026-04-20): POST /api/auth/transactions
+//  매수/매도 입력 → 서버에서 user_holdings 재계산 + realized_pl 기록
+// ═══════════════════════════════════════════════════════════════
+let _txSide = 'buy';
+function setTxSide(side){
+  _txSide = side;
+  document.getElementById('txSideBuy').classList.toggle('on', side === 'buy');
+  document.getElementById('txSideSell').classList.toggle('on', side === 'sell');
+}
+function openTxRecord(prefillSymbol = ''){
+  if (!gUser()) { om('loginOv'); return; }
+  setTxSide('buy');
+  document.getElementById('txSymbol').value = prefillSymbol || '';
+  document.getElementById('txQty').value = '';
+  document.getElementById('txPrice').value = '';
+  // 기본 거래 일시: 현재
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  document.getElementById('txTradedAt').value =
+    `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  document.getElementById('txMemo').value = '';
+  document.getElementById('txFormErr').style.display = 'none';
+  om('txRecordOv');
+}
+async function submitTxRecord(){
+  const errEl = document.getElementById('txFormErr');
+  const showErr = (m) => { errEl.textContent = m; errEl.style.display = 'block'; };
+  const symbol = document.getElementById('txSymbol').value.trim().toUpperCase();
+  const qty = Number(document.getElementById('txQty').value);
+  const price = Number(document.getElementById('txPrice').value);
+  const tradedLocal = document.getElementById('txTradedAt').value;
+  const memo = document.getElementById('txMemo').value.trim();
+  if (!symbol) return showErr('종목을 입력하세요');
+  if (!(qty > 0)) return showErr('수량은 0보다 커야 합니다');
+  if (!(price >= 0)) return showErr('가격은 0 이상이어야 합니다');
+  const traded_at = tradedLocal ? new Date(tradedLocal).getTime() : Date.now();
+
+  try {
+    const res = await api('/api/auth/transactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stock_id: symbol, side: _txSide, quantity: qty, price, traded_at, memo: memo || null }),
+    });
+    if (!res.ok) {
+      if (res.error === 'EXCEED_HOLDING') return showErr('보유 수량보다 많이 매도할 수 없어요');
+      return showErr('저장 실패: ' + (res.error || '오류'));
+    }
+    cm('txRecordOv');
+    if (typeof toast === 'function') toast(`✅ ${_txSide==='buy'?'매수':'매도'} 거래 기록 완료`);
+    await syncPortfolioFromServer();
+    renderPortfolioPage();
+  } catch(e) {
+    showErr('서버 오류: ' + e.message);
+  }
+}
+
+async function renderTxHistory(){
+  const el = document.getElementById('portfolioTxHistory');
+  if (!el) return;
+  if (!gUser()) { el.innerHTML = ''; return; }
+  let data;
+  try { data = await api('/api/auth/transactions?limit=100'); }
+  catch(e) { el.innerHTML = ''; return; }
+  if (!data?.ok) { el.innerHTML = ''; return; }
+  const txs = data.transactions || [];
+  if (!txs.length) { el.innerHTML = ''; return; }
+
+  const isKr = (s) => /^\d{6}$/.test(s);
+  const fmtD = (ts) => {
+    const d = new Date(ts);
+    const pad = (n) => String(n).padStart(2,'0');
+    return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const fmtMoney = (n, kr) => kr
+    ? '₩' + Math.round(n).toLocaleString('ko-KR')
+    : '$' + (+n).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+  const rows = txs.map(t => {
+    const kr = isKr(t.stock_id);
+    const name = (typeof MASTER !== 'undefined' && MASTER[t.stock_id]?.nm) || t.stock_id;
+    const sideColor = t.side === 'buy' ? 'var(--up, #e53935)' : 'var(--dn, #1e88e5)';
+    const sideLbl = t.side === 'buy' ? '매수' : '매도';
+    const pl = t.realized_pl;
+    const plCell = pl == null ? '—' :
+      `<span style="color:${pl>=0?'var(--up,#e53935)':'var(--dn,#1e88e5)'};font-weight:700">${pl>=0?'+':''}${fmtMoney(pl, kr)}</span>`;
+    return `<tr style="border-bottom:1px solid var(--bdr)">
+      <td style="padding:10px">${fmtD(t.traded_at)}</td>
+      <td style="padding:10px"><div style="font-weight:700">${esc(name)}</div><div style="font-size:11px;color:var(--tx4)">${t.stock_id} · ${kr?'🇰🇷':'🇺🇸'}</div></td>
+      <td style="padding:10px"><span style="color:${sideColor};font-weight:700">${sideLbl}</span></td>
+      <td style="padding:10px;text-align:right">${(+t.quantity).toLocaleString()}</td>
+      <td style="padding:10px;text-align:right">${fmtMoney(t.price, kr)}</td>
+      <td style="padding:10px;text-align:right">${plCell}</td>
+      <td style="padding:10px;text-align:center"><button onclick="deleteTxRow(${t.id})" title="삭제" style="background:none;border:none;color:var(--tx4);cursor:pointer;font-size:14px">🗑</button></td>
+    </tr>`;
+  }).join('');
+
+  const sum = data.summary || {};
+  const krR = sum.krRealized || 0;
+  const usR = sum.usRealized || 0;
+  const realizedBar = (krR || usR) ? `
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      ${krR ? `<div class="card" style="flex:1;min-width:200px;padding:14px 16px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px">
+        <div style="font-size:11px;color:var(--tx4);font-weight:700;margin-bottom:4px">🇰🇷 실현 손익 (원화)</div>
+        <div style="font-size:17px;font-weight:800;color:${krR>=0?'var(--up,#e53935)':'var(--dn,#1e88e5)'}">${krR>=0?'+':''}${fmtMoney(krR, true)}</div>
+      </div>` : ''}
+      ${usR ? `<div class="card" style="flex:1;min-width:200px;padding:14px 16px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px">
+        <div style="font-size:11px;color:var(--tx4);font-weight:700;margin-bottom:4px">🇺🇸 실현 손익 (USD)</div>
+        <div style="font-size:17px;font-weight:800;color:${usR>=0?'var(--up,#e53935)':'var(--dn,#1e88e5)'}">${usR>=0?'+':''}${fmtMoney(usR, false)}</div>
+      </div>` : ''}
+    </div>` : '';
+
+  el.innerHTML = `
+    ${realizedBar}
+    <div style="font-size:14px;font-weight:800;margin-bottom:10px;color:var(--tx)">📜 거래 이력 (최근 ${txs.length}건)</div>
+    <div class="card" style="padding:0;overflow:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:720px">
+        <thead>
+          <tr style="background:var(--bg2);color:var(--tx4);font-weight:700;text-align:left">
+            <th style="padding:10px">일시</th>
+            <th style="padding:10px">종목</th>
+            <th style="padding:10px">구분</th>
+            <th style="padding:10px;text-align:right">수량</th>
+            <th style="padding:10px;text-align:right">단가</th>
+            <th style="padding:10px;text-align:right">실현손익</th>
+            <th style="padding:10px;text-align:center"></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+async function deleteTxRow(id){
+  if (!confirm('이 거래를 삭제할까요? 평단·실현손익이 재계산됩니다.')) return;
+  try {
+    const res = await api(`/api/auth/transactions/${id}`, { method: 'DELETE' });
+    if (!res.ok) { if (typeof toast==='function') toast('삭제 실패: ' + (res.error||'오류')); return; }
+    if (typeof toast==='function') toast('✅ 삭제 완료');
+    await syncPortfolioFromServer();
+    renderPortfolioPage();
+  } catch(e) { if (typeof toast==='function') toast('오류: ' + e.message); }
+}
+
+window.openTxRecord = openTxRecord;
+window.setTxSide = setTxSide;
+window.submitTxRecord = submitTxRecord;
+window.deleteTxRow = deleteTxRow;
 
 </script>
 

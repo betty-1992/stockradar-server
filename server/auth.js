@@ -583,4 +583,171 @@ router.delete('/holdings/:stockId', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── 거래 이력 (transactions) ─────────────────────────
+//  v12 추가. 매수/매도 기록 + 평단 재계산 + 실현손익 누적.
+//  평균원가법: 매수 시 평단 재계산, 매도 시 평단 유지(차감만).
+//  매도 시 realized_pl = (매도가 - 평단) × 수량.
+
+router.get('/transactions', requireAuth, (req, res) => {
+  const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 100));
+  const rows = db.prepare(`
+    SELECT id, stock_id, side, quantity, price, traded_at, realized_pl, memo, created_at
+    FROM transactions
+    WHERE user_id = ?
+    ORDER BY traded_at DESC, id DESC
+    LIMIT ?
+  `).all(req.user.id, limit);
+
+  // 총 실현손익 (매도 합산)
+  const sumRow = db.prepare(`
+    SELECT COALESCE(SUM(realized_pl), 0) AS total_realized_pl_kr,
+           COALESCE(SUM(CASE WHEN stock_id GLOB '[0-9][0-9][0-9][0-9][0-9][0-9]' THEN realized_pl ELSE 0 END), 0) AS kr_realized,
+           COALESCE(SUM(CASE WHEN stock_id NOT GLOB '[0-9][0-9][0-9][0-9][0-9][0-9]' THEN realized_pl ELSE 0 END), 0) AS us_realized
+    FROM transactions
+    WHERE user_id = ? AND side = 'sell'
+  `).get(req.user.id);
+
+  res.json({
+    ok: true,
+    transactions: rows,
+    summary: {
+      krRealized: sumRow.kr_realized || 0,
+      usRealized: sumRow.us_realized || 0,
+    },
+  });
+});
+
+router.post('/transactions', requireAuth, (req, res) => {
+  const { stock_id, side, quantity, price, traded_at, memo } = req.body || {};
+  if (typeof stock_id !== 'string' || stock_id.length < 1 || stock_id.length > 50) {
+    return res.status(400).json({ ok: false, error: 'INVALID_STOCK_ID' });
+  }
+  if (side !== 'buy' && side !== 'sell') {
+    return res.status(400).json({ ok: false, error: 'INVALID_SIDE' });
+  }
+  const q = Number(quantity);
+  const p = Number(price);
+  if (!(q > 0)) return res.status(400).json({ ok: false, error: 'INVALID_QUANTITY' });
+  if (!(p >= 0)) return res.status(400).json({ ok: false, error: 'INVALID_PRICE' });
+
+  const sid = stock_id.toUpperCase();
+  const memoStr = (typeof memo === 'string' && memo.length <= 500) ? memo : null;
+  const now = Date.now();
+  const tradedAt = Number(traded_at) > 0 ? Number(traded_at) : now;
+
+  try {
+    const out = db.transaction(() => {
+      const holding = db.prepare(
+        `SELECT quantity, avg_price FROM user_holdings WHERE user_id = ? AND stock_id = ?`
+      ).get(req.user.id, sid);
+
+      const oldQty = holding ? Number(holding.quantity) : 0;
+      const oldAvg = holding ? Number(holding.avg_price) : 0;
+
+      let realizedPl = null;
+      let newQty, newAvg;
+
+      if (side === 'buy') {
+        newQty = oldQty + q;
+        newAvg = newQty > 0 ? (oldQty * oldAvg + q * p) / newQty : 0;
+      } else {
+        // sell — 보유량 확인
+        if (q > oldQty + 1e-9) {
+          throw Object.assign(new Error('EXCEED_HOLDING'), { status: 400 });
+        }
+        newQty = oldQty - q;
+        newAvg = oldAvg; // 평단 유지
+        realizedPl = (p - oldAvg) * q;
+      }
+
+      // transactions INSERT
+      const ins = db.prepare(`
+        INSERT INTO transactions (user_id, stock_id, side, quantity, price, traded_at, realized_pl, memo, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(req.user.id, sid, side, q, p, tradedAt, realizedPl, memoStr, now);
+
+      // user_holdings upsert / delete
+      if (newQty <= 1e-9) {
+        db.prepare(`DELETE FROM user_holdings WHERE user_id = ? AND stock_id = ?`).run(req.user.id, sid);
+      } else {
+        db.prepare(`
+          INSERT INTO user_holdings (user_id, stock_id, quantity, avg_price, memo, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(user_id, stock_id) DO UPDATE SET
+            quantity   = excluded.quantity,
+            avg_price  = excluded.avg_price,
+            updated_at = excluded.updated_at
+        `).run(req.user.id, sid, newQty, newAvg, memoStr, now, now);
+      }
+
+      return { id: ins.lastInsertRowid, newQty, newAvg, realizedPl };
+    })();
+
+    res.json({ ok: true, transaction: out });
+  } catch (e) {
+    if (e.message === 'EXCEED_HOLDING') {
+      return res.status(400).json({ ok: false, error: 'EXCEED_HOLDING' });
+    }
+    console.warn('[transactions] insert failed', e);
+    res.status(500).json({ ok: false, error: 'INTERNAL' });
+  }
+});
+
+router.delete('/transactions/:id', requireAuth, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!(id > 0)) return res.status(400).json({ ok: false, error: 'INVALID_ID' });
+
+  try {
+    const out = db.transaction(() => {
+      const tx = db.prepare(`SELECT stock_id FROM transactions WHERE id = ? AND user_id = ?`)
+        .get(id, req.user.id);
+      if (!tx) throw Object.assign(new Error('NOT_FOUND'), { status: 404 });
+
+      db.prepare(`DELETE FROM transactions WHERE id = ? AND user_id = ?`).run(id, req.user.id);
+
+      // 삭제 후 해당 종목의 모든 거래를 시간순으로 재생해서 holdings 재구성
+      const all = db.prepare(`
+        SELECT side, quantity, price FROM transactions
+        WHERE user_id = ? AND stock_id = ?
+        ORDER BY traded_at ASC, id ASC
+      `).all(req.user.id, tx.stock_id);
+
+      let qty = 0, avg = 0;
+      for (const t of all) {
+        if (t.side === 'buy') {
+          const next = qty + t.quantity;
+          avg = next > 0 ? (qty * avg + t.quantity * t.price) / next : 0;
+          qty = next;
+        } else {
+          qty -= t.quantity;
+          if (qty < 0) qty = 0;
+        }
+      }
+
+      if (qty <= 1e-9) {
+        db.prepare(`DELETE FROM user_holdings WHERE user_id = ? AND stock_id = ?`)
+          .run(req.user.id, tx.stock_id);
+      } else {
+        const now = Date.now();
+        db.prepare(`
+          INSERT INTO user_holdings (user_id, stock_id, quantity, avg_price, memo, created_at, updated_at)
+          VALUES (?, ?, ?, ?, NULL, ?, ?)
+          ON CONFLICT(user_id, stock_id) DO UPDATE SET
+            quantity   = excluded.quantity,
+            avg_price  = excluded.avg_price,
+            updated_at = excluded.updated_at
+        `).run(req.user.id, tx.stock_id, qty, avg, now, now);
+      }
+
+      return { qty, avg };
+    })();
+
+    res.json({ ok: true, recomputed: out });
+  } catch (e) {
+    if (e.message === 'NOT_FOUND') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+    console.warn('[transactions] delete failed', e);
+    res.status(500).json({ ok: false, error: 'INTERNAL' });
+  }
+});
+
 module.exports = router;

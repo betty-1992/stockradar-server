@@ -315,6 +315,31 @@ const migrations = [
       db.exec(`ALTER TABLE stocks ADD COLUMN fcf REAL;`);
     }
   },
+  // v12 — 포트폴리오 거래 이력(transactions) + 실현 손익
+  //  · user_holdings 는 현재 보유 스냅샷(quantity, avg_price)
+  //  · transactions 는 매수/매도 이력. realized_pl 은 매도 시 (가격 - 평균매수가) × 수량
+  //  · 평단은 평균원가법 — 매수 시 재계산, 매도 시 유지
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS transactions (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     INTEGER NOT NULL,
+        stock_id    TEXT NOT NULL,
+        side        TEXT NOT NULL CHECK (side IN ('buy','sell')),
+        quantity    REAL NOT NULL,
+        price       REAL NOT NULL,
+        traded_at   INTEGER NOT NULL,
+        realized_pl REAL,
+        memo        TEXT,
+        created_at  INTEGER NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_transactions_user
+        ON transactions(user_id, traded_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_transactions_user_stock
+        ON transactions(user_id, stock_id, traded_at);
+    `);
+  },
 ];
 
 function runMigrations() {
