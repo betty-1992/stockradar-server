@@ -2031,9 +2031,48 @@ app.post('/api/ai-scenario', async (req, res) => {
     const fmtKrw = (n) => '₩' + Math.round(Number(n)||0).toLocaleString('ko-KR');
     const pct = (x) => (Number(x)*100).toFixed(2) + '%';
 
-    const portfolioLines = items.map(it =>
-      `  - ${it.name || it.symbol} (${it.symbol}, ${it.weight}%)`
-    ).join('\n');
+    // stocks 테이블에서 섹터·ETF 여부·시장 보강 → 프롬프트 분석용
+    const enriched = items.map(it => {
+      let meta = null;
+      try {
+        meta = db.prepare(
+          `SELECT sector, industry, is_etf, market, etf_index FROM stocks WHERE symbol = ?`
+        ).get(String(it.symbol || '').toUpperCase());
+      } catch(_) {}
+      return {
+        ...it,
+        sector: meta?.sector || null,
+        industry: meta?.industry || null,
+        isEtf: !!meta?.is_etf,
+        marketCd: meta?.market || (/^\d{6}$/.test(it.symbol) ? 'KR' : 'US'),
+        etfIndex: meta?.etf_index || null,
+      };
+    });
+
+    const portfolioLines = enriched.map(it => {
+      const tag = `${it.marketCd}${it.isEtf ? '·ETF' : ''}`;
+      const sec = it.sector ? ` · ${it.sector}` : '';
+      return `  - ${it.name || it.symbol} (${it.symbol}, ${it.weight}%, ${tag}${sec})`;
+    }).join('\n');
+
+    // 구성 집계 (섹터 집중도·국가 분산·ETF 비율)
+    const weightSum = enriched.reduce((s, x) => s + (+x.weight || 0), 0) || 1;
+    const aggBy = (keyFn) => {
+      const m = new Map();
+      enriched.forEach(x => {
+        const k = keyFn(x) || '기타';
+        m.set(k, (m.get(k) || 0) + (+x.weight || 0));
+      });
+      return [...m.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, w]) => `${k} ${(w / weightSum * 100).toFixed(0)}%`)
+        .join(', ');
+    };
+    const composition = `[포트폴리오 구성 분석]
+- 국가 분산: ${aggBy(x => x.marketCd === 'KR' ? '🇰🇷 한국' : '🇺🇸 미국')}
+- 섹터 분산: ${aggBy(x => x.sector || '미분류')}
+- ETF 비율: ${aggBy(x => x.isEtf ? 'ETF (분산투자)' : '개별주')}
+- 종목 수: ${enriched.length}개`;
 
     let resultBlock = '';
     if (tab === 'future') {
@@ -2057,18 +2096,31 @@ ${result.cagr != null ? `- 연평균 수익률(CAGR): ${pct(result.cagr)}` : ''}
 - 매수 후 남은 현금(잔돈): ${fmtKrw(result.cash)}`;
     }
 
-    const system = `당신의 이름은 '스톡이'입니다. 주식·ETF·투자 관련 질문에 답하는 친절한 도우미예요.
-비개발자 초보 투자자(주린이)를 대상으로, 이 포트폴리오 시뮬레이션 결과를
-**구체 수치와 함께** 해석해 주세요. "주린이" 같은 호칭은 절대 쓰지 마세요.
+    const system = `당신의 이름은 '스톡이'입니다. 주식·ETF·투자 도우미예요.
+초보 투자자 대상 — "주린이" 호칭 금지.
 
-답변 원칙 (엄격히):
-1) 짧은 문장. 한 문장 50자 이내.
-2) 마크다운 불릿(-) **4~6개**. 서론·요약 문장 없이 바로 본론.
-3) 수치를 반드시 인용 ("중립 ${'${}'.slice(0,-1)}원이면 원금 대비 X배" 식).
-4) 이 시나리오의 **특징**(공격적/안정적/분산형 등) + **리스크** + **조심할 점** 포함.
-5) ${tab === 'past' ? '과거 실제 결과이므로, 이 시기의 시장 맥락(예: 반도체 호황/금리 인상 등 추정 가능하면)과 연결해 설명.' : '낙관/비관 차이가 왜 벌어지는지, 실제로 중간에 겪을 수 있는 하락(MDD 수치)도 언급.'}
-6) 투자 권유 금지 — "사세요/파세요" 대신 "이런 의미예요".
-7) 답변 맨 마지막 줄에 **"⚠️ "** 로 시작하는 한 줄 주의 문구.`;
+⛔ 절대 금지 — **입력 수치를 단순 반복·요약하지 말 것**.
+  ❌ 나쁜 예: "- 낙관 시나리오는 1,499만원입니다. 중립은 1,386만원, 비관은 1,283만원이에요."
+  ✅ 좋은 예: "- 낙관-비관 폭이 ₩216만(±8%)으로 좁은 편 — 이 포트는 변동성이 낮은 방어형이에요."
+  ✅ 좋은 예: "- SCHD 배당형 ETF만 담아서 과거 MDD가 -14%로 작았지만 그만큼 성장 여력도 제한적이에요."
+
+답변은 각 불릿이 **[관찰 → 해석 → 시사점]** 순서로 짜여져야 함:
+- "NVDA 40% 비중이라 → 포트의 수익/손실 스윙을 사실상 NVDA가 결정 → 반도체 사이클 꺾이면 전체가 흔들려요"
+
+반드시 포함할 5가지 각도 (가능하면 모두 1개씩 불릿으로):
+1. **포트 성격 진단** — 공격/방어/분산/집중형 중 뭔지, 근거는 섹터·ETF·국가 비중
+2. **낙관-비관 폭 의미** — 범위가 좁다/넓다 → 변동성 수준 · 심리적 부담
+3. **MDD 수치 체감** — "-X%" 가 예를 들어 ${fmtKrw(10_000_000)} 투입 대비 얼마 줄어드는 의미인지 원금 기준으로 번역
+4. **${tab === 'past' ? '그 시기 시장 맥락' : '실제 중간 하락 구간이 나타날 가능성'}** — ${tab === 'past' ? '2022 금리인상·2023 AI붐 등 거시 이벤트와 연결' : '과거 같은 MDD가 다시 올 수 있음을 경고'}
+5. **개선 방향 (투자 권유 아님)** — "변동성 낮추려면 채권 ETF 편입 고려" 같은 **일반 원칙**. 종목 추천 금지.
+
+형식 규칙:
+- 마크다운 불릿(-) **4~6개**. 서론·요약 문장·"결론적으로" 금지.
+- 한 불릿 70자 내외 (관찰+해석+시사점 한 호흡).
+- 수치는 한 번만 언급하고 그 의미 설명에 집중 — 중복 수치 나열 금지.
+- "이런 의미예요" / "X할 여지가 있어요" 형태. "사세요/파세요" 금지.
+- ${tab === 'past' ? '과거 검증이므로 "과거엔 ~했다" 표현 정확히, "앞으로도 ~한다" 로 단정 금지.' : '추정치라는 점 중간에 한 번 상기.'}
+- 맨 마지막 줄: **"⚠️ "** 로 시작하는 15~30자 한 줄 주의 문구.`;
 
     const prompt = `${system}
 
@@ -2079,9 +2131,13 @@ ${result.cagr != null ? `- 연평균 수익률(CAGR): ${pct(result.cagr)}` : ''}
 - 포트폴리오:
 ${portfolioLines}
 
+${composition}
+
 ${resultBlock}
 
-위 시뮬레이션 결과를 해석해 주세요.`;
+위 시뮬레이션 결과를 **관찰→해석→시사점** 구조로 4~6 불릿 해석해 주세요.
+단순 수치 나열은 금지. 구성 분석의 섹터·국가·ETF 비중을 반드시 활용해
+"이 포트가 어떤 성격인지" 먼저 진단한 뒤 수익·리스크로 이어가세요.`;
 
     const { text: answer, model, usage } = await callGemini(prompt);
     logAiUsage({
