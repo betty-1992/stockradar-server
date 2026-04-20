@@ -1003,8 +1003,9 @@ router.post('/script/start', (req, res) => {
   }
 
   const scriptsDir = path.join(__dirname, 'scripts');
-  const child = spawn('node', [`${script}.js`], {
-    cwd: scriptsDir.replace(/\/scripts$/, ''),
+  const scriptFile = path.join(scriptsDir, `${script}.js`);
+  const child = spawn('node', [scriptFile], {
+    cwd: __dirname,  // server 루트 (DB 파일 위치)
     env: { ...process.env, ...filteredEnv },
   });
 
