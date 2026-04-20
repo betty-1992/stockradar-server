@@ -1535,8 +1535,18 @@ app.post('/api/portfolio/ocr',
 
 ✅ avg_price 는 "평균단가", "평균매수가", "매입단가", "평단", "평균가", "avg cost", "avg price" 컬럼의
 1주당 값. 통화는 종목 상장 국가 기준:
-- 미국 상장 (AAPL·NVDA·TSLA·SCHD·QQQ 등, 6자리 숫자 아님) → currency="USD", avg_price 는 달러 값
-- 한국 상장 (6자리 숫자 티커, TIGER/KODEX/PLUS 등 국내 ETF) → currency="KRW", avg_price 는 원화 값
+- 미국 상장 (AAPL·NVDA·TSLA·SCHD·QQQ·VOO 등, 6자리 숫자 아님) → currency="USD", avg_price 는 달러 값
+- 한국 상장 (6자리 숫자 티커) → currency="KRW", avg_price 는 원화 값
+
+⚠️ **중요** — 이름에 "미국/나스닥/S&P/중국/일본/유럽" 이 들어있어도,
+**TIGER·KODEX·ARIRANG·PLUS·KBSTAR·KOSEF·HANARO·ACE·SOL·TIMEFOLIO·RISE·WOORI·WON·FOCUS·KIM** 으로
+시작하면 **전부 국내 상장 KR ETF** 다 (해외 자산을 추종하지만 원화로 거래). currency="KRW".
+절대 미국 종목으로 분류하지 말 것.
+
+티커 주의 — 확실하지 않으면 반드시 **null**:
+- "TIGER 미국S&P500" 의 ticker 는 360750 (절대 069500 아님, 069500 은 KODEX 200).
+- "TIGER 미국S&P500(H)" 는 448290, "TIGER 미국나스닥100(H)" 는 448300.
+- 확신 없으면 ticker=null 넣고 name 만 정확히. 서버가 이름 기반으로 다시 찾음.
 
 숫자 타당성 힌트
 - 수량의 수백~수만 배 크기는 평가금액 오인 가능성 ↑. 1주당 단가 컬럼 재확인.
@@ -1587,17 +1597,37 @@ app.post('/api/portfolio/ocr',
       //      → 입력을 토큰화해서 brand/핵심어 기반 LIKE. "Schwab" 같은 unique 키워드가 있어야
       //         잘 맞음. 너무 흔한 단어는 제외.
       const COMMON_TOKENS = new Set(['ETF','미국','한국','등록','배당주','지수','인버스','레버리지','선물','채권','채권혼합','증권','주식','보유','평균']);
+      // 두 이름 중 유효한 공통 토큰 (길이 ≥ 2, common 불용어 제외) 수 카운트
+      const _commonTokensForCmp = (a, b) => {
+        const split = (s) => String(s || '').split(/[\s·∙,/()\-]+/)
+          .map(x => x.trim().toUpperCase())
+          .filter(x => x.length >= 2 && !COMMON_TOKENS.has(x));
+        const at = new Set(split(a));
+        let hit = 0;
+        for (const x of split(b)) if (at.has(x)) hit++;
+        return hit;
+      };
+
       const findMatch = (rawName, rawTicker) => {
-        // 1) ticker 직매칭
+        const n = String(rawName || '').trim();
+        // 1) ticker 직매칭 — 단, name 과 교차 검증 (Gemini 오인 방지)
         const t = String(rawTicker || '').trim().toUpperCase();
         if (t) {
           const byTicker = db.prepare(
             `SELECT symbol, name, name_kr, market, market_cap FROM stocks
              WHERE symbol = ? AND is_active = 1 LIMIT 1`
           ).get(t);
-          if (byTicker) return byTicker;
+          if (byTicker) {
+            // name 이 없으면 신뢰, 있으면 최소 1개 토큰 일치해야 승인
+            if (!n) return byTicker;
+            const shared = Math.max(
+              _commonTokensForCmp(byTicker.name_kr, n),
+              _commonTokensForCmp(byTicker.name, n)
+            );
+            if (shared >= 1) return byTicker;
+            // 교차 검증 실패 → ticker 무시하고 name 기반 탐색 계속
+          }
         }
-        const n = String(rawName || '').trim();
         if (!n) return null;
         // 2·3) 완전 일치
         const exactKr = db.prepare(
