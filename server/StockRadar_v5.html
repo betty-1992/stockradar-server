@@ -14418,41 +14418,280 @@ window.renderDetailHoldingPanel = renderDetailHoldingPanel;
 window.renderPortfolioPage = renderPortfolioPage;
 
 // ═══════════════════════════════════════════════════════════════
-//  투자 시뮬레이터 (Phase 1 placeholder) — 2026-04-20
-//  Phase 1: 과거 시세 API 확장 (/api/history) 후 본격 구현.
-//  현재는 메뉴/라우팅만 연결되고 본문은 "곧 출시" 안내.
+//  투자 시뮬레이터 (Phase 2) — 2026-04-20
+//  과거 N년 일봉으로 포트폴리오 NAV 재구성 → CAGR/MDD 추출 →
+//  미래 n년 복리 추정 (낙관/중립/비관). 일시금 또는 월적립 지원.
 // ═══════════════════════════════════════════════════════════════
+let _simState = {
+  items: [],           // [{symbol, name, amount}]
+  years: 5,
+  mode: 'lump',        // 'lump' | 'dca'
+  monthly: 300000,
+  lastResult: null,
+};
+let _simChart = null;
+
 function renderSimulatorPage(){
   const el = document.getElementById('simulatorBody');
   if (!el) return;
   el.innerHTML = `
-    <div class="card" style="padding:36px 20px;text-align:center;max-width:620px;margin:0 auto">
-      <div style="font-size:48px;margin-bottom:14px">🧪</div>
-      <div style="font-size:17px;font-weight:800;margin-bottom:8px">곧 만나요!</div>
-      <div style="font-size:13px;color:var(--tx2);line-height:1.7;margin-bottom:18px">
-        종목·투자금·기간을 입력하면<br>
-        <b>5년 뒤, 10년 뒤 예상 평가액</b>을 계산해드릴 예정이에요.<br>
-        <span style="font-size:11.5px;color:var(--tx4)">공격형 vs 안정형 같은 시나리오 비교 · 스톡이 AI 해설 제공</span>
+    <div style="max-width:980px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:14px">
+      <!-- 입력 폼 -->
+      <div class="card" style="padding:18px 20px">
+        <div style="font-size:13px;font-weight:800;color:var(--tx);margin-bottom:12px">🧩 1. 종목 · 투자금</div>
+        <div id="simItems" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+        <button onclick="openSimPicker()" style="width:100%;padding:10px;border:1px dashed var(--brand);border-radius:8px;background:transparent;color:var(--brand);font-size:13px;font-weight:700;cursor:pointer">+ 종목 추가</button>
+
+        <div style="height:14px"></div>
+        <div style="font-size:13px;font-weight:800;color:var(--tx);margin-bottom:8px">⏳ 2. 기간</div>
+        <div id="simYears" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+
+        <div style="height:14px"></div>
+        <div style="font-size:13px;font-weight:800;color:var(--tx);margin-bottom:8px">💸 3. 투자 방식</div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <button class="sim-mode-btn" data-mode="lump" onclick="setSimMode('lump')">일시금 (한번에)</button>
+          <button class="sim-mode-btn" data-mode="dca" onclick="setSimMode('dca')">월 적립식</button>
+        </div>
+        <div id="simMonthlyWrap" style="display:none">
+          <label style="font-size:11.5px;color:var(--tx4);display:block;margin-bottom:4px">매월 투입 금액 (원)</label>
+          <input type="number" id="simMonthly" value="300000" min="10000" step="10000" oninput="_simState.monthly=+this.value||0" style="width:100%;padding:9px 11px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:13px">
+        </div>
+
+        <div style="height:16px"></div>
+        <button onclick="runSimulation()" id="simRunBtn" style="width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:14px;font-weight:800;cursor:pointer">🔮 예상 수익 계산하기</button>
+        <div id="simErr" style="font-size:12px;color:var(--dn);margin-top:8px;display:none"></div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:8px;max-width:380px;margin:0 auto;text-align:left">
-        <div style="padding:10px 12px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;font-size:12.5px;color:var(--tx2)">
-          ✅ <b>Phase 1</b> 과거 시세 API 연결 <span style="color:var(--tx4);font-size:11px">(준비 중)</span>
-        </div>
-        <div style="padding:10px 12px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;font-size:12.5px;color:var(--tx2)">
-          ⏳ <b>Phase 2</b> 시나리오 만들기 · 예상 수익 차트
-        </div>
-        <div style="padding:10px 12px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;font-size:12.5px;color:var(--tx2)">
-          ⏳ <b>Phase 3</b> 스톡이 AI 해설
-        </div>
-        <div style="padding:10px 12px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;font-size:12.5px;color:var(--tx2)">
-          ⏳ <b>Phase 4</b> 시나리오 저장 · 비교
-        </div>
+
+      <!-- 결과 -->
+      <div id="simResult" style="display:none"></div>
+
+      <!-- 안내 -->
+      <div style="font-size:11px;color:var(--tx4);text-align:center;line-height:1.6">
+        ⚠️ 계산은 최근 실제 일봉 기반으로 한 단순 추정이에요.<br>
+        과거 수익률이 미래를 보장하지 않고, 예상치는 참고용일 뿐 매매 권유가 아니에요.
       </div>
-      <div style="font-size:11px;color:var(--tx4);margin-top:20px">⚠️ 과거 수익률은 미래를 보장하지 않아요 — 참고용으로만 활용하세요</div>
     </div>
+    <style>
+      .sim-year-btn{flex:1;min-width:64px;padding:8px 10px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--tx);font-weight:700;font-size:12.5px;cursor:pointer}
+      .sim-year-btn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+      .sim-mode-btn{flex:1;padding:9px 10px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--tx);font-weight:700;font-size:12.5px;cursor:pointer}
+      .sim-mode-btn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+    </style>
   `;
+  // 연도 버튼 렌더
+  const yearsEl = document.getElementById('simYears');
+  yearsEl.innerHTML = [1,3,5,10].map(y =>
+    `<button class="sim-year-btn ${_simState.years===y?'on':''}" data-y="${y}" onclick="setSimYears(${y})">${y}년</button>`
+  ).join('');
+  setSimMode(_simState.mode);
+  renderSimItems();
 }
 window.renderSimulatorPage = renderSimulatorPage;
+
+function renderSimItems(){
+  const el = document.getElementById('simItems');
+  if (!el) return;
+  if (_simState.items.length === 0) {
+    el.innerHTML = `<div style="padding:16px;text-align:center;color:var(--tx4);font-size:12.5px;background:var(--bg2);border:1px dashed var(--bdr);border-radius:8px">아직 추가된 종목이 없어요</div>`;
+    return;
+  }
+  const total = _simState.items.reduce((s,x) => s + (+x.amount||0), 0);
+  el.innerHTML = _simState.items.map((it, idx) => {
+    const pct = total > 0 ? ((+it.amount||0)/total*100).toFixed(1) : '0.0';
+    return `<div style="display:flex;gap:8px;align-items:center;padding:10px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name || it.symbol)}</div>
+        <div style="font-size:11px;color:var(--tx4)">${it.symbol} · 비중 ${pct}%</div>
+      </div>
+      <input type="number" value="${it.amount}" min="0" step="10000" oninput="updateSimAmount(${idx}, this.value)" style="width:120px;padding:7px 9px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg);color:var(--tx);font-size:12.5px;text-align:right">
+      <span style="font-size:11px;color:var(--tx4)">원</span>
+      <button onclick="removeSimItem(${idx})" title="제외" style="background:none;border:none;color:var(--tx4);cursor:pointer;font-size:14px">🗑</button>
+    </div>`;
+  }).join('');
+}
+function updateSimAmount(idx, v){ if (_simState.items[idx]) _simState.items[idx].amount = +v || 0; renderSimItems(); }
+function removeSimItem(idx){ _simState.items.splice(idx,1); renderSimItems(); }
+
+function setSimYears(y){ _simState.years = y; document.querySelectorAll('.sim-year-btn').forEach(b => b.classList.toggle('on', +b.dataset.y === y)); }
+function setSimMode(m){
+  _simState.mode = m;
+  document.querySelectorAll('.sim-mode-btn').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  const mw = document.getElementById('simMonthlyWrap'); if (mw) mw.style.display = m === 'dca' ? '' : 'none';
+}
+window.setSimYears = setSimYears;
+window.setSimMode = setSimMode;
+window.updateSimAmount = updateSimAmount;
+window.removeSimItem = removeSimItem;
+
+// ─── 종목 선택 (MASTER 기반 검색) ───────────────────────
+function openSimPicker(){
+  // 간단히 prompt — 검색어 입력받고 매칭 후보 중 선택 modal 띄우기
+  const kw = prompt('종목명 또는 심볼 (예: 삼성전자, AAPL, 005930)');
+  if (!kw) return;
+  const q = kw.trim().toLowerCase();
+  const candidates = Object.keys(MASTER).filter(id => {
+    const m = MASTER[id];
+    const name = (m?.nm || '').toLowerCase();
+    return id.toLowerCase().includes(q) || name.includes(q);
+  }).slice(0, 20);
+  if (candidates.length === 0) { alert('일치하는 종목이 없어요'); return; }
+  // 단일 매칭이면 바로, 여러 개면 선택
+  let sid;
+  if (candidates.length === 1) sid = candidates[0];
+  else {
+    const list = candidates.map((id, i) => `${i+1}. ${id} — ${MASTER[id]?.nm || ''}`).join('\n');
+    const pick = prompt(`번호 선택:\n${list}`, '1');
+    const n = parseInt(pick, 10);
+    if (!(n >= 1 && n <= candidates.length)) return;
+    sid = candidates[n - 1];
+  }
+  if (_simState.items.some(x => x.symbol === sid)) { alert('이미 추가된 종목이에요'); return; }
+  _simState.items.push({ symbol: sid, name: MASTER[sid]?.nm || sid, amount: /^\d{6}$/.test(sid) ? 1000000 : 1000 });
+  renderSimItems();
+}
+window.openSimPicker = openSimPicker;
+
+// ─── 시뮬레이션 실행 ─────────────────────────────────
+async function runSimulation(){
+  const err = document.getElementById('simErr');
+  const btn = document.getElementById('simRunBtn');
+  err.style.display = 'none';
+  const valid = _simState.items.filter(x => x.symbol && (+x.amount||0) > 0);
+  if (valid.length === 0) { err.textContent='종목과 투자금을 입력해주세요'; err.style.display='block'; return; }
+  if (_simState.mode === 'dca' && !(_simState.monthly > 0)) { err.textContent='월 적립 금액을 입력해주세요'; err.style.display='block'; return; }
+
+  btn.disabled = true; btn.textContent = '계산 중... (10~20초)';
+  try {
+    const years = _simState.years;
+    const hist = await Promise.all(valid.map(x =>
+      fetch(`${SERVER_URL}/api/history?symbol=${encodeURIComponent(x.symbol)}&period=${years}y`).then(r=>r.json())
+    ));
+    const bad = hist.findIndex(h => !h?.ok || !h.bars?.length);
+    if (bad >= 0) throw new Error(`${valid[bad].symbol} 시세 조회 실패`);
+
+    const result = _computeScenario(valid, hist, years, _simState.mode, _simState.monthly);
+    _simState.lastResult = result;
+    renderSimResult(valid, result);
+  } catch(e){
+    err.textContent = '오류: ' + e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔮 예상 수익 계산하기';
+  }
+}
+window.runSimulation = runSimulation;
+
+function _computeScenario(items, histories, years, mode, monthly){
+  // 1) 각 종목 bars → 시작가 대비 정규화 비율(r)
+  const normalized = histories.map(h => {
+    const bars = h.bars;
+    const start = bars[0].c;
+    return bars.map(b => ({ t: b.t, r: b.c / start }));
+  });
+  // 2) 길이 맞추기: 가장 짧은 쪽으로 끝에서부터 자르기
+  const minLen = Math.min(...normalized.map(n => n.length));
+  const trimmed = normalized.map(n => n.slice(n.length - minLen));
+  // 3) 포트폴리오 비중
+  const totalAmount = items.reduce((s,x) => s + (+x.amount||0), 0);
+  const weights = items.map(x => (+x.amount||0) / totalAmount);
+  // 4) 날짜별 가중 NAV
+  const nav = [];
+  for (let i = 0; i < minLen; i++) {
+    let v = 0;
+    for (let j = 0; j < items.length; j++) v += weights[j] * trimmed[j][i].r;
+    nav.push({ t: trimmed[0][i].t, v });
+  }
+  // 5) CAGR
+  const yrs = (nav[nav.length-1].t - nav[0].t) / (365.25 * 24 * 3600);
+  const cagr = yrs > 0 ? Math.pow(nav[nav.length-1].v / nav[0].v, 1/yrs) - 1 : 0;
+  // 6) MDD
+  let peak = nav[0].v, mdd = 0;
+  for (const n of nav) { if (n.v > peak) peak = n.v; const dd = (peak - n.v)/peak; if (dd > mdd) mdd = dd; }
+  // 7) 미래 투사 (일시금 vs 월적립). 낙관=CAGR*1.3, 비관=CAGR*0.5, 중립=CAGR
+  const proj = { neutral: [], optimistic: [], pessimistic: [] };
+  const months = years * 12;
+  const navLast = nav[nav.length-1].v;
+  for (let k = 0; k <= months; k++) {
+    const t = k / 12; // years
+    const point = (rateAnnual) => {
+      if (mode === 'lump') return totalAmount * Math.pow(1 + rateAnnual, t);
+      const rm = rateAnnual / 12;
+      if (Math.abs(rm) < 1e-9) return monthly * k;
+      return monthly * ((Math.pow(1 + rm, k) - 1) / rm);
+    };
+    proj.neutral.push(point(cagr));
+    proj.optimistic.push(point(cagr * 1.3));
+    proj.pessimistic.push(point(Math.max(cagr * 0.5, cagr - 0.05)));
+  }
+  // 8) 투입 총액
+  const invested = mode === 'lump' ? totalAmount : monthly * months;
+  return { cagr, mdd, nav, proj, invested, totalAmount };
+}
+
+function renderSimResult(items, r){
+  const el = document.getElementById('simResult');
+  if (!el) return;
+  el.style.display = '';
+  const krw = (n) => '₩' + Math.round(n).toLocaleString('ko-KR');
+  const pct = (x) => (x*100).toFixed(2) + '%';
+  const last = r.proj.neutral.length - 1;
+  const ret = (v) => v - r.invested;
+  const col = (v) => v >= r.invested ? 'var(--up, #e53935)' : 'var(--dn, #1e88e5)';
+
+  el.innerHTML = `
+    <div class="card" style="padding:18px 20px;margin-bottom:12px">
+      <div style="font-size:12px;color:var(--tx4);margin-bottom:6px">투입 금액 (총 ${_simState.years}년)</div>
+      <div style="font-size:20px;font-weight:900;color:var(--tx);margin-bottom:14px">${krw(r.invested)}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        ${[
+          ['🚀 낙관', r.proj.optimistic[last], '#e53935'],
+          ['🎯 중립', r.proj.neutral[last], 'var(--brand)'],
+          ['🛡 비관', r.proj.pessimistic[last], '#1e88e5'],
+        ].map(([label, v, c]) => `
+          <div style="padding:12px 10px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;text-align:center">
+            <div style="font-size:11px;color:${c};font-weight:700;margin-bottom:4px">${label}</div>
+            <div style="font-size:15px;font-weight:900;color:var(--tx)">${krw(v)}</div>
+            <div style="font-size:11px;color:${col(v)};font-weight:700;margin-top:2px">${v>=r.invested?'+':''}${krw(ret(v))}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--bg2);border-radius:8px;font-size:11.5px;color:var(--tx2);line-height:1.6">
+        📊 과거 ${_simState.years}년 실제 수익률(연평균): <b style="color:var(--tx)">${pct(r.cagr)}</b>
+        · 최대 낙폭(MDD): <b style="color:var(--dn)">-${pct(r.mdd)}</b>
+      </div>
+    </div>
+    <div class="card" style="padding:12px 14px">
+      <div style="font-size:12px;font-weight:700;color:var(--tx4);margin-bottom:8px">미래 ${_simState.years}년 예상 평가액 추이</div>
+      <canvas id="simChart" style="width:100%;max-height:260px"></canvas>
+    </div>
+  `;
+  _drawSimChart(r);
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function _drawSimChart(r){
+  const ctx = document.getElementById('simChart');
+  if (!ctx || typeof Chart === 'undefined') return;
+  if (_simChart) { try { _simChart.destroy(); } catch(_){} }
+  const labels = r.proj.neutral.map((_, k) => k % 12 === 0 ? `${k/12}년` : '');
+  _simChart = new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'낙관', data: r.proj.optimistic, borderColor:'#e53935', backgroundColor:'rgba(229,57,53,.08)', borderWidth:2, pointRadius:0, tension:.15 },
+        { label:'중립', data: r.proj.neutral,    borderColor:'var(--brand)', backgroundColor:'rgba(99,102,241,.10)', borderWidth:2, pointRadius:0, tension:.15, fill:false },
+        { label:'비관', data: r.proj.pessimistic, borderColor:'#1e88e5', backgroundColor:'rgba(30,136,229,.08)', borderWidth:2, pointRadius:0, tension:.15 },
+      ],
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend: { labels:{ boxWidth:12, font:{size:11} } }, tooltip:{ callbacks:{ label:(c)=>` ${c.dataset.label}: ₩${Math.round(c.parsed.y).toLocaleString('ko-KR')}` } } },
+      scales: { y:{ ticks:{ callback:(v)=>'₩'+Math.round(v/10000).toLocaleString('ko-KR')+'만' } }, x:{ ticks:{ autoSkip:false, maxRotation:0 } } },
+    },
+  });
+}
 window.openAddHolding = openAddHolding;
 window.openEditHolding = openEditHolding;
 window.removePortfolioRow = removePortfolioRow;
