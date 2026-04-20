@@ -1520,32 +1520,40 @@ app.post('/api/portfolio/ocr',
 
 이미지에서 각 보유 종목의 아래 정보를 뽑아 JSON 배열로만 반환하세요:
 - "name": 종목명 (화면에 보이는 그대로. 한글이면 한글, 영문이면 영문)
+- "ticker": **티커/심볼** (미국은 영문 대문자 AAPL·NVDA·SCHD·QQQ 등, 한국은 6자리 숫자 005930·360750 등).
+  이미지에서 티커가 안 보이면 종목명으로 네가 아는 대표 티커를 넣어줘 (예: "Schwab 미국 배당주 ETF"→"SCHD",
+  "KODEX 200"→"069500"). 확신이 없으면 null.
 - "quantity": 보유수량 (주식 수. "좌수"·"주"·"shares" 옆의 숫자. 쉼표·단위 제거)
-- "avg_price": **1주당 평균매수가** (숫자. 쉼표·원·$ 제거)
+- "avg_price": **원래 거래 통화의 1주당 평균매수가** (숫자만. 쉼표·원·$ 제거)
+- "currency": "KRW" 또는 "USD" (avg_price 가 어느 통화인지 명시)
 
 ⚠️ avg_price 에 **절대 넣지 말 것**:
-- 평가금액 / 평가액 / 평가 원금 / 매입금액 / 매입원금 / 총 보유금액  (= 수량 × 가격인 "큰 금액"들)
-- 현재가 / 종가 / 시장가
-- 평가손익 / 수익금액 / 수익률
+- 평가금액 / 평가액 / 매입금액 / 매입원금 / 총 보유금액  (수량 × 가격인 "큰 금액")
+- 현재가 / 종가 / 시장가 / 평가손익 / 수익금액 / 수익률
+- **원화로 환산된 "평가금액"** — 한국 증권사 앱이 미국 종목의 평가금액을 원화로 크게 표시하는 경우가 많음.
+  미국 종목(AAPL·NVDA·SCHD·TSLA·QQQ 등)은 **반드시 달러 기준 평단**을 찾아서 넣어야 함.
 
-✅ avg_price 는 오직 **컬럼 헤더가 "평균단가", "평균매수가", "매입단가", "평단", "평균가", "avg cost", "avg price" 인 1주당 값**.
-숫자가 수량의 수백~수만 배로 커 보이면 평가금액을 잘못 본 것이니 반드시 1주당 단가 컬럼으로 다시 확인.
+✅ avg_price 는 "평균단가", "평균매수가", "매입단가", "평단", "평균가", "avg cost", "avg price" 컬럼의
+1주당 값. 통화는 종목 상장 국가 기준:
+- 미국 상장 (AAPL·NVDA·TSLA·SCHD·QQQ 등, 6자리 숫자 아님) → currency="USD", avg_price 는 달러 값
+- 한국 상장 (6자리 숫자 티커, TIGER/KODEX/PLUS 등 국내 ETF) → currency="KRW", avg_price 는 원화 값
 
-실전 예시:
-- 국내 ETF TIGER 미국S&P500 의 1주당 평단은 보통 2만~3만 원대.
-- 미국 배당주 SCHD 의 1주당 평단은 보통 수십~100달러대.
-- "평가금액 1,117,785원" 은 수량×평단이므로 avg_price 에 넣으면 안 됨.
+숫자 타당성 힌트
+- 수량의 수백~수만 배 크기는 평가금액 오인 가능성 ↑. 1주당 단가 컬럼 재확인.
+- SCHD 평단은 보통 20~40 달러. "91,993" 같은 큰 숫자는 원화 환산 평가금액일 확률 높음.
+- TIGER 미국S&P500 평단은 보통 2~3만 원대. 1,117,785 같은 값은 평가금액.
 
-기타 주의:
+기타
 - 이미지가 증권사 포트폴리오가 아니면 빈 배열 []
 - 특정 필드 읽기 어려우면 해당 필드만 null
 - 출력은 JSON 배열 한 번만. 마크다운 코드펜스·설명 금지
 
 형식 예:
 [
-  {"name":"삼성전자","quantity":10,"avg_price":72000},
-  {"name":"TIGER 미국S&P500","quantity":43,"avg_price":25995},
-  {"name":"NVIDIA","quantity":3,"avg_price":135.80}
+  {"name":"삼성전자","quantity":10,"avg_price":72000,"currency":"KRW"},
+  {"name":"TIGER 미국S&P500","quantity":43,"avg_price":25995,"currency":"KRW"},
+  {"name":"SCHD","quantity":2,"avg_price":27.34,"currency":"USD"},
+  {"name":"NVIDIA","quantity":3,"avg_price":135.80,"currency":"USD"}
 ]`;
 
       const { text, model, usage } = await callGemini(prompt, { images: imgs, temperature: 0.1, maxOutputTokens: 2048 });
@@ -1569,12 +1577,29 @@ app.post('/api/portfolio/ocr',
         return res.status(500).json({ ok: false, error: 'PARSE_FAIL', raw: String(text).slice(0, 500) });
       }
 
-      // name → symbol 매칭 (stocks 테이블)
-      //  1) name_kr 완전 일치 > 2) name 완전 일치 > 3) name_kr LIKE > 4) name LIKE
-      //  여러 후보면 market_cap DESC
-      const findByName = (rawName) => {
+      // 심볼 / 이름 기반 매칭 (stocks 테이블)
+      //  우선순위:
+      //   1) Gemini 가 준 ticker 직매칭 (6자리 KR 또는 영문 US)
+      //   2) name_kr 완전 일치
+      //   3) name 완전 일치
+      //   4) name_kr/name 이 입력 이름을 포함 (LIKE %input%)
+      //   5) 역방향: DB name 이 입력 이름에 포함 ("Schwab US Dividend" ⊂ "Schwab 미국 배당주 ETF")
+      //      → 입력을 토큰화해서 brand/핵심어 기반 LIKE. "Schwab" 같은 unique 키워드가 있어야
+      //         잘 맞음. 너무 흔한 단어는 제외.
+      const COMMON_TOKENS = new Set(['ETF','미국','한국','등록','배당주','지수','인버스','레버리지','선물','채권','채권혼합','증권','주식','보유','평균']);
+      const findMatch = (rawName, rawTicker) => {
+        // 1) ticker 직매칭
+        const t = String(rawTicker || '').trim().toUpperCase();
+        if (t) {
+          const byTicker = db.prepare(
+            `SELECT symbol, name, name_kr, market, market_cap FROM stocks
+             WHERE symbol = ? AND is_active = 1 LIMIT 1`
+          ).get(t);
+          if (byTicker) return byTicker;
+        }
         const n = String(rawName || '').trim();
         if (!n) return null;
+        // 2·3) 완전 일치
         const exactKr = db.prepare(
           `SELECT symbol, name, name_kr, market, market_cap FROM stocks
            WHERE name_kr = ? AND is_active = 1 ORDER BY market_cap IS NULL, market_cap DESC LIMIT 1`
@@ -1585,20 +1610,35 @@ app.post('/api/portfolio/ocr',
            WHERE name = ? AND is_active = 1 ORDER BY market_cap IS NULL, market_cap DESC LIMIT 1`
         ).get(n);
         if (exactEn) return exactEn;
-        const likeKr = db.prepare(
+        // 4) 정방향 LIKE
+        const likeFwd = db.prepare(
           `SELECT symbol, name, name_kr, market, market_cap FROM stocks
            WHERE (name_kr LIKE ? OR name LIKE ?) AND is_active = 1
            ORDER BY market_cap IS NULL, market_cap DESC LIMIT 1`
         ).get(`%${n}%`, `%${n}%`);
-        return likeKr || null;
+        if (likeFwd) return likeFwd;
+        // 5) 역방향 — 입력 이름을 토큰화해서 unique 한 brand/핵심어로 DB LIKE
+        const tokens = n.split(/[\s·∙,/()\-]+/).map(s => s.trim()).filter(Boolean)
+          .filter(s => s.length >= 2 && !COMMON_TOKENS.has(s));
+        for (const tok of tokens) {
+          const hit = db.prepare(
+            `SELECT symbol, name, name_kr, market, market_cap FROM stocks
+             WHERE (name_kr LIKE ? OR name LIKE ?) AND is_active = 1 AND is_etf = 1
+             ORDER BY market_cap IS NULL, market_cap DESC LIMIT 1`
+          ).get(`%${tok}%`, `%${tok}%`);
+          if (hit) return hit;
+        }
+        return null;
       };
 
       const items = rows.map((r) => {
-        const match = findByName(r?.name);
+        const match = findMatch(r?.name, r?.ticker);
         return {
           name: r?.name ?? null,
+          ticker: r?.ticker ?? null,
           quantity: (r?.quantity != null && isFinite(+r.quantity)) ? +r.quantity : null,
           avg_price: (r?.avg_price != null && isFinite(+r.avg_price)) ? +r.avg_price : null,
+          currency: r?.currency === 'USD' ? 'USD' : (r?.currency === 'KRW' ? 'KRW' : null),
           matchedSymbol: match?.symbol || null,
           matchedName: match ? (match.name_kr || match.name) : null,
           matchedMarket: match?.market || null,
