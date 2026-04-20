@@ -7,7 +7,11 @@
 ### 오늘(2026-04-20) 상황 요약
 - Phase 2 KR/US smoke test 재시도 → **Yahoo 광범위 IP 차단 확인** (일반 집 IP + 모바일 핫스팟 IP 모두 429). 브라우저에서 cookie/crumb 받아 env 주입해도 quoteSummary 자체가 서버 측에서 HTTP 429. TLS fingerprint + HttpOnly cookie 누락 복합 원인 추정. **24~72h 대기 외 즉시 해결 방법 없음**
 - ✅ **프로덕션 seed 자동화 구현 완료** — `db.js` 에 `seedStocksIfEmpty()` 추가. stocks 테이블 비어있으면 `child_process.execSync` 로 `seed-stocks.js` 자동 실행 (connection 격리). 로컬 임시 DB 로 1회차 307 insert / 2회차 스킵 검증 완료. **Phase 3 재시도 시 어제 장애(프로덕션 DB 비어있음) 재발 방지**
-- ⏸️ KRX 전종목 API 접근 시도 → `data.krx.co.kr/comm/bldAttendant/getJsonData.cmd` 가 JSESSIONID + Referer 갖춰도 "LOGOUT" 응답. pykrx 라이브러리가 매년 패치해야 하는 영역. 단순 curl/fetch 로는 불가 — 다음 세션에 다른 접근 결정 필요
+- ⏸️ KRX 공식 data 서버 curl/pykrx 둘 다 현재 IP 에서 "LOGOUT" 거부 — 네트워크 회복 시 재시도
+- ✅ **유니버스 확장 스캐폴드 구축** — 데이터 무관하게 코드 준비 완료:
+  - `fetch-kr-stocks.js` `loadTickers()` 를 DB 우선 조회로 변경 (KR_SYMBOLS env > DB `stocks` 테이블 market='KR' is_etf=0 > KOREAN_TICKERS 폴백). 현재 DB 로드 117개 검증
+  - `fetch-krx-universe.js` 신규 — pykrx 로 생성한 CSV (`data/kr-universe.csv`) 를 읽어 stocks 테이블 upsert. 큐레이션 종목(is_curated=1) 은 자동 보호, 신규만 INSERT (source='krx'). 샘플 CSV 로 insert/skip 동작 검증 완료
+  - `data/kr-universe.csv.example` 샘플 포맷 커밋
 
 ### 📌 이어갈 핵심 결정 사항
 - **유니버스 확장 방식** (3개 옵션, 결정 필요):
@@ -17,10 +21,20 @@
   - **추천**: 방식 A (빠른 실행 + 검증) → 나중에 방식 B 로 자동화 전환
 
 ### 📋 내일 작업 순서
-1. **유니버스 확장 방식 결정 후 실행** — 위 A/B/C 중 선택
-2. **fetch-kr-stocks.js 의 loadTickers() 를 DB 우선 조회로 변경** — DB 에 KR 종목 있으면 그것을 유니버스로, 없으면 KOREAN_TICKERS 폴백
-3. **Phase 2 Yahoo 수집 재시도** (차단 풀리면) — KR 먼저, 성공 시 US
-4. **Phase 3 재배포** — seed 자동화 덕분에 안전. `/api/universe` DB 전환 재시도
+1. **KRX CSV 생성 후 주입** (네트워크 회복된 환경에서 1회):
+   ```
+   pip3 install --user pykrx
+   python3 -c "from pykrx import stock; import csv, sys; \
+     base='20251128'; rows=[]; \
+     [rows.append([t, stock.get_market_ticker_name(t), m]) for m in ('KOSPI','KOSDAQ') for t in stock.get_market_ticker_list(base, market=m)]; \
+     w=csv.writer(sys.stdout); w.writerow(['symbol','name','exchange']); w.writerows(rows)" \
+     > server/scripts/data/kr-universe.csv
+   cd server && node scripts/fetch-krx-universe.js
+   ```
+   예상: KOSPI ~900 + KOSDAQ ~1500 = ~2400행, 그 중 기존 큐레이션 116개 skip, 나머지 ~2284개 INSERT (source='krx', is_curated=0)
+2. **Phase 2 Yahoo 수집 재시도** (차단 풀리면) — `node scripts/fetch-kr-stocks.js` 가 확장된 DB 유니버스를 읽어서 재무지표 채움. KR_LIMIT 조정 가능 (예: KR_LIMIT=100 으로 점진 실행)
+3. **Phase 3 재배포** — seed 자동화 덕분에 안전. `/api/universe` DB 전환 재시도. 로컬에서 정상 동작 확인 후 Railway 배포
+4. **US 도 유니버스 확장 고려** — fetch-us-stocks 현재 datahub S&P500 CSV(500개) 사용. Russell 1000 등으로 확장 검토 (옵션)
 
 ### ⚠️ 어제(2026-04-18) 상황 (참고)
 - Phase 2 US 수집을 FMP → Yahoo 로 전환 (✅ 배포됨, commit `7c166ae`)

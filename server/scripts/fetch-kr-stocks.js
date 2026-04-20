@@ -27,9 +27,23 @@ const LIMIT    = Number(process.env.KR_LIMIT || 100);
 const DELAY_MS = Number(process.env.KR_DELAY_MS || 1000); // 1초 — Yahoo 비공식 rate-limit 회피
 
 // ─── 티커 유니버스 로드 ──────────────────────────
-function loadTickers() {
+//  우선순위: KR_SYMBOLS env > DB(stocks 테이블 market='KR' is_etf=0) > KOREAN_TICKERS 하드코딩
+//  DB 우선으로 전환한 이유 (2026-04-20): fetch-krx-universe 로 stocks 를 확장해도
+//  이 스크립트가 하드코딩만 읽으면 확장 효과가 사라짐. DB 기반으로 해야 자연 연동.
+function loadTickers(db) {
   if (process.env.KR_SYMBOLS) {
     return process.env.KR_SYMBOLS.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  if (db) {
+    const rows = db.prepare(
+      `SELECT symbol FROM stocks WHERE market='KR' AND is_etf=0 ORDER BY symbol`
+    ).all();
+    const tickers = rows.map(r => r.symbol).filter(s => /^\d{6}$/.test(s));
+    if (tickers.length > 0) {
+      console.log(`[kr] 유니버스 소스 = DB (${tickers.length}개)`);
+      return tickers;
+    }
+    console.log('[kr] DB stocks 비어있음 — KOREAN_TICKERS 하드코딩 폴백');
   }
   const indexPath = path.join(__dirname, '..', 'index.js');
   const src = fs.readFileSync(indexPath, 'utf8');
@@ -48,7 +62,9 @@ function loadTickers() {
   }
   const literal = src.slice(arrStart, i);
   const arr = new Function(`"use strict"; return (${literal});`)();
-  return Array.from(new Set(arr)).filter(s => /^\d{6}$/.test(s));
+  const tickers = Array.from(new Set(arr)).filter(s => /^\d{6}$/.test(s));
+  console.log(`[kr] 유니버스 소스 = KOREAN_TICKERS 하드코딩 (${tickers.length}개)`);
+  return tickers;
 }
 
 // ─── 메인 ────────────────────────────────────────
@@ -56,7 +72,7 @@ function loadTickers() {
   const db = openDb();
   const upsertStock = makeUpsertStock(db);
 
-  const allTickers = loadTickers();
+  const allTickers = loadTickers(db);
   const target = allTickers.slice(0, LIMIT);
   console.log(`[kr] 대상 종목 ${target.length}개 (유니버스 ${allTickers.length} 중 상위 ${LIMIT})`);
 
