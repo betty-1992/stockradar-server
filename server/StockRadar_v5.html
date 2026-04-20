@@ -4804,18 +4804,18 @@ html[data-theme="dark"] body .toast,
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;position:relative">
           <button onclick="openOcrImport()" title="증권사 앱 캡처 이미지에서 AI가 종목·수량·평단을 자동으로 읽어 한 번에 등록합니다."
             style="padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:13px;cursor:pointer;border:none;font-weight:600">📷 이미지로 가져오기</button>
-          <button onclick="openTxRecord()" title="매수 또는 매도 한 건을 날짜·가격과 함께 기록합니다. 평단과 실현손익이 자동 계산돼요."
-            style="padding:6px 14px;border:1px solid var(--brand);border-radius:8px;background:var(--bg2);color:var(--brand);font-size:13px;cursor:pointer;font-weight:600">📝 거래 기록</button>
+          <button onclick="openAddHolding()" title="증권사 앱에 표시된 종목·수량·평단을 그대로 한 건씩 입력합니다."
+            style="padding:6px 14px;border-radius:8px;background:var(--brand);color:#fff;font-size:13px;cursor:pointer;border:none;font-weight:600">➕ 직접 입력</button>
           <button onclick="togglePfMoreMenu(event)" aria-label="더보기"
             style="padding:6px 10px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:13px;cursor:pointer">⋯</button>
-          <div id="pfMoreMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--bg);border:1px solid var(--bdr);border-radius:10px;min-width:240px;z-index:100;box-shadow:0 8px 28px rgba(0,0,0,.18);overflow:hidden">
+          <div id="pfMoreMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--bg);border:1px solid var(--bdr);border-radius:10px;min-width:260px;z-index:100;box-shadow:0 8px 28px rgba(0,0,0,.18);overflow:hidden">
+            <button onclick="openTxRecord();closePfMoreMenu()" class="pf-more-item">
+              <div style="font-weight:700;font-size:13px">📝 거래 기록 (매수·매도)</div>
+              <div style="font-size:11px;color:var(--tx4);margin-top:2px">날짜별 매매 기록. 평단·실현손익 자동 계산</div>
+            </button>
             <button onclick="openHoldingImport();closePfMoreMenu()" class="pf-more-item">
               <div style="font-weight:700;font-size:13px">📋 CSV 붙여넣기</div>
-              <div style="font-size:11px;color:var(--tx4);margin-top:2px">심볼,수량,평단 형식을 여러 줄 한 번에 입력</div>
-            </button>
-            <button onclick="openAddHolding();closePfMoreMenu()" class="pf-more-item">
-              <div style="font-weight:700;font-size:13px">➕ 수동 추가 (한 건)</div>
-              <div style="font-size:11px;color:var(--tx4);margin-top:2px">한 종목씩 직접 입력. 평단은 내가 계산해서 기입</div>
+              <div style="font-size:11px;color:var(--tx4);margin-top:2px">엑셀·메모장 형식을 여러 줄 한 번에 입력</div>
             </button>
           </div>
         </div>
@@ -14728,8 +14728,8 @@ window.submitOcrSave = submitOcrSave;
     </div>
     <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:12px">
       <div style="padding:10px 12px;background:var(--blue-bg);border-left:3px solid var(--brand);border-radius:6px;font-size:12px;color:var(--tx2);line-height:1.6">
-        💡 <b>한 건씩 수동으로 등록</b>할 때 사용하세요. 평단은 본인이 계산해서 직접 입력해야 해요.
-        매수·매도 이력을 따로 기록하고 싶으면 <b>📝 거래 기록</b>을 쓰세요 (평단·실현손익 자동 계산).
+        💡 증권사 앱 화면의 <b>종목·보유수량·평균매수가</b>를 그대로 옮겨 적으면 끝이에요. (앱이 평단을 이미 계산해서 보여줘요)
+        과거 매수·매도 이력을 날짜별로 기록하려면 <b>⋯ 더보기 → 📝 거래 기록</b>을 쓰세요.
       </div>
       <input id="holdingSymbol" placeholder="종목 심볼 (예: AAPL, 005930)" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;box-sizing:border-box" />
       <input id="holdingQty" type="number" inputmode="decimal" placeholder="수량" min="0.0001" step="0.0001" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;box-sizing:border-box" />
