@@ -4641,6 +4641,10 @@ html[data-theme="dark"] body .toast,
       <span class="lnb-item-ico" style="margin-right:8px;display:inline-flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>
       <span class="lnb-item-txt">나의 투자</span>
     </div>
+    <div class="lnb-item" onclick="go(this,'simulator')">
+      <span class="lnb-item-ico" style="margin-right:8px;display:inline-flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
+      <span class="lnb-item-txt">시뮬레이터</span>
+    </div>
     <div class="lnb-item" onclick="go(this,'issue')">
       <span class="lnb-item-ico" style="margin-right:8px;display:inline-flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
       <span class="lnb-item-txt">트렌드 트래커</span>
@@ -4874,6 +4878,21 @@ html[data-theme="dark"] body .toast,
         <button class="modal-x" onclick="cm('wlCompareOv')">✕</button>
       </div>
       <div id="wlCompareBody" style="padding:20px 22px 28px;max-height:78vh;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- ══ 시뮬레이터 (투자 시나리오) — Phase 1~5 진행 중 ══ -->
+  <div class="page" id="pg-simulator">
+    <div class="page-inner">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div>
+          <h2 style="font-size:18px;font-weight:700;margin:0;display:flex;align-items:center;gap:8px">📈 투자 시뮬레이터
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--blue-bg);color:var(--brand)">BETA</span>
+          </h2>
+          <div style="font-size:12px;color:var(--tx4);margin-top:4px">과거 수익률 기반으로 미래 예상 평가액을 보여드려요</div>
+        </div>
+      </div>
+      <div id="simulatorBody"></div>
     </div>
   </div>
 
@@ -11649,7 +11668,7 @@ window.openGuideArticle = openGuideArticle;
 // ══════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════
-const PAGE_TITLES={home:'홈',watchlist:'관심종목',portfolio:'나의 투자',screener:'종목 발굴',detail:'종목 상세',issue:'트렌드 트래커',sector:'섹터맵',guide:'투자 가이드',settings:'설정',terms:'이용약관',privacy:'개인정보 처리방침',disclaimer:'투자 면책 고지'};
+const PAGE_TITLES={home:'홈',watchlist:'관심종목',portfolio:'나의 투자',simulator:'시뮬레이터',screener:'종목 발굴',detail:'종목 상세',issue:'트렌드 트래커',sector:'섹터맵',guide:'투자 가이드',settings:'설정',terms:'이용약관',privacy:'개인정보 처리방침',disclaimer:'투자 면책 고지'};
 
 // ══════════════════════════════════════════════
 // 브라우저 히스토리 관리 (SPA 뒤로가기)
@@ -11800,6 +11819,7 @@ function showPage(page){
   if(page==='home')renderHome();
   if(page==='watchlist')renderWatchlistPage();
   if(page==='portfolio')renderPortfolioPage();
+  if(page==='simulator')renderSimulatorPage();
   if(page==='screener'){applyFilters(); setTimeout(restoreSimpleView, 50);}
   // 모바일 바텀 네비 active 동기화
   try {
@@ -12136,7 +12156,7 @@ updateClk();
   const hash = (location.hash || '#home').replace(/^#/,'');
   const [initPage, initId] = hash.split('/');
   // 새로고침 시 현재 페이지 유지를 위해 모든 실제 페이지 등록
-  const validPages = ['home','screener','watchlist','portfolio','issue','sector','guide','settings','detail','terms','privacy','disclaimer'];
+  const validPages = ['home','screener','watchlist','portfolio','simulator','issue','sector','guide','settings','detail','terms','privacy','disclaimer'];
   const startPage = validPages.includes(initPage) ? initPage : 'home';
   history.replaceState({ page: startPage, id: initId }, '', '#' + startPage + (initId ? '/'+initId : ''));
   if(startPage === 'detail' && initId){
@@ -14396,6 +14416,43 @@ function renderDetailHoldingPanel(stock_id, currentPrice) {
 window.renderDetailHoldingPanel = renderDetailHoldingPanel;
 
 window.renderPortfolioPage = renderPortfolioPage;
+
+// ═══════════════════════════════════════════════════════════════
+//  투자 시뮬레이터 (Phase 1 placeholder) — 2026-04-20
+//  Phase 1: 과거 시세 API 확장 (/api/history) 후 본격 구현.
+//  현재는 메뉴/라우팅만 연결되고 본문은 "곧 출시" 안내.
+// ═══════════════════════════════════════════════════════════════
+function renderSimulatorPage(){
+  const el = document.getElementById('simulatorBody');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="card" style="padding:36px 20px;text-align:center;max-width:620px;margin:0 auto">
+      <div style="font-size:48px;margin-bottom:14px">🧪</div>
+      <div style="font-size:17px;font-weight:800;margin-bottom:8px">곧 만나요!</div>
+      <div style="font-size:13px;color:var(--tx2);line-height:1.7;margin-bottom:18px">
+        종목·투자금·기간을 입력하면<br>
+        <b>5년 뒤, 10년 뒤 예상 평가액</b>을 계산해드릴 예정이에요.<br>
+        <span style="font-size:11.5px;color:var(--tx4)">공격형 vs 안정형 같은 시나리오 비교 · 스톡이 AI 해설 제공</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-width:380px;margin:0 auto;text-align:left">
+        <div style="padding:10px 12px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;font-size:12.5px;color:var(--tx2)">
+          ✅ <b>Phase 1</b> 과거 시세 API 연결 <span style="color:var(--tx4);font-size:11px">(준비 중)</span>
+        </div>
+        <div style="padding:10px 12px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;font-size:12.5px;color:var(--tx2)">
+          ⏳ <b>Phase 2</b> 시나리오 만들기 · 예상 수익 차트
+        </div>
+        <div style="padding:10px 12px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;font-size:12.5px;color:var(--tx2)">
+          ⏳ <b>Phase 3</b> 스톡이 AI 해설
+        </div>
+        <div style="padding:10px 12px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;font-size:12.5px;color:var(--tx2)">
+          ⏳ <b>Phase 4</b> 시나리오 저장 · 비교
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--tx4);margin-top:20px">⚠️ 과거 수익률은 미래를 보장하지 않아요 — 참고용으로만 활용하세요</div>
+    </div>
+  `;
+}
+window.renderSimulatorPage = renderSimulatorPage;
 window.openAddHolding = openAddHolding;
 window.openEditHolding = openEditHolding;
 window.removePortfolioRow = removePortfolioRow;
