@@ -14645,6 +14645,16 @@ async function submitOcrImport(){
   }
 }
 
+// 행의 기준 통화 결정: 매칭된 심볼 market 우선, 없으면 Gemini currency,
+// 둘 다 없으면 심볼 패턴(6자리=KR) 으로 폴백.
+function _ocrRowCcy(it){
+  if (it.matchedMarket === 'US') return 'USD';
+  if (it.matchedMarket === 'KR') return 'KRW';
+  if (it.currency === 'USD' || it.currency === 'KRW') return it.currency;
+  if (it.matchedSymbol && /^\d{6}$/.test(it.matchedSymbol)) return 'KRW';
+  return 'KRW';
+}
+
 function renderOcrResults(){
   const body = document.getElementById('ocrResultBody');
   const title = document.getElementById('ocrStep2Title');
@@ -14656,18 +14666,42 @@ function renderOcrResults(){
   }
   body.innerHTML = _ocrItems.map(it => {
     const checked = it._selected ? 'checked' : '';
+    const ccy = _ocrRowCcy(it);
+    const ccySym = ccy === 'USD' ? '$' : '₩';
+    const ccyLocked = !!it.matchedSymbol; // 매칭되면 통화 고정, 매칭 실패면 사용자가 선택
+    // 통화 토글 (미매칭만 수정 가능) — 클릭으로 KRW↔USD 전환
+    const ccyBadge = ccyLocked
+      ? `<span title="매칭된 종목 기준 고정" style="display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:10px;background:${ccy==='USD'?'#1e88e520':'var(--surf)'};color:${ccy==='USD'?'#1e88e5':'var(--tx2)'};font-weight:700">${ccy}</span>`
+      : `<button onclick="toggleOcrCurrency(${it._idx})" title="클릭해서 통화 전환" style="cursor:pointer;font-size:10.5px;padding:2px 7px;border-radius:10px;background:${ccy==='USD'?'#1e88e520':'var(--bg2)'};color:${ccy==='USD'?'#1e88e5':'var(--tx2)'};border:1px solid var(--bdr);font-weight:700">${ccy} ⇄</button>`;
+
     const matchCol = it.matchedSymbol
       ? `<div style="font-weight:700">${esc(it.matchedSymbol)}</div><div style="font-size:10.5px;color:var(--tx4)">${esc(it.matchedName || '')} · ${it.matchedMarket||'?'}</div>`
-      : `<div style="color:var(--dn);font-size:11px">매칭 실패 — 수동 입력 필요</div><input type="text" oninput="updateOcrSymbol(${it._idx}, this.value)" placeholder="심볼 입력 (예: 005930)" style="margin-top:4px;width:140px;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px">`;
+      : `<div style="color:var(--dn);font-size:11px">매칭 실패 — 수동 입력</div><input type="text" oninput="updateOcrSymbol(${it._idx}, this.value)" placeholder="심볼 (예: 005930)" style="margin-top:4px;width:140px;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px">`;
+
     return `<tr style="border-bottom:1px solid var(--bdr)">
-      <td style="padding:10px"><input type="checkbox" ${checked} onchange="toggleOcrRow(${it._idx},this.checked)"> <span style="margin-left:6px;font-weight:600">${esc(it.name || '?')}</span></td>
-      <td style="padding:10px">${matchCol}</td>
-      <td style="padding:10px;text-align:right"><input type="number" value="${it.quantity ?? ''}" step="any" oninput="updateOcrField(${it._idx},'quantity',this.value)" style="width:90px;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px;text-align:right"></td>
-      <td style="padding:10px;text-align:right"><input type="number" value="${it.avg_price ?? ''}" step="any" oninput="updateOcrField(${it._idx},'avg_price',this.value)" style="width:100px;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px;text-align:right"></td>
-      <td style="padding:10px;text-align:center"><button onclick="removeOcrRow(${it._idx})" title="제외" style="background:none;border:none;color:var(--tx4);cursor:pointer;font-size:14px">🗑</button></td>
+      <td style="padding:10px;vertical-align:top"><input type="checkbox" ${checked} onchange="toggleOcrRow(${it._idx},this.checked)"> <span style="margin-left:6px;font-weight:600">${esc(it.name || '?')}</span></td>
+      <td style="padding:10px;vertical-align:top">${matchCol}</td>
+      <td style="padding:10px;text-align:right;vertical-align:top"><input type="number" value="${it.quantity ?? ''}" step="any" oninput="updateOcrField(${it._idx},'quantity',this.value)" style="width:80px;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px;text-align:right"></td>
+      <td style="padding:10px;text-align:right;vertical-align:top;white-space:nowrap">
+        <div style="display:inline-flex;gap:6px;align-items:center;justify-content:flex-end">
+          <span style="color:var(--tx4);font-size:12px">${ccySym}</span>
+          <input type="number" value="${it.avg_price ?? ''}" step="any" oninput="updateOcrField(${it._idx},'avg_price',this.value)" style="width:90px;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px;text-align:right">
+        </div>
+        <div style="margin-top:4px">${ccyBadge}</div>
+      </td>
+      <td style="padding:10px;text-align:center;vertical-align:top"><button onclick="removeOcrRow(${it._idx})" title="제외" style="background:none;border:none;color:var(--tx4);cursor:pointer;font-size:14px">🗑</button></td>
     </tr>`;
   }).join('');
 }
+
+function toggleOcrCurrency(idx){
+  const it = _ocrItems.find(x => x._idx === idx);
+  if (!it || it.matchedSymbol) return; // 매칭된 행은 고정
+  const cur = _ocrRowCcy(it);
+  it.currency = cur === 'USD' ? 'KRW' : 'USD';
+  renderOcrResults();
+}
+window.toggleOcrCurrency = toggleOcrCurrency;
 
 function toggleOcrRow(idx, v){ const it = _ocrItems.find(x => x._idx === idx); if (it) it._selected = v; }
 function updateOcrField(idx, key, val){ const it = _ocrItems.find(x => x._idx === idx); if (it) it[key] = val === '' ? null : Number(val); }
@@ -14776,7 +14810,7 @@ window.submitOcrSave = submitOcrSave;
                 <th style="padding:10px">종목</th>
                 <th style="padding:10px">매칭된 심볼</th>
                 <th style="padding:10px;text-align:right">수량</th>
-                <th style="padding:10px;text-align:right">평단</th>
+                <th style="padding:10px;text-align:right">평단 <span style="font-weight:400;font-size:10px;color:var(--tx4)">(통화 확인)</span></th>
                 <th style="padding:10px;text-align:center"></th>
               </tr>
             </thead>
