@@ -2009,6 +2009,97 @@ ${stockBlock}${historyBlock}${legacy}
   }
 });
 
+// ═══════════════════════════════════════════════════════════════
+//  POST /api/ai-scenario — 시뮬레이터 시나리오 결과를 스톡이가 주린이
+//  언어로 해석. tab='future' 미래 예상 · tab='past' 과거 검증 결과에
+//  각각 특화된 프롬프트로 "이 시나리오 어떻게 봐야 하나" 설명.
+// ═══════════════════════════════════════════════════════════════
+app.post('/api/ai-scenario', async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ ok: false, error: 'AUTH_REQUIRED' });
+    const b = req.body || {};
+    const tab    = b.tab === 'past' ? 'past' : 'future';
+    const items  = Array.isArray(b.items) ? b.items.slice(0, 20) : [];
+    const years  = Number(b.years) || 5;
+    const mode   = ['lump','monthly','weekly'].includes(b.mode) ? b.mode : 'monthly';
+    const amount = Number(b.amount) || 0;
+    const result = b.result || {};
+
+    if (items.length === 0) return res.status(400).json({ ok: false, error: 'NO_ITEMS' });
+
+    const modeLabel = mode === 'lump' ? '일시금' : mode === 'monthly' ? '매월 적립' : '매주 적립';
+    const fmtKrw = (n) => '₩' + Math.round(Number(n)||0).toLocaleString('ko-KR');
+    const pct = (x) => (Number(x)*100).toFixed(2) + '%';
+
+    const portfolioLines = items.map(it =>
+      `  - ${it.name || it.symbol} (${it.symbol}, ${it.weight}%)`
+    ).join('\n');
+
+    let resultBlock = '';
+    if (tab === 'future') {
+      const last = (arr) => Array.isArray(arr) && arr.length ? arr[arr.length-1] : null;
+      resultBlock = `[미래 예상 결과 (${years}년 후)]
+- 누적 투입 예정: ${fmtKrw(result.invested)}
+- 낙관 시나리오(CAGR×1.3): ${fmtKrw(last(result?.proj?.optimistic))}
+- 중립 시나리오(CAGR):    ${fmtKrw(last(result?.proj?.neutral))}
+- 비관 시나리오(CAGR×0.5): ${fmtKrw(last(result?.proj?.pessimistic))}
+- 과거 ${years}년 실제 연평균 수익률(CAGR): ${pct(result.cagr)}
+- 최대 낙폭(MDD, 과거 기준): ${pct(result.mdd)}`;
+    } else {
+      const startD = result.startTs ? new Date(result.startTs*1000).toISOString().slice(0,10) : '';
+      const endD   = result.endTs   ? new Date(result.endTs*1000).toISOString().slice(0,10)   : '';
+      resultBlock = `[과거 검증 결과 ${startD} ~ ${endD}]
+- 총 매수 횟수: ${result.buyCount || '-'}회
+- 누적 투입: ${fmtKrw(result.invested)}
+- 현재 평가: ${fmtKrw(result.finalValue)}
+- 평가 손익: ${fmtKrw(result.pnl)} (${pct(result.pnlPct)})
+${result.cagr != null ? `- 연평균 수익률(CAGR): ${pct(result.cagr)}` : ''}
+- 매수 후 남은 현금(잔돈): ${fmtKrw(result.cash)}`;
+    }
+
+    const system = `당신의 이름은 '스톡이'입니다. 주식·ETF·투자 관련 질문에 답하는 친절한 도우미예요.
+비개발자 초보 투자자(주린이)를 대상으로, 이 포트폴리오 시뮬레이션 결과를
+**구체 수치와 함께** 해석해 주세요. "주린이" 같은 호칭은 절대 쓰지 마세요.
+
+답변 원칙 (엄격히):
+1) 짧은 문장. 한 문장 50자 이내.
+2) 마크다운 불릿(-) **4~6개**. 서론·요약 문장 없이 바로 본론.
+3) 수치를 반드시 인용 ("중립 ${'${}'.slice(0,-1)}원이면 원금 대비 X배" 식).
+4) 이 시나리오의 **특징**(공격적/안정적/분산형 등) + **리스크** + **조심할 점** 포함.
+5) ${tab === 'past' ? '과거 실제 결과이므로, 이 시기의 시장 맥락(예: 반도체 호황/금리 인상 등 추정 가능하면)과 연결해 설명.' : '낙관/비관 차이가 왜 벌어지는지, 실제로 중간에 겪을 수 있는 하락(MDD 수치)도 언급.'}
+6) 투자 권유 금지 — "사세요/파세요" 대신 "이런 의미예요".
+7) 답변 맨 마지막 줄에 **"⚠️ "** 로 시작하는 한 줄 주의 문구.`;
+
+    const prompt = `${system}
+
+[시나리오 입력]
+- 모드: ${tab === 'future' ? '🔮 미래 예상' : '📊 과거 검증'}
+- 투자 방식: ${modeLabel} ${fmtKrw(amount)}
+- 기간: ${years}년
+- 포트폴리오:
+${portfolioLines}
+
+${resultBlock}
+
+위 시뮬레이션 결과를 해석해 주세요.`;
+
+    const { text: answer, model, usage } = await callGemini(prompt);
+    logAiUsage({
+      userId: req.user.id,
+      endpoint: 'ai-scenario',
+      model,
+      promptTokens: usage?.promptTokens || 0,
+      completionTokens: usage?.completionTokens || 0,
+      totalTokens: usage?.totalTokens || 0,
+      context: { tab, years, mode, itemCount: items.length },
+    });
+    res.json({ ok: true, answer, model });
+  } catch (e) {
+    console.warn('[ai-scenario] error', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // POST /api/ai-sector → 섹터/토픽 요약 + 등락 원인 추정 + 산업 전망
 app.post('/api/ai-sector', async (req, res) => {
   try {

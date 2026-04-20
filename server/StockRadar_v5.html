@@ -14722,6 +14722,66 @@ window.saveSimScenario = saveSimScenario;
 window.loadSimScenario = loadSimScenario;
 window.deleteSimScenario = deleteSimScenario;
 
+// ─── 스톡이 AI 해설 (시뮬레이터 전용) ───────────────────────
+async function askSimAi(){
+  const block = document.getElementById('simAiBlock');
+  const btn = document.getElementById('simAiBtn');
+  if (!block || !btn) return;
+  if (!_simState.lastResult) { toast('먼저 계산을 실행해주세요'); return; }
+  if (!gUser()) { om('loginOv'); return; }
+
+  btn.disabled = true; btn.textContent = '스톡이가 분석 중... (10초)';
+  block.innerHTML = `<div class="card" style="padding:16px;margin-bottom:8px;display:flex;gap:10px;align-items:center">
+    <div class="spinner" style="width:16px;height:16px"></div>
+    <div style="font-size:12.5px;color:var(--tx4)">스톡이가 이 시나리오를 분석하고 있어요...</div>
+  </div>`;
+
+  try {
+    const amt = _simState.mode === 'lump' ? _simState.lump : _simState.mode === 'monthly' ? _simState.monthly : _simState.weekly;
+    const res = await api('/api/ai-scenario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tab: _simState.tab,
+        items: _simState.items,
+        years: _simState.years,
+        mode: _simState.mode,
+        amount: amt,
+        result: _simState.lastResult,
+      }),
+    });
+    if (!res?.ok) throw new Error(res?.error || '분석 실패');
+    const md = String(res.answer || '').trim();
+    // 간단 마크다운 → HTML (불릿 · 볼드 처리)
+    const html = md
+      .split('\n')
+      .map(line => {
+        const t = line.trim();
+        if (!t) return '';
+        if (t.startsWith('- ')) return `<li>${_simMdInline(t.slice(2))}</li>`;
+        if (t.startsWith('⚠')) return `<div style="padding:10px 12px;background:rgba(229,57,53,.08);border-left:3px solid var(--dn);border-radius:6px;font-size:12px;color:var(--tx2);margin-top:8px">${esc(t)}</div>`;
+        return `<div style="margin-bottom:6px">${_simMdInline(t)}</div>`;
+      }).join('\n');
+    const wrapped = html.includes('<li>') ? `<ul style="padding-left:18px;margin:6px 0;line-height:1.8;font-size:13px;color:var(--tx)">${html.replace(/<\/li>\n?/g, '</li>')}</ul>` : html;
+
+    block.innerHTML = `<div class="card" style="padding:16px 18px;margin-bottom:8px;border-left:3px solid var(--brand)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12.5px;font-weight:800;color:var(--brand)">
+        <span style="font-size:18px">🤖</span> 스톡이의 해설
+      </div>
+      ${wrapped}
+    </div>`;
+  } catch (e) {
+    block.innerHTML = `<div class="card" style="padding:12px 14px;margin-bottom:8px;color:var(--dn);font-size:12px">⚠️ 오류: ${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 스톡이에게 다시 물어보기';
+  }
+}
+function _simMdInline(t){
+  return esc(t).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+}
+window.askSimAi = askSimAi;
+
 function renderSimItems(){
   const el = document.getElementById('simItems');
   const sumEl = document.getElementById('simWeightSum');
@@ -15115,7 +15175,11 @@ function renderBacktestResult(items, r){
       <div style="font-size:12px;font-weight:700;color:var(--tx4);margin-bottom:8px">포트폴리오 가치 추이 (과거 ${r.years.toFixed(1)}년)</div>
       <canvas id="simChart" style="width:100%;max-height:260px"></canvas>
     </div>
-    <button onclick="saveSimScenario()" style="width:100%;padding:12px;margin-top:4px;border:1px solid var(--brand);border-radius:10px;background:var(--bg2);color:var(--brand);font-size:13px;font-weight:700;cursor:pointer">💾 이 시나리오 저장</button>
+    <div id="simAiBlock"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="askSimAi()" id="simAiBtn" style="flex:1;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:13px;font-weight:700;cursor:pointer">🤖 스톡이에게 물어보기</button>
+      <button onclick="saveSimScenario()" style="flex:1;padding:12px;border:1px solid var(--brand);border-radius:10px;background:var(--bg2);color:var(--brand);font-size:13px;font-weight:700;cursor:pointer">💾 시나리오 저장</button>
+    </div>
   `;
   _drawBacktestChart(r);
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -15183,7 +15247,11 @@ function renderSimResult(items, r){
       <div style="font-size:12px;font-weight:700;color:var(--tx4);margin-bottom:8px">미래 ${_simState.years}년 예상 평가액 추이</div>
       <canvas id="simChart" style="width:100%;max-height:260px"></canvas>
     </div>
-    <button onclick="saveSimScenario()" style="width:100%;padding:12px;margin-top:4px;border:1px solid var(--brand);border-radius:10px;background:var(--bg2);color:var(--brand);font-size:13px;font-weight:700;cursor:pointer">💾 이 시나리오 저장</button>
+    <div id="simAiBlock"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="askSimAi()" id="simAiBtn" style="flex:1;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:13px;font-weight:700;cursor:pointer">🤖 스톡이에게 물어보기</button>
+      <button onclick="saveSimScenario()" style="flex:1;padding:12px;border:1px solid var(--brand);border-radius:10px;background:var(--bg2);color:var(--brand);font-size:13px;font-weight:700;cursor:pointer">💾 시나리오 저장</button>
+    </div>
   `;
   _drawSimChart(r);
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
