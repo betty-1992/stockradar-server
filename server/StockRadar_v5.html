@@ -4477,6 +4477,15 @@ html[data-theme="dark"] body .toast,
   .blog-card-hero { height: 90px !important; font-size: 34px !important; }
 }
 
+/* 포트폴리오 더보기 드롭다운 아이템 */
+.pf-more-item{display:block;width:100%;text-align:left;padding:12px 14px;background:transparent;border:none;border-bottom:1px solid var(--bdr);color:var(--tx);cursor:pointer}
+.pf-more-item:last-child{border-bottom:none}
+.pf-more-item:hover{background:var(--surf)}
+
+/* 거래 기록 모달 매수/매도 버튼 */
+.tx-side-btn{flex:1;padding:10px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--tx);font-weight:700;font-size:13px;cursor:pointer}
+.tx-side-btn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+
 </style>
 </head>
 <body>
@@ -4819,11 +4828,6 @@ html[data-theme="dark"] body .toast,
             </button>
           </div>
         </div>
-        <style>
-          .pf-more-item{display:block;width:100%;text-align:left;padding:12px 14px;background:transparent;border:none;border-bottom:1px solid var(--bdr);color:var(--tx);cursor:pointer}
-          .pf-more-item:last-child{border-bottom:none}
-          .pf-more-item:hover{background:var(--surf)}
-        </style>
       </div>
       <div id="portfolioSummary" style="margin-bottom:16px"></div>
       <div id="portfolioList"></div>
@@ -4861,10 +4865,6 @@ html[data-theme="dark"] body .toast,
       </div>
     </div>
   </div>
-  <style>
-    .tx-side-btn{flex:1;padding:10px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--tx);font-weight:700;font-size:13px;cursor:pointer}
-    .tx-side-btn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
-  </style>
 
   <!-- ══ 관심종목 비교 결과 모달 ══ -->
   <div class="overlay" id="wlCompareOv" onclick="if(event.target===this)cm('wlCompareOv')">
