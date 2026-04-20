@@ -11802,9 +11802,13 @@ async function loadPrices(){
   const chunks = [];
   for(let i=0; i<ids.length; i+=BATCH) chunks.push(ids.slice(i, i+BATCH));
 
-  const fetchChunk = async (chunk) => {
+  // 청크당 15초 timeout + 1회 재시도 — 프론트가 pending 상태로 영영 멈추는 케이스 방지
+  const fetchChunk = async (chunk, attempt = 0) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
     try{
-      const res = await fetch(`${SERVER_URL}/api/quotes?symbols=${chunk.join(',')}`);
+      const res = await fetch(`${SERVER_URL}/api/quotes?symbols=${chunk.join(',')}`, { signal: ctrl.signal });
+      clearTimeout(timer);
       const d = await res.json();
       if(!d.ok) throw new Error(d.error||'서버 오류');
       Object.entries(d.quotes).forEach(([rawId, q]) => {
@@ -11826,7 +11830,14 @@ async function loadPrices(){
         };
         loaded++;
       });
-    } catch(e){ console.warn('서버 시세 청크 실패', e.message); }
+    } catch(e){
+      clearTimeout(timer);
+      if (attempt < 1) {
+        console.warn(`시세 청크 재시도 (${e.message})`);
+        return fetchChunk(chunk, attempt + 1);
+      }
+      console.warn('서버 시세 청크 최종 실패', e.message);
+    }
   };
 
   for(let p=0; p<chunks.length; p+=PARALLEL){
