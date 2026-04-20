@@ -4,24 +4,24 @@
 //  실행: cd server && node scripts/fetch-krx-universe.js
 //
 //  입력: server/scripts/data/kr-universe.csv
-//    포맷: symbol,name,exchange   (헤더 행 필수)
-//    예:   005930,삼성전자,KOSPI
+//    포맷: symbol,name,exchange[,market_cap]   (헤더 행 필수, market_cap 선택)
+//    예:   005930,삼성전자,KOSPI,1259873040024000
 //    범위: KOSPI + KOSDAQ 전종목 (ETF 제외 — ETF 는 etfs.js 별도 관리)
 //
-//  CSV 생성 방법 (pykrx, Python 별도 환경에서 1회):
-//    pip install pykrx
+//  CSV 생성 방법 (FinanceDataReader, 1회 실행):
+//    pip3 install --user finance-datareader
 //    python3 -c "
-//    from pykrx import stock
-//    import csv, sys
-//    base = '20251128'  # 최근 영업일 (야말일 피하기)
-//    rows = []
-//    for mkt in ('KOSPI', 'KOSDAQ'):
-//        for t in stock.get_market_ticker_list(base, market=mkt):
-//            rows.append([t, stock.get_market_ticker_name(t), mkt])
-//    w = csv.writer(sys.stdout)
-//    w.writerow(['symbol', 'name', 'exchange'])
-//    w.writerows(rows)
-//    " > server/scripts/data/kr-universe.csv
+//    import FinanceDataReader as fdr, csv
+//    with open('server/scripts/data/kr-universe.csv', 'w', newline='', encoding='utf-8') as f:
+//        w = csv.writer(f); w.writerow(['symbol', 'name', 'exchange', 'market_cap'])
+//        for exch in ('KOSPI', 'KOSDAQ'):
+//            for _, r in fdr.StockListing(exch).iterrows():
+//                code = str(r['Code']).strip(); name = str(r['Name']).strip()
+//                if not code or not name: continue
+//                mcap = int(r['Marcap']) if r.get('Marcap') is not None and str(r.get('Marcap')).strip() != '' else ''
+//                w.writerow([code, name, exch, mcap])
+//    "
+//    대안: pykrx 도 가능하나 KRX 공식 API IP 차단 잦음. FDR 이 Naver 등 폴백 지원
 //
 //  동작:
 //    신규 심볼        → INSERT (is_curated=0, source='krx', 재무지표 null)
@@ -94,6 +94,8 @@ function parseLine(line) {
   for (const r of rows) {
     const symbol = String(r.symbol || '').trim();
     if (!/^\d{6}$/.test(symbol)) { stats.failed++; failed.push({ symbol, error: 'invalid symbol' }); continue; }
+    const mcapRaw = String(r.market_cap || '').trim();
+    const mcap = mcapRaw && /^\d+$/.test(mcapRaw) ? Number(mcapRaw) : null;
     try {
       const result = upsertStock({
         symbol,
@@ -103,6 +105,7 @@ function parseLine(line) {
         exchange: r.exchange || null,
         currency: 'KRW',
         is_etf: 0,
+        market_cap: mcap,
         source: 'krx',
       });
       stats[result] = (stats[result] || 0) + 1;

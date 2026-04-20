@@ -35,8 +35,12 @@ function loadTickers(db) {
     return process.env.KR_SYMBOLS.split(',').map(s => s.trim()).filter(Boolean);
   }
   if (db) {
+    // 실제 수집 대상(is_curated=0) 우선, 그 안에서 시총 큰 종목 먼저
+    // 큐레이션 종목(is_curated=1)은 upsertStock 이 어차피 SKIP 하므로 뒤로 배치
     const rows = db.prepare(
-      `SELECT symbol FROM stocks WHERE market='KR' AND is_etf=0 ORDER BY symbol`
+      `SELECT symbol FROM stocks
+       WHERE market='KR' AND is_etf=0
+       ORDER BY is_curated, market_cap IS NULL, market_cap DESC, symbol`
     ).all();
     const tickers = rows.map(r => r.symbol).filter(s => /^\d{6}$/.test(s));
     if (tickers.length > 0) {
