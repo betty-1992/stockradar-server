@@ -14157,7 +14157,7 @@ async function renderPortfolioPage() {
   });
 
   renderPortfolioSummary(summary, fxUsdKrw);
-  renderPortfolioTable(rows, summary);
+  renderPortfolioTable(rows, summary, fxUsdKrw);
   renderTxHistory();
 }
 
@@ -14212,12 +14212,14 @@ function renderPortfolioSummary(s, fxRate) {
   sumEl.innerHTML = unifiedCard + `<div style="display:flex;gap:12px;flex-wrap:wrap">${card('🇺🇸 미국', s.US, 'US')}${card('🇰🇷 한국', s.KR, 'KR')}</div>`;
 }
 
-function renderPortfolioTable(rows, summary) {
+function renderPortfolioTable(rows, summary, fxRate) {
   const listEl = document.getElementById('portfolioList');
   if (!listEl) return;
   const fmt = (n, ccy) => ccy === 'KR'
     ? '₩' + Math.round(n).toLocaleString('ko-KR')
     : '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  const krw = (n) => '₩' + Math.round(n).toLocaleString('ko-KR');
+  const fx = Number(fxRate) || 0;
   const totalMvByCcy = { KR: summary.KR.mv, US: summary.US.mv };
 
   const body = rows.map(r => {
@@ -14226,15 +14228,21 @@ function renderPortfolioTable(rows, summary) {
     const up = r.pl >= 0;
     const col = up ? 'var(--up, #e53935)' : 'var(--dn, #1e88e5)';
     const name = (typeof MASTER !== 'undefined' && MASTER[r.stock_id]?.nm) || r.stock_id;
+
+    // 미국 종목은 원화 환산 병기 (환율 있을 때)
+    const isUs = r.ccy === 'US' && fx > 0;
+    const priceKrw = isUs ? `<div style="font-size:10.5px;color:var(--tx4);font-weight:500">≈ ${krw(r.price * fx)}</div>` : '';
+    const mvKrw    = isUs ? `<div style="font-size:10.5px;color:var(--tx4);font-weight:500">≈ ${krw(r.mv * fx)}</div>`    : '';
+
     return `<tr style="border-bottom:1px solid var(--bdr)">
       <td style="padding:12px 10px">
         <div style="font-weight:800;color:var(--tx)">${name}</div>
         <div style="font-size:11px;color:var(--tx4)">${r.stock_id} · ${r.ccy==='KR'?'🇰🇷':'🇺🇸'}</div>
       </td>
       <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums">${r.quantity.toLocaleString('en-US',{maximumFractionDigits:4})}</td>
-      <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt(r.price, r.ccy)}</td>
+      <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums">${fmt(r.price, r.ccy)}${priceKrw}</td>
       <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--tx4)">${fmt(r.avg_price, r.ccy)}</td>
-      <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700">${fmt(r.mv, r.ccy)}</td>
+      <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700">${fmt(r.mv, r.ccy)}${mvKrw}</td>
       <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--tx4)">${weight.toFixed(1)}%</td>
       <td style="padding:12px 10px;text-align:right;font-variant-numeric:tabular-nums;color:${col};font-weight:800">
         ${up?'+':''}${r.plPct.toFixed(2)}%
