@@ -298,6 +298,69 @@ const fetchNaverKrQuote = async (rawSym) => {
   return out;
 };
 
+// ─── 네이버 멀티 심볼 배치 — KR 대량 시세용 ─────────────────
+//  한 요청으로 수백 종목 (0.06s 실측). 배치 크기 100 기본.
+const _naverRowToQuote = (d) => {
+  const numN = (s) => {
+    if (s == null) return null;
+    const n = Number(String(s).replace(/,/g, ''));
+    return isFinite(n) ? n : null;
+  };
+  const price = numN(d.closePrice);
+  const change = numN(d.compareToPreviousClosePrice);
+  const changePct = numN(d.fluctuationsRatio);
+  const prevClose = (price != null && change != null) ? price - change : null;
+  const exchCode = d.stockExchangeType?.code === 'KS' ? 'KS' : 'KQ';
+  const exchName = d.stockExchangeType?.code === 'KS' ? 'KOSPI' : 'KOSDAQ';
+  return {
+    symbol: `${d.itemCode}.${exchCode}`,
+    rawSymbol: d.itemCode,
+    name: (d.stockName || d.itemCode).trim(),
+    price,
+    previousClose: prevClose,
+    change,
+    changePercent: changePct,
+    currency: 'KRW',
+    marketState: d.marketStatus || null,
+    exchange: exchName,
+    dayHigh: numN(d.highPrice),
+    dayLow: numN(d.lowPrice),
+    volume: numN(d.accumulatedTradingVolume),
+    fiftyTwoWeekHigh: null,
+    fiftyTwoWeekLow: null,
+    timestamp: Math.floor(Date.now() / 1000),
+    source: 'naver',
+  };
+};
+
+async function fetchNaverKrQuotesBatch(codes, { chunkSize = 100 } = {}) {
+  const out = {}; // { '005930': quoteObj, ... }
+  const chunks = [];
+  for (let i = 0; i < codes.length; i += chunkSize) chunks.push(codes.slice(i, i + chunkSize));
+  await Promise.all(chunks.map(async (chunk) => {
+    const url = `https://polling.finance.naver.com/api/realtime/domestic/stock/${chunk.map(encodeURIComponent).join(',')}`;
+    try {
+      const r = await fetch(url, {
+        headers: {
+          'Referer': 'https://finance.naver.com/',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+          'Accept': 'application/json',
+        },
+      });
+      if (!r.ok) return;
+      const json = await r.json();
+      (json?.datas || []).forEach((d) => {
+        if (d?.itemCode) {
+          const q = _naverRowToQuote(d);
+          out[d.itemCode] = q;
+          setCached(`quote:naver:${d.itemCode}`, q);
+        }
+      });
+    } catch { /* 개별 청크 실패는 스킵 — 반환 누락으로 처리 */ }
+  }));
+  return out;
+}
+
 const fetchYahooQuote = async (rawSym) => {
   // KR 6자리 숫자 심볼은 네이버로 우회 (Yahoo 한국 시세 품질 문제)
   if (/^\d{6}$/.test(rawSym)) {
@@ -436,15 +499,36 @@ app.get('/api/quotes', async (req, res) => {
     const raw = (req.query.symbols || '').toString();
     const list = raw.split(',').map(s => s.trim()).filter(Boolean);
     if (list.length === 0) return res.json({ ok: true, quotes: {} });
-    // 30개씩 병렬, 나머지는 순차 (Yahoo 과부하 방지)
+
     const quotes = {};
-    for (let i = 0; i < list.length; i += 30) {
-      const chunk = list.slice(i, i + 30);
+    // ── KR 심볼 분리 후 네이버 배치 호출 (멀티 심볼 API 로 수백 건 한 번에)
+    const krCodes = list.filter(s => /^\d{6}$/.test(s));
+    const nonKr   = list.filter(s => !/^\d{6}$/.test(s));
+    if (krCodes.length > 0) {
+      // 캐시 히트 먼저 챙기고 나머지만 네이버 배치
+      const missing = [];
+      for (const code of krCodes) {
+        const hit = getCached(`quote:naver:${code}`, 60 * 1000);
+        if (hit) quotes[code] = hit;
+        else missing.push(code);
+      }
+      if (missing.length > 0) {
+        const fetched = await fetchNaverKrQuotesBatch(missing, { chunkSize: 100 });
+        for (const code of missing) {
+          quotes[code] = fetched[code] || { error: 'naver: not found' };
+        }
+      }
+    }
+
+    // ── non-KR (US 등) 은 기존 방식: 30개씩 병렬
+    for (let i = 0; i < nonKr.length; i += 30) {
+      const chunk = nonKr.slice(i, i + 30);
       const results = await Promise.all(chunk.map(s =>
         fetchYahooQuote(s).then(d => [s, d]).catch(e => [s, { error: e.message }])
       ));
       results.forEach(([k, v]) => { quotes[k] = v; });
     }
+
     res.json({ ok: true, quotes });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
