@@ -116,6 +116,8 @@ if (IS_PROD) {
     credentials: true,
   }));
 }
+// OCR 엔드포인트는 이미지 base64 때문에 12mb 필요 — 전역 200kb 앞에 등록해야 적용됨
+app.use('/api/portfolio/ocr', express.json({ limit: '12mb' }));
 app.use(express.json({ limit: '200kb' }));
 
 // ─── 세션 ──────────────────────────────────────
@@ -1491,7 +1493,6 @@ const callGemini = async (prompt, opts = {}) => {
 //  · 이미지 업로드 용량 10MB (기본 라우트의 200kb limit 회피)
 // ═══════════════════════════════════════════════════════════════
 app.post('/api/portfolio/ocr',
-  express.json({ limit: '12mb' }),
   async (req, res) => {
     try {
       if (!req.user) return res.status(401).json({ ok: false, error: 'AUTH_REQUIRED' });
