@@ -3,7 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 캐시 무력화: HTTP 헤더(no-store)만으론 Safari bfcache/일부 브라우저 버그로 구 HTML 재실행되는 케이스 방지 -->
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>StockRadar — 주린이 주식 나침반</title>
+<script>
+// bfcache(뒤로가기/탭 복귀 시 페이지 그대로 복원) 감지하면 강제 새로고침 —
+// 이것만으로 "어제 받은 구 HTML 이 다음날 접속 시 또 나옴" 문제 해결.
+window.addEventListener('pageshow', function(e){
+  if (e.persisted) { try { location.reload(); } catch(_) {} }
+});
+</script>
 <!-- 테마 FOUC 방지 — CSS 로드 전에 data-theme 설정 -->
 <script>
 (function(){
