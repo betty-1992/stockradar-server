@@ -4801,8 +4801,9 @@ html[data-theme="dark"] body .toast,
     <div class="page-inner">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <h2 style="font-size:18px;font-weight:700;margin:0">나의 투자</h2>
-        <div style="display:flex;gap:8px">
-          <button onclick="openHoldingImport()" style="padding:6px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:var(--tx)">가져오기</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="openOcrImport()" style="padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:13px;cursor:pointer;border:none;font-weight:600">📷 이미지로 가져오기</button>
+          <button onclick="openHoldingImport()" style="padding:6px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:var(--tx)">CSV 가져오기</button>
           <button onclick="openTxRecord()" style="padding:6px 14px;border:1px solid var(--brand);border-radius:8px;background:var(--bg2);color:var(--brand);font-size:13px;cursor:pointer;font-weight:600">📝 거래 기록</button>
           <button onclick="openAddHolding()" style="padding:6px 14px;border-radius:8px;background:var(--brand);color:#fff;font-size:13px;cursor:pointer;border:none;font-weight:600">+ 추가</button>
         </div>
@@ -14429,6 +14430,165 @@ window.setTxSide = setTxSide;
 window.submitTxRecord = submitTxRecord;
 window.deleteTxRow = deleteTxRow;
 
+// ═══════════════════════════════════════════════════════════════
+//  이미지 OCR 가져오기 (Gemini Vision) — 2026-04-20
+//  증권사 앱 캡처 → 종목/수량/평단 자동 추출 → 매칭된 심볼로 저장
+// ═══════════════════════════════════════════════════════════════
+let _ocrFiles = [];        // 선택된 File 객체들
+let _ocrItems = [];        // 추출 결과 (매칭 결과 포함)
+
+function openOcrImport(){
+  if (!gUser()) { om('loginOv'); return; }
+  _ocrFiles = [];
+  _ocrItems = [];
+  document.getElementById('ocrFileInput').value = '';
+  document.getElementById('ocrPreview').innerHTML = '';
+  document.getElementById('ocrStep1Err').style.display = 'none';
+  document.getElementById('ocrStep2Err').style.display = 'none';
+  document.getElementById('ocrStep1').style.display = '';
+  document.getElementById('ocrStep2').style.display = 'none';
+  document.getElementById('ocrLoading').style.display = 'none';
+  const btn = document.getElementById('ocrAnalyzeBtn');
+  btn.disabled = true; btn.style.opacity = '0.5';
+  om('ocrImportOv');
+}
+
+function onOcrFiles(e){
+  const files = Array.from(e.target.files || []).slice(0, 5);
+  _ocrFiles = files;
+  const prev = document.getElementById('ocrPreview');
+  prev.innerHTML = '';
+  files.forEach((f, idx) => {
+    const url = URL.createObjectURL(f);
+    const el = document.createElement('div');
+    el.style.cssText = 'position:relative;width:84px;height:84px;border:1px solid var(--bdr);border-radius:8px;overflow:hidden;background:var(--bg2)';
+    el.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover"><div style="position:absolute;top:2px;right:4px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px">${idx+1}</div>`;
+    prev.appendChild(el);
+  });
+  const btn = document.getElementById('ocrAnalyzeBtn');
+  btn.disabled = files.length === 0;
+  btn.style.opacity = files.length === 0 ? '0.5' : '1';
+}
+
+function _fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const s = String(r.result || '');
+      const comma = s.indexOf(',');
+      resolve(comma >= 0 ? s.slice(comma + 1) : s);
+    };
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function submitOcrImport(){
+  const errEl = document.getElementById('ocrStep1Err');
+  errEl.style.display = 'none';
+  if (_ocrFiles.length === 0) {
+    errEl.textContent = '이미지를 선택해주세요'; errEl.style.display = 'block'; return;
+  }
+  // step1 숨기고 로딩 표시
+  document.getElementById('ocrStep1').style.display = 'none';
+  document.getElementById('ocrLoading').style.display = '';
+  try {
+    const images = await Promise.all(_ocrFiles.map(async (f) => ({
+      mimeType: f.type || 'image/jpeg',
+      data: await _fileToBase64(f),
+    })));
+    const res = await api('/api/portfolio/ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ images }),
+    });
+    if (!res?.ok) {
+      throw new Error(res?.error || '분석 실패');
+    }
+    _ocrItems = (res.items || []).map((it, idx) => ({ ...it, _idx: idx, _selected: !!it.matchedSymbol }));
+    renderOcrResults();
+    document.getElementById('ocrLoading').style.display = 'none';
+    document.getElementById('ocrStep2').style.display = '';
+  } catch(e) {
+    document.getElementById('ocrLoading').style.display = 'none';
+    document.getElementById('ocrStep1').style.display = '';
+    errEl.textContent = '오류: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+function renderOcrResults(){
+  const body = document.getElementById('ocrResultBody');
+  const title = document.getElementById('ocrStep2Title');
+  const matched = _ocrItems.filter(x => x.matchedSymbol).length;
+  title.textContent = `${_ocrItems.length}개 인식 · ${matched}개 매칭됨`;
+  if (_ocrItems.length === 0) {
+    body.innerHTML = `<tr><td colspan="5" style="padding:40px 20px;text-align:center;color:var(--tx4)">이미지에서 보유 종목을 찾지 못했어요. 더 선명한 캡처로 재시도해보세요.</td></tr>`;
+    return;
+  }
+  body.innerHTML = _ocrItems.map(it => {
+    const checked = it._selected ? 'checked' : '';
+    const matchCol = it.matchedSymbol
+      ? `<div style="font-weight:700">${esc(it.matchedSymbol)}</div><div style="font-size:10.5px;color:var(--tx4)">${esc(it.matchedName || '')} · ${it.matchedMarket||'?'}</div>`
+      : `<div style="color:var(--dn);font-size:11px">매칭 실패 — 수동 입력 필요</div><input type="text" oninput="updateOcrSymbol(${it._idx}, this.value)" placeholder="심볼 입력 (예: 005930)" style="margin-top:4px;width:140px;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px">`;
+    return `<tr style="border-bottom:1px solid var(--bdr)">
+      <td style="padding:10px"><input type="checkbox" ${checked} onchange="toggleOcrRow(${it._idx},this.checked)"> <span style="margin-left:6px;font-weight:600">${esc(it.name || '?')}</span></td>
+      <td style="padding:10px">${matchCol}</td>
+      <td style="padding:10px;text-align:right"><input type="number" value="${it.quantity ?? ''}" step="any" oninput="updateOcrField(${it._idx},'quantity',this.value)" style="width:90px;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px;text-align:right"></td>
+      <td style="padding:10px;text-align:right"><input type="number" value="${it.avg_price ?? ''}" step="any" oninput="updateOcrField(${it._idx},'avg_price',this.value)" style="width:100px;padding:4px 8px;border:1px solid var(--bdr);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px;text-align:right"></td>
+      <td style="padding:10px;text-align:center"><button onclick="removeOcrRow(${it._idx})" title="제외" style="background:none;border:none;color:var(--tx4);cursor:pointer;font-size:14px">🗑</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleOcrRow(idx, v){ const it = _ocrItems.find(x => x._idx === idx); if (it) it._selected = v; }
+function updateOcrField(idx, key, val){ const it = _ocrItems.find(x => x._idx === idx); if (it) it[key] = val === '' ? null : Number(val); }
+function updateOcrSymbol(idx, val){
+  const it = _ocrItems.find(x => x._idx === idx);
+  if (!it) return;
+  const v = String(val || '').trim().toUpperCase();
+  it.matchedSymbol = v || null;
+  it._selected = !!v;
+}
+function removeOcrRow(idx){
+  _ocrItems = _ocrItems.filter(x => x._idx !== idx);
+  renderOcrResults();
+}
+function ocrBackToStep1(){
+  document.getElementById('ocrStep1').style.display = '';
+  document.getElementById('ocrStep2').style.display = 'none';
+}
+
+async function submitOcrSave(){
+  const errEl = document.getElementById('ocrStep2Err');
+  errEl.style.display = 'none';
+  const targets = _ocrItems.filter(it => it._selected && it.matchedSymbol && it.quantity > 0 && it.avg_price >= 0);
+  if (targets.length === 0) { errEl.textContent = '저장할 항목이 없어요 (심볼·수량·평단 모두 필요)'; errEl.style.display = 'block'; return; }
+
+  let ok = 0, fail = 0;
+  for (const it of targets) {
+    try {
+      // 기존 savePortfolioRow 재사용 — 보유 스냅샷 저장
+      const success = await savePortfolioRow(it.matchedSymbol, it.quantity, it.avg_price, '', false);
+      if (success) ok++; else fail++;
+    } catch(e) { fail++; }
+  }
+  if (typeof toast === 'function') toast(`✅ ${ok}건 저장${fail?` · ${fail}건 실패`:''}`);
+  cm('ocrImportOv');
+  await syncPortfolioFromServer();
+  renderPortfolioPage();
+}
+
+window.openOcrImport = openOcrImport;
+window.onOcrFiles = onOcrFiles;
+window.submitOcrImport = submitOcrImport;
+window.toggleOcrRow = toggleOcrRow;
+window.updateOcrField = updateOcrField;
+window.updateOcrSymbol = updateOcrSymbol;
+window.removeOcrRow = removeOcrRow;
+window.ocrBackToStep1 = ocrBackToStep1;
+window.submitOcrSave = submitOcrSave;
+
 </script>
 
 <!-- ══ 포트폴리오: 보유 종목 추가/수정 모달 ══ -->
@@ -14449,6 +14609,62 @@ window.deleteTxRow = deleteTxRow;
 </div>
 
 <!-- ══ 포트폴리오: 텍스트 가져오기 모달 ══ -->
+<!-- ══ 이미지로 가져오기 (Gemini Vision OCR) ══ -->
+<div class="overlay" id="ocrImportOv" onclick="if(event.target===this)cm('ocrImportOv')">
+  <div class="modal" style="max-width:720px;max-height:90vh;overflow-y:auto;padding:0">
+    <div class="modal-hdr" style="padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">
+      <div class="modal-title" style="font-size:16px;font-weight:800">📷 증권사 앱 캡처로 가져오기</div>
+      <button class="modal-x" onclick="cm('ocrImportOv')" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--tx4)">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px">
+      <div id="ocrStep1">
+        <div style="font-size:13px;color:var(--tx2);line-height:1.6;margin-bottom:14px">
+          증권사 앱(삼성증권·키움·토스증권 등)의 <b>보유 종목 화면</b>을 캡처해서 업로드하세요.<br>
+          AI가 <b>종목명·보유수량·평균매수가</b>를 자동으로 읽어 정확한 심볼에 매핑합니다.<br>
+          <span style="color:var(--tx4);font-size:12px">• 최대 5장 · 장당 8MB 이하 · JPEG/PNG/WEBP</span>
+        </div>
+        <label for="ocrFileInput" style="display:block;padding:30px 20px;border:2px dashed var(--brand);border-radius:12px;background:var(--blue-bg);text-align:center;cursor:pointer;margin-bottom:12px">
+          <div style="font-size:32px;margin-bottom:8px">📁</div>
+          <div style="font-size:14px;font-weight:700;color:var(--brand);margin-bottom:4px">이미지 파일 선택</div>
+          <div style="font-size:11px;color:var(--tx4)">클릭해서 파일 선택 (여러 장 가능)</div>
+          <input type="file" id="ocrFileInput" accept="image/*" multiple style="display:none" onchange="onOcrFiles(event)">
+        </label>
+        <div id="ocrPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
+        <button onclick="submitOcrImport()" id="ocrAnalyzeBtn" disabled style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--brand);color:#fff;font-size:14px;font-weight:700;cursor:pointer;opacity:0.5">AI 분석하기</button>
+        <div id="ocrStep1Err" style="color:var(--dn);font-size:12px;margin-top:8px;display:none"></div>
+      </div>
+      <div id="ocrStep2" style="display:none">
+        <div style="font-size:13px;color:var(--tx2);line-height:1.6;margin-bottom:10px">
+          ✨ <b id="ocrStep2Title">N개 종목 인식됨</b> — 내용 확인 후 수정하고 저장하세요.
+        </div>
+        <div style="overflow:auto;max-height:380px;border:1px solid var(--bdr);border-radius:10px;margin-bottom:12px">
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:600px">
+            <thead>
+              <tr style="background:var(--bg2);color:var(--tx4);font-weight:700;text-align:left;position:sticky;top:0">
+                <th style="padding:10px">종목</th>
+                <th style="padding:10px">매칭된 심볼</th>
+                <th style="padding:10px;text-align:right">수량</th>
+                <th style="padding:10px;text-align:right">평단</th>
+                <th style="padding:10px;text-align:center"></th>
+              </tr>
+            </thead>
+            <tbody id="ocrResultBody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="ocrBackToStep1()" class="btn" style="flex:1;padding:10px;border-radius:8px;background:var(--bg2);color:var(--tx);border:1px solid var(--bdr)">← 다시 업로드</button>
+          <button onclick="submitOcrSave()" class="btn btn-p" style="flex:2;padding:10px;border-radius:8px">선택 항목 저장하기</button>
+        </div>
+        <div id="ocrStep2Err" style="color:var(--dn);font-size:12px;margin-top:8px;display:none"></div>
+      </div>
+      <div id="ocrLoading" style="display:none;padding:40px 20px;text-align:center">
+        <div class="spinner" style="margin:0 auto 12px"></div>
+        <div style="font-size:14px;color:var(--tx2)" id="ocrLoadingMsg">AI가 이미지를 분석 중... (10~30초)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="holdingImportOv" onclick="if(event.target===this)cm('holdingImportOv')">
   <div class="modal" style="max-width:480px;padding:0;overflow:hidden">
     <div class="modal-hdr" style="padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between">

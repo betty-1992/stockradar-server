@@ -1409,17 +1409,26 @@ const DEFAULT_GEMINI_MODEL = GEMINI_MODELS[0];
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-async function _geminiOnce(model, prompt, key) {
+async function _geminiOnce(model, prompt, key, opts = {}) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+  // opts.images: [{ mimeType, data(base64) }] — multimodal 호출용
+  const parts = [];
+  if (Array.isArray(opts.images)) {
+    for (const img of opts.images) {
+      if (img?.mimeType && img?.data) {
+        parts.push({ inline_data: { mime_type: img.mimeType, data: img.data } });
+      }
+    }
+  }
+  parts.push({ text: prompt });
   const r = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: [{ parts }],
       generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 2048,
-        // thinkingBudget 은 2.5 전용 옵션. 1.5/2.0 은 무시되더라도 에러 안 남.
+        temperature: opts.temperature ?? 0.7,
+        maxOutputTokens: opts.maxOutputTokens ?? 2048,
         thinkingConfig: { thinkingBudget: 0 },
       },
     }),
@@ -1446,27 +1455,25 @@ async function _geminiOnce(model, prompt, key) {
 const _geminiBadModels = new Set();
 
 // 반환: { text, model, usage }
-const callGemini = async (prompt) => {
+//  opts: { images?: [{mimeType,data(base64)}], temperature?, maxOutputTokens? }
+const callGemini = async (prompt, opts = {}) => {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error('GEMINI_API_KEY가 .env에 없어요');
 
   let lastErr = null;
   for (const model of GEMINI_MODELS) {
     if (_geminiBadModels.has(model)) continue;
-    // 모델당 최대 2회 시도 (짧은 백오프)
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const { text, usage } = await _geminiOnce(model, prompt, key);
+        const { text, usage } = await _geminiOnce(model, prompt, key, opts);
         return { text, model, usage };
       } catch (e) {
         lastErr = e;
-        // 404 / 400 = 모델 자체가 없음 → 블랙리스트에 추가하고 다음 모델로
         if (e.status === 404 || e.status === 400) {
           console.warn(`[gemini] ${model} 제외 (${e.status}) — 이 세션에선 다시 호출 안 함`);
           _geminiBadModels.add(model);
           break;
         }
-        // 503/429/500/네트워크 에러는 재시도 가치 있음
         const retryable = e.status === 503 || e.status === 429 || e.status === 500 || !e.status;
         if (!retryable) break;
         if (attempt === 0) await sleep(800);
@@ -1475,6 +1482,123 @@ const callGemini = async (prompt) => {
   }
   throw lastErr || new Error('Gemini: all models failed');
 };
+
+// ═══════════════════════════════════════════════════════════════
+//  POST /api/portfolio/ocr — 포트폴리오 스크린샷 OCR (Gemini Vision)
+//  · 증권사 앱 캡처 이미지에서 {name, quantity, avg_price} 배열 추출
+//  · stocks 테이블로 name → symbol 매칭
+//  · 사용자는 결과 편집 후 /api/auth/transactions 또는 /api/auth/holdings 로 저장
+//  · 이미지 업로드 용량 10MB (기본 라우트의 200kb limit 회피)
+// ═══════════════════════════════════════════════════════════════
+app.post('/api/portfolio/ocr',
+  express.json({ limit: '12mb' }),
+  async (req, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ ok: false, error: 'AUTH_REQUIRED' });
+      const { images } = req.body || {};
+      if (!Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ ok: false, error: 'NO_IMAGES' });
+      }
+      if (images.length > 5) {
+        return res.status(400).json({ ok: false, error: 'TOO_MANY_IMAGES' });
+      }
+      // 각 이미지 검증 — mimeType + data (base64)
+      const imgs = [];
+      for (const im of images) {
+        if (!im?.mimeType || !im?.data) continue;
+        if (!/^image\/(jpeg|jpg|png|webp|heic)$/i.test(im.mimeType)) continue;
+        // 너무 큰 이미지는 거부 (base64 기준 ~8MB)
+        if (im.data.length > 8 * 1024 * 1024) {
+          return res.status(400).json({ ok: false, error: 'IMAGE_TOO_LARGE' });
+        }
+        imgs.push({ mimeType: im.mimeType, data: im.data });
+      }
+      if (!imgs.length) return res.status(400).json({ ok: false, error: 'INVALID_IMAGES' });
+
+      const prompt = `당신은 증권사 앱/웹 포트폴리오 스크린샷을 분석해 보유 종목을 추출하는 도우미입니다.
+
+이미지에서 각 보유 종목의 아래 정보를 뽑아 JSON 배열로만 반환하세요:
+- "name": 종목명 (화면에 보이는 그대로. 한글이면 한글, 영문이면 영문)
+- "quantity": 보유수량 (숫자. 쉼표 · 단위 제거)
+- "avg_price": 평균매수가 or 매입단가 (숫자. 쉼표 · 원 · $ 제거)
+
+주의 사항:
+- "평가금액", "손익", "현재가", "수익률" 은 추출 대상 아님. 오직 수량·평균단가만.
+- 이미지가 증권사 포트폴리오가 아니면 빈 배열 []
+- 일부 필드가 읽히지 않으면 해당 필드만 null
+- 종목명이 축약돼 있어도 가능한 정확히 기재
+- 출력은 JSON 배열 한 번만. 마크다운 코드펜스(\`\`\`)·설명 금지
+
+형식 예:
+[
+  {"name":"삼성전자","quantity":10,"avg_price":72000},
+  {"name":"NVIDIA","quantity":3,"avg_price":135.80}
+]`;
+
+      const { text, model, usage } = await callGemini(prompt, { images: imgs, temperature: 0.1, maxOutputTokens: 2048 });
+      logAiUsage({
+        userId: req.user.id,
+        endpoint: 'portfolio-ocr',
+        model,
+        promptTokens: usage?.promptTokens || 0,
+        completionTokens: usage?.completionTokens || 0,
+        totalTokens: usage?.totalTokens || 0,
+        context: { imgCount: imgs.length },
+      });
+
+      // JSON 파싱 (마크다운 펜스 대비 방어)
+      let rows = [];
+      try {
+        const clean = String(text).trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+        const parsed = JSON.parse(clean);
+        rows = Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return res.status(500).json({ ok: false, error: 'PARSE_FAIL', raw: String(text).slice(0, 500) });
+      }
+
+      // name → symbol 매칭 (stocks 테이블)
+      //  1) name_kr 완전 일치 > 2) name 완전 일치 > 3) name_kr LIKE > 4) name LIKE
+      //  여러 후보면 market_cap DESC
+      const findByName = (rawName) => {
+        const n = String(rawName || '').trim();
+        if (!n) return null;
+        const exactKr = db.prepare(
+          `SELECT symbol, name, name_kr, market, market_cap FROM stocks
+           WHERE name_kr = ? AND is_active = 1 ORDER BY market_cap IS NULL, market_cap DESC LIMIT 1`
+        ).get(n);
+        if (exactKr) return exactKr;
+        const exactEn = db.prepare(
+          `SELECT symbol, name, name_kr, market, market_cap FROM stocks
+           WHERE name = ? AND is_active = 1 ORDER BY market_cap IS NULL, market_cap DESC LIMIT 1`
+        ).get(n);
+        if (exactEn) return exactEn;
+        const likeKr = db.prepare(
+          `SELECT symbol, name, name_kr, market, market_cap FROM stocks
+           WHERE (name_kr LIKE ? OR name LIKE ?) AND is_active = 1
+           ORDER BY market_cap IS NULL, market_cap DESC LIMIT 1`
+        ).get(`%${n}%`, `%${n}%`);
+        return likeKr || null;
+      };
+
+      const items = rows.map((r) => {
+        const match = findByName(r?.name);
+        return {
+          name: r?.name ?? null,
+          quantity: (r?.quantity != null && isFinite(+r.quantity)) ? +r.quantity : null,
+          avg_price: (r?.avg_price != null && isFinite(+r.avg_price)) ? +r.avg_price : null,
+          matchedSymbol: match?.symbol || null,
+          matchedName: match ? (match.name_kr || match.name) : null,
+          matchedMarket: match?.market || null,
+        };
+      });
+
+      res.json({ ok: true, items, model, detected: items.length });
+    } catch (e) {
+      console.warn('[portfolio/ocr] error', e);
+      res.status(500).json({ ok: false, error: e.message || 'INTERNAL' });
+    }
+  }
+);
 
 // POST /api/ai-analysis → 종목 데이터를 받아 AI 분석 리턴
 // 바디: { symbol, name, price, changePercent, per, pbr, roe, sector, ... }
