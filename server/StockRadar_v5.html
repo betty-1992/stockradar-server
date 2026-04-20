@@ -14168,20 +14168,28 @@ function renderPortfolioSummary(s, fxRate) {
     if (ccy === 'KR') return '₩' + Math.round(n).toLocaleString('ko-KR');
     return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 });
   };
+  const krw = (n) => '₩' + Math.round(n).toLocaleString('ko-KR');
+  const fx = Number(fxRate) || 0;
   const card = (label, data, ccy) => {
     if (data.count === 0) return '';
     const pl = data.mv - data.cost;
     const plPct = data.cost > 0 ? (pl / data.cost * 100) : 0;
     const up = pl >= 0;
     const col = up ? 'var(--up, #e53935)' : 'var(--dn, #1e88e5)';
+    // 미국 카드는 원화 환산 병기 (환율 있을 때)
+    const showKrw = ccy === 'US' && fx > 0;
+    const mvKrw  = showKrw ? `<div style="font-size:11px;color:var(--tx4);font-weight:600;margin-bottom:6px">≈ ${krw(data.mv * fx)}</div>` : '';
+    const plKrw  = showKrw ? `<span style="color:${col};font-size:11px;font-weight:600;margin-left:2px">(${up?'+':''}${krw(Math.abs(pl) * fx * (up?1:-1))})</span>` : '';
+    const costKrw = showKrw ? ` · ≈ ${krw(data.cost * fx)}` : '';
     return `<div class="card" style="flex:1;min-width:240px;padding:16px 18px;background:var(--bg2);border:1px solid var(--border, var(--bdr));border-radius:12px">
       <div style="font-size:12px;color:var(--tx4);font-weight:700;margin-bottom:8px">${label} · ${data.count}종목</div>
-      <div style="font-size:20px;font-weight:900;color:var(--tx);margin-bottom:6px">${fmt(data.mv, ccy)}</div>
-      <div style="display:flex;gap:12px;font-size:13px;font-weight:700">
-        <span style="color:${col}">${up?'▲':'▼'} ${fmt(Math.abs(pl), ccy)}</span>
+      <div style="font-size:20px;font-weight:900;color:var(--tx);margin-bottom:2px">${fmt(data.mv, ccy)}</div>
+      ${mvKrw}
+      <div style="display:flex;gap:12px;font-size:13px;font-weight:700;flex-wrap:wrap;align-items:baseline">
+        <span style="color:${col}">${up?'▲':'▼'} ${fmt(Math.abs(pl), ccy)}${plKrw}</span>
         <span style="color:${col}">${up?'+':''}${plPct.toFixed(2)}%</span>
       </div>
-      <div style="font-size:11px;color:var(--tx4);margin-top:4px">원금 ${fmt(data.cost, ccy)}</div>
+      <div style="font-size:11px;color:var(--tx4);margin-top:4px">원금 ${fmt(data.cost, ccy)}${costKrw}</div>
     </div>`;
   };
 
