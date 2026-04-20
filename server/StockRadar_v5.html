@@ -12134,7 +12134,8 @@ updateClk();
   // 히스토리 초기 상태 심기 (URL 해시로 초기 페이지 결정)
   const hash = (location.hash || '#home').replace(/^#/,'');
   const [initPage, initId] = hash.split('/');
-  const validPages = ['home','screener','issue','sector','guide','settings','detail','terms','privacy','disclaimer'];
+  // 새로고침 시 현재 페이지 유지를 위해 모든 실제 페이지 등록
+  const validPages = ['home','screener','watchlist','portfolio','issue','sector','guide','settings','detail','terms','privacy','disclaimer'];
   const startPage = validPages.includes(initPage) ? initPage : 'home';
   history.replaceState({ page: startPage, id: initId }, '', '#' + startPage + (initId ? '/'+initId : ''));
   if(startPage === 'detail' && initId){
