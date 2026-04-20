@@ -1776,8 +1776,17 @@ ${newsBlock}
 //  → 배포 시 CORS 불필요, 쿠키 natively 동작
 // HTML 및 정적 자산은 server/ 안에 같이 위치 (Railway Root Directory=server 호환)
 const STATIC_ROOT = __dirname;
-app.get('/', (_req, res) => res.sendFile(path.join(STATIC_ROOT, 'StockRadar_v5.html')));
-app.get('/admin', (_req, res) => res.sendFile(path.join(STATIC_ROOT, 'admin.html')));
+// HTML 은 무조건 fresh — max-age=0 만으로는 일부 브라우저가 304 재사용하는 케이스가
+// 있어 2026-04-20 배포 후에도 구 HTML 로 eval 실행되는 사고 있었음.
+// no-store 로 강제 재다운 보장.
+app.get('/', (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.sendFile(path.join(STATIC_ROOT, 'StockRadar_v5.html'));
+});
+app.get('/admin', (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.sendFile(path.join(STATIC_ROOT, 'admin.html'));
+});
 
 // 🔐 민감 경로 차단 — 서버 소스·DB·env·node_modules 절대 노출 금지
 const BLOCKED_PATH = /^\/(node_modules(\/|$)|\.git(\/|$))|\.(js|cjs|mjs|ts|json|toml|yml|yaml|env|db|db-wal|db-shm|db-journal|log|lock)$/i;
