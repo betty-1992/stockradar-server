@@ -362,6 +362,30 @@ seedMenusIfEmpty();
 // ─── 초기 어드민 계정 시드 ───────────────────────
 //  ENV 에 ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD 가 있으면
 //  서버 최초 실행 시 어드민 계정이 없을 때만 생성
+// ─── 종목 마스터 자동 시드 ─────────────────────
+//  마이그레이션 직후 stocks 테이블이 비어있으면 seed-stocks.js 자동 실행
+//  배경: 2026-04-18 Phase 3 (/api/universe DB 전환) 배포 시 프로덕션 stocks 비어있어
+//        total=0 반환하는 장애 발생 → 즉시 revert. 재발 방지용.
+//  child_process 격리 — seed-stocks.js 의 별도 better-sqlite3 connection 충돌 회피
+//  DB_PATH 환경변수 전달 — 동일 DB 파일 보장
+function seedStocksIfEmpty() {
+  try {
+    const row = db.prepare(`SELECT COUNT(*) AS c FROM stocks`).get();
+    if (row.c > 0) return;
+    console.log('[db] stocks 테이블 비어있음 — seed-stocks.js 자동 실행...');
+    const { execSync } = require('child_process');
+    execSync(`node ${path.join(__dirname, 'scripts', 'seed-stocks.js')}`, {
+      stdio: 'inherit',
+      cwd: __dirname,
+      env: { ...process.env, DB_PATH },
+    });
+    console.log('[db] stocks 자동 seed 완료');
+  } catch (e) {
+    console.warn('[db] stocks 자동 seed 실패:', e.message);
+  }
+}
+seedStocksIfEmpty();
+
 async function seedAdminIfNeeded() {
   const email = process.env.ADMIN_SEED_EMAIL;
   const password = process.env.ADMIN_SEED_PASSWORD;
