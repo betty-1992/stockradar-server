@@ -960,4 +960,122 @@ router.post('/change-password', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ═══════════════════════════════════════════════════════════════
+//  스크립트 실행 — Railway 서버에서 Phase 2 수집 트리거용
+//  (로컬 IP 가 Yahoo 에 차단돼도 Railway 컨테이너 IP 는 통과)
+//  허용 스크립트 화이트리스트 / 환경변수 화이트리스트 / 1회 1개만 실행
+// ═══════════════════════════════════════════════════════════════
+const { spawn } = require('child_process');
+const path = require('path');
+
+const ALLOWED_SCRIPTS = new Set([
+  'fetch-krx-universe',
+  'fetch-kr-stocks',
+  'fetch-us-stocks',
+]);
+const ALLOWED_ENV = new Set([
+  'KR_LIMIT', 'KR_DELAY_MS', 'KR_SYMBOLS',
+  'US_LIMIT', 'US_DELAY_MS',
+  'YAHOO_COOKIE', 'YAHOO_CRUMB', 'YAHOO_DEBUG',
+]);
+
+// in-memory 실행 상태 — 한 번에 하나만
+let currentRun = null;   // { pid, script, startedAt, env, logs: string[], status, exitCode, endedAt }
+
+function appendLog(line) {
+  if (!currentRun) return;
+  currentRun.logs.push(line);
+  if (currentRun.logs.length > 2000) currentRun.logs.splice(0, currentRun.logs.length - 2000);
+}
+
+router.post('/script/start', (req, res) => {
+  const { script, env = {} } = req.body || {};
+  if (!ALLOWED_SCRIPTS.has(script)) {
+    return res.status(400).json({ ok: false, error: 'INVALID_SCRIPT', allowed: [...ALLOWED_SCRIPTS] });
+  }
+  if (currentRun && currentRun.status === 'running') {
+    return res.status(409).json({ ok: false, error: 'ALREADY_RUNNING', current: { script: currentRun.script, pid: currentRun.pid, startedAt: currentRun.startedAt } });
+  }
+
+  const filteredEnv = {};
+  for (const [k, v] of Object.entries(env)) {
+    if (ALLOWED_ENV.has(k)) filteredEnv[k] = String(v);
+  }
+
+  const scriptsDir = path.join(__dirname, 'scripts');
+  const child = spawn('node', [`${script}.js`], {
+    cwd: scriptsDir.replace(/\/scripts$/, ''),
+    env: { ...process.env, ...filteredEnv },
+  });
+
+  currentRun = {
+    pid: child.pid,
+    script,
+    env: filteredEnv,
+    startedAt: Date.now(),
+    logs: [],
+    status: 'running',
+    exitCode: null,
+    endedAt: null,
+  };
+
+  logAudit({ userId: req.user.id, action: 'admin_script_start', target: script, meta: { env: filteredEnv, pid: child.pid }, ip: clientIp(req) });
+
+  child.stdout.on('data', d => appendLog(d.toString()));
+  child.stderr.on('data', d => appendLog(`[stderr] ${d.toString()}`));
+  child.on('exit', code => {
+    if (currentRun && currentRun.pid === child.pid) {
+      currentRun.status = code === 0 ? 'succeeded' : 'failed';
+      currentRun.exitCode = code;
+      currentRun.endedAt = Date.now();
+      appendLog(`\n[exit] code=${code}`);
+    }
+  });
+  child.on('error', err => {
+    appendLog(`[spawn error] ${err.message}`);
+    if (currentRun && currentRun.pid === child.pid) {
+      currentRun.status = 'failed';
+      currentRun.endedAt = Date.now();
+    }
+  });
+
+  res.json({ ok: true, pid: child.pid, script, startedAt: currentRun.startedAt });
+});
+
+router.get('/script/status', (req, res) => {
+  if (!currentRun) return res.json({ ok: true, run: null });
+  const tailLines = Math.max(1, Math.min(500, parseInt(req.query.tail, 10) || 50));
+  const logs = currentRun.logs.slice(-tailLines).join('');
+  res.json({
+    ok: true,
+    run: {
+      script: currentRun.script,
+      pid: currentRun.pid,
+      status: currentRun.status,
+      exitCode: currentRun.exitCode,
+      startedAt: currentRun.startedAt,
+      endedAt: currentRun.endedAt,
+      durationMs: (currentRun.endedAt || Date.now()) - currentRun.startedAt,
+      env: currentRun.env,
+      logs,
+    },
+  });
+});
+
+router.post('/script/stop', (req, res) => {
+  if (!currentRun || currentRun.status !== 'running') {
+    return res.status(400).json({ ok: false, error: 'NOT_RUNNING' });
+  }
+  try {
+    process.kill(currentRun.pid, 'SIGTERM');
+    currentRun.status = 'stopped';
+    currentRun.endedAt = Date.now();
+    appendLog('\n[stopped by admin]');
+    logAudit({ userId: req.user.id, action: 'admin_script_stop', target: currentRun.script, meta: { pid: currentRun.pid }, ip: clientIp(req) });
+    res.json({ ok: true, pid: currentRun.pid });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 module.exports = router;
