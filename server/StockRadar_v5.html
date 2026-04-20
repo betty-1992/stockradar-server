@@ -4801,12 +4801,29 @@ html[data-theme="dark"] body .toast,
     <div class="page-inner">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <h2 style="font-size:18px;font-weight:700;margin:0">나의 투자</h2>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button onclick="openOcrImport()" style="padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:13px;cursor:pointer;border:none;font-weight:600">📷 이미지로 가져오기</button>
-          <button onclick="openHoldingImport()" style="padding:6px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);font-size:13px;cursor:pointer;color:var(--tx)">CSV 가져오기</button>
-          <button onclick="openTxRecord()" style="padding:6px 14px;border:1px solid var(--brand);border-radius:8px;background:var(--bg2);color:var(--brand);font-size:13px;cursor:pointer;font-weight:600">📝 거래 기록</button>
-          <button onclick="openAddHolding()" style="padding:6px 14px;border-radius:8px;background:var(--brand);color:#fff;font-size:13px;cursor:pointer;border:none;font-weight:600">+ 추가</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;position:relative">
+          <button onclick="openOcrImport()" title="증권사 앱 캡처 이미지에서 AI가 종목·수량·평단을 자동으로 읽어 한 번에 등록합니다."
+            style="padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:13px;cursor:pointer;border:none;font-weight:600">📷 이미지로 가져오기</button>
+          <button onclick="openTxRecord()" title="매수 또는 매도 한 건을 날짜·가격과 함께 기록합니다. 평단과 실현손익이 자동 계산돼요."
+            style="padding:6px 14px;border:1px solid var(--brand);border-radius:8px;background:var(--bg2);color:var(--brand);font-size:13px;cursor:pointer;font-weight:600">📝 거래 기록</button>
+          <button onclick="togglePfMoreMenu(event)" aria-label="더보기"
+            style="padding:6px 10px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:13px;cursor:pointer">⋯</button>
+          <div id="pfMoreMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--bg);border:1px solid var(--bdr);border-radius:10px;min-width:240px;z-index:100;box-shadow:0 8px 28px rgba(0,0,0,.18);overflow:hidden">
+            <button onclick="openHoldingImport();closePfMoreMenu()" class="pf-more-item">
+              <div style="font-weight:700;font-size:13px">📋 CSV 붙여넣기</div>
+              <div style="font-size:11px;color:var(--tx4);margin-top:2px">심볼,수량,평단 형식을 여러 줄 한 번에 입력</div>
+            </button>
+            <button onclick="openAddHolding();closePfMoreMenu()" class="pf-more-item">
+              <div style="font-weight:700;font-size:13px">➕ 수동 추가 (한 건)</div>
+              <div style="font-size:11px;color:var(--tx4);margin-top:2px">한 종목씩 직접 입력. 평단은 내가 계산해서 기입</div>
+            </button>
+          </div>
         </div>
+        <style>
+          .pf-more-item{display:block;width:100%;text-align:left;padding:12px 14px;background:transparent;border:none;border-bottom:1px solid var(--bdr);color:var(--tx);cursor:pointer}
+          .pf-more-item:last-child{border-bottom:none}
+          .pf-more-item:hover{background:var(--surf)}
+        </style>
       </div>
       <div id="portfolioSummary" style="margin-bottom:16px"></div>
       <div id="portfolioList"></div>
@@ -14526,7 +14543,24 @@ function openOcrImport(){
 }
 
 function onOcrFiles(e){
-  const files = Array.from(e.target.files || []).slice(0, 5);
+  // 파일 식별자 = 이름+크기+수정시각. 같은 파일을 두 번 선택하면 제거 + 안내
+  const picked = Array.from(e.target.files || []);
+  const seen = new Set();
+  const dupes = [];
+  const unique = [];
+  for (const f of picked) {
+    const key = `${f.name}|${f.size}|${f.lastModified}`;
+    if (seen.has(key)) { dupes.push(f.name); continue; }
+    seen.add(key);
+    unique.push(f);
+  }
+  if (dupes.length && typeof toast === 'function') {
+    toast(`⚠️ 같은 이미지 ${dupes.length}장 중복 — 자동 제외했어요`);
+  }
+  const files = unique.slice(0, 5);
+  if (unique.length > 5 && typeof toast === 'function') {
+    toast('최대 5장까지만 사용할게요');
+  }
   _ocrFiles = files;
   const prev = document.getElementById('ocrPreview');
   prev.innerHTML = '';
@@ -14541,6 +14575,27 @@ function onOcrFiles(e){
   btn.disabled = files.length === 0;
   btn.style.opacity = files.length === 0 ? '0.5' : '1';
 }
+
+// 나의 투자 "더보기" 드롭다운 — 바깥 클릭 시 닫힘
+function togglePfMoreMenu(ev){
+  ev?.stopPropagation?.();
+  const m = document.getElementById('pfMoreMenu');
+  if (!m) return;
+  const willOpen = m.style.display === 'none';
+  m.style.display = willOpen ? 'block' : 'none';
+  if (willOpen) {
+    setTimeout(() => {
+      document.addEventListener('click', _pfMoreOutside, { once: true });
+    }, 0);
+  }
+}
+function _pfMoreOutside(e){
+  const m = document.getElementById('pfMoreMenu');
+  if (m && !m.contains(e.target)) m.style.display = 'none';
+}
+function closePfMoreMenu(){ const m = document.getElementById('pfMoreMenu'); if (m) m.style.display = 'none'; }
+window.togglePfMoreMenu = togglePfMoreMenu;
+window.closePfMoreMenu = closePfMoreMenu;
 
 function _fileToBase64(file){
   return new Promise((resolve, reject) => {
@@ -14671,6 +14726,10 @@ window.submitOcrSave = submitOcrSave;
       <button class="modal-x" onclick="cm('holdingOv')" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--tx4)">✕</button>
     </div>
     <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div style="padding:10px 12px;background:var(--blue-bg);border-left:3px solid var(--brand);border-radius:6px;font-size:12px;color:var(--tx2);line-height:1.6">
+        💡 <b>한 건씩 수동으로 등록</b>할 때 사용하세요. 평단은 본인이 계산해서 직접 입력해야 해요.
+        매수·매도 이력을 따로 기록하고 싶으면 <b>📝 거래 기록</b>을 쓰세요 (평단·실현손익 자동 계산).
+      </div>
       <input id="holdingSymbol" placeholder="종목 심볼 (예: AAPL, 005930)" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;box-sizing:border-box" />
       <input id="holdingQty" type="number" inputmode="decimal" placeholder="수량" min="0.0001" step="0.0001" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;box-sizing:border-box" />
       <input id="holdingPrice" type="number" inputmode="decimal" placeholder="평균 매수가 (USD 또는 KRW)" min="0" step="0.01" style="width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--tx);font-size:14px;box-sizing:border-box" />
@@ -14744,6 +14803,10 @@ window.submitOcrSave = submitOcrSave;
       <button class="modal-x" onclick="cm('holdingImportOv')" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--tx4)">✕</button>
     </div>
     <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div style="padding:10px 12px;background:var(--blue-bg);border-left:3px solid var(--brand);border-radius:6px;font-size:12px;color:var(--tx2);line-height:1.6">
+        💡 <b>언제 쓰나요?</b> 보유 종목이 많고 엑셀/메모장에서 바로 복사-붙여넣기 하고 싶을 때 편해요.
+        대부분은 <b>📷 이미지로 가져오기</b>가 더 빠르니 먼저 시도해보세요.
+      </div>
       <div style="font-size:12px;color:var(--tx4);line-height:1.6">
         한 줄에 하나씩, <code>심볼,수량,평균매수가[,메모]</code> 형식으로 입력하세요.<br>
         예시:<br>
