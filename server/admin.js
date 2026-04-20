@@ -4,7 +4,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { z } = require('zod');
-const { db, logAudit, logAiUsage, GEMINI_PRICING } = require('./db');
+const { db, logAudit, logAiUsage, GEMINI_PRICING, DB_PATH } = require('./db');
+const fs = require('fs');
 const { requireAdmin, clientIp } = require('./middleware');
 
 const router = express.Router();
@@ -1075,6 +1076,38 @@ router.post('/script/stop', (req, res) => {
     appendLog('\n[stopped by admin]');
     logAudit({ userId: req.user.id, action: 'admin_script_stop', target: currentRun.script, meta: { pid: currentRun.pid }, ip: clientIp(req) });
     res.json({ ok: true, pid: currentRun.pid });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ─── GET /api/admin/ops/dbinfo — DB 경로·볼륨 진단 ─────────────
+//  Railway 볼륨 마운트 여부 확인용. DB_PATH 가 /app/... 이면 컨테이너
+//  내부(배포마다 초기화 위험), /data/... 같이 볼륨이면 영속성 OK.
+router.get('/ops/dbinfo', (req, res) => {
+  try {
+    const st = fs.statSync(DB_PATH);
+    const counts = {
+      users:         db.prepare(`SELECT COUNT(*) AS c FROM users`).get().c,
+      holdings:      db.prepare(`SELECT COUNT(*) AS c FROM user_holdings`).get().c,
+      transactions:  db.prepare(`SELECT COUNT(*) AS c FROM transactions`).get().c,
+      favorites:     db.prepare(`SELECT COUNT(*) AS c FROM user_favorites`).get().c,
+      stocks:        db.prepare(`SELECT COUNT(*) AS c FROM stocks`).get().c,
+    };
+    const onVolume = /^\/data(\/|$)/.test(DB_PATH) || /^\/mnt\//.test(DB_PATH) || !!process.env.DATA_DIR;
+    res.json({
+      ok: true,
+      dbPath: DB_PATH,
+      dataDirEnv: process.env.DATA_DIR || null,
+      sizeBytes: st.size,
+      sizeMB: +(st.size / 1024 / 1024).toFixed(2),
+      lastModified: new Date(st.mtimeMs).toISOString(),
+      inode: st.ino,                     // 재배포 후에도 같으면 볼륨, 다르면 컨테이너 내부
+      onVolume,                          // heuristic 판단
+      nodeEnv: process.env.NODE_ENV || null,
+      counts,
+      warning: onVolume ? null : '⚠️ DB 가 컨테이너 내부 경로로 보입니다. Railway 볼륨이 마운트되지 않았다면 재배포 시 사용자 데이터 유실 위험!',
+    });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
