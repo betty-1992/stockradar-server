@@ -14444,13 +14444,21 @@ function renderSimulatorPage(){
       <!-- 탭 -->
       <div class="card" style="padding:6px;display:flex;gap:4px">
         <button class="sim-tab-btn ${_simState.tab==='future'?'on':''}" onclick="setSimTab('future')">
-          🔮 미래 예상
-          <div style="font-size:10.5px;font-weight:600;color:var(--tx4);margin-top:2px">앞으로 얼마 될지 대략 예측</div>
+          <div class="sim-tab-title">🔮 미래 예상</div>
+          <div class="sim-tab-desc">앞으로 얼마 될지 <b>대략 추정</b></div>
         </button>
         <button class="sim-tab-btn ${_simState.tab==='past'?'on':''}" onclick="setSimTab('past')">
-          🧪 과거 모의투자
-          <div style="font-size:10.5px;font-weight:600;color:var(--tx4);margin-top:2px">진짜 이렇게 샀다면 지금 얼마?</div>
+          <div class="sim-tab-title">📊 과거 검증</div>
+          <div class="sim-tab-desc">그때 이렇게 샀다면 <b>지금 얼마</b>?</div>
         </button>
+      </div>
+      <!-- 탭 상세 설명 -->
+      <div id="simTabHint" style="padding:12px 14px;background:var(--blue-bg);border-left:3px solid var(--brand);border-radius:8px;font-size:12px;color:var(--tx2);line-height:1.6"></div>
+
+      <!-- 저장된 시나리오 -->
+      <div id="simSavedBar" style="display:none;padding:10px 14px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--tx4);font-weight:700">📂 저장된 시나리오</span>
+        <div id="simSavedList" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
       </div>
 
       <!-- 1) 투자 방식 + 금액 -->
@@ -14501,9 +14509,16 @@ function renderSimulatorPage(){
       </div>
     </div>
     <style>
-      .sim-tab-btn{flex:1;padding:10px 12px;border-radius:8px;border:none;background:transparent;color:var(--tx2);font-weight:700;font-size:13px;cursor:pointer;text-align:center}
-      .sim-tab-btn.on{background:var(--bg2);color:var(--tx);box-shadow:0 1px 0 var(--bdr) inset}
-      .sim-tab-btn:not(.on):hover{color:var(--tx)}
+      .sim-tab-btn{flex:1;padding:12px 12px;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--tx2);font-weight:700;font-size:13px;cursor:pointer;text-align:center;transition:all .15s}
+      .sim-tab-btn .sim-tab-title{font-size:14px;font-weight:800;margin-bottom:4px}
+      .sim-tab-btn .sim-tab-desc{font-size:10.5px;font-weight:500;color:var(--tx4);opacity:.9}
+      .sim-tab-btn.on{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-color:transparent;box-shadow:0 3px 12px rgba(99,102,241,.35)}
+      .sim-tab-btn.on .sim-tab-desc{color:rgba(255,255,255,.88)}
+      .sim-tab-btn:not(.on):hover{background:var(--bg2);color:var(--tx)}
+      .sim-saved-chip{padding:5px 12px;border-radius:14px;background:var(--bg);border:1px solid var(--bdr);cursor:pointer;font-size:11.5px;display:inline-flex;gap:6px;align-items:center}
+      .sim-saved-chip:hover{background:var(--surf);border-color:var(--brand)}
+      .sim-saved-chip .x{color:var(--tx4);cursor:pointer;padding:0 2px}
+      .sim-saved-chip .x:hover{color:var(--dn)}
       .sim-year-btn{min-width:64px;padding:8px 12px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--tx);font-weight:700;font-size:12.5px;cursor:pointer}
       .sim-year-btn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
       .sim-mode-btn{flex:1;min-width:80px;padding:9px 10px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--tx);font-weight:700;font-size:12.5px;cursor:pointer}
@@ -14520,6 +14535,10 @@ function renderSimulatorPage(){
   _renderSimYears();
   setSimMode(_simState.mode);
   renderSimItems();
+  // 탭 힌트 + 저장된 시나리오 렌더
+  const hint = document.getElementById('simTabHint');
+  if (hint) hint.innerHTML = SIM_TAB_HINTS[_simState.tab];
+  renderSimSavedBar();
 }
 window.renderSimulatorPage = renderSimulatorPage;
 
@@ -14562,19 +14581,96 @@ function setSimMode(m){
 }
 window.setSimMode = setSimMode;
 
+const SIM_TAB_HINTS = {
+  future: `💡 <b>미래 예상</b> — 최근 5년의 <b>연평균 수익률(CAGR)</b>을 뽑아 복리로 적용해 앞으로 얼마가 될지 추정해요. 낙관·중립·비관 3가지 범위를 보여드려요. <b>가정값이라 실제와 차이</b>가 있을 수 있어요.`,
+  past:   `💡 <b>과거 검증</b> — 실제 <b>일봉 시세</b>로 과거 기간 동안 매주/매월 얼마나 샀을지 그대로 재현해요. 중간에 -30% 폭락 같은 <b>실제 변동</b>이 차트에 그대로 보여서 "내가 버틸 수 있을지" 감을 잡기 좋아요.`,
+};
+
 function setSimTab(t){
   _simState.tab = t;
   document.querySelectorAll('.sim-tab-btn').forEach((b, i) => {
     const tab = i === 0 ? 'future' : 'past';
     b.classList.toggle('on', tab === t);
   });
+  const hint = document.getElementById('simTabHint');
+  if (hint) hint.innerHTML = SIM_TAB_HINTS[t];
   const btnLbl = document.getElementById('simRunBtnLabel');
-  if (btnLbl) btnLbl.textContent = t === 'future' ? '🔮 예상 수익 계산하기' : '🧪 과거 모의투자 실행';
-  // 결과 영역 초기화 (탭 전환 시 이전 결과 제거)
+  if (btnLbl) btnLbl.textContent = t === 'future' ? '🔮 미래 예상 계산하기' : '📊 과거 검증 실행';
+  // 결과 영역 초기화
   const res = document.getElementById('simResult');
   if (res) { res.innerHTML = ''; res.style.display = 'none'; }
+  renderSimSavedBar();
 }
 window.setSimTab = setSimTab;
+
+// ─── 시나리오 저장/불러오기 (localStorage) ──────────────────────
+const SIM_SAVED_KEY = 'sr_sim_scenarios';
+function _simLoadAll(){ try { return JSON.parse(localStorage.getItem(SIM_SAVED_KEY) || '[]'); } catch(_) { return []; } }
+function _simSaveAll(list){ try { localStorage.setItem(SIM_SAVED_KEY, JSON.stringify(list.slice(0, 20))); } catch(_){} }
+
+function saveSimScenario(){
+  if (!_simState.lastResult) { toast('먼저 계산부터 실행해주세요'); return; }
+  const defaultName = `${_simState.tab==='future'?'예상':'검증'} · ${_simState.years}년 · ${_simState.items.map(x=>x.name||x.symbol).slice(0,2).join('+')}${_simState.items.length>2?' 외':''}`;
+  const name = prompt('시나리오 이름을 입력해주세요', defaultName);
+  if (name === null) return;
+  const scn = {
+    id: Date.now(),
+    name: (name.trim() || defaultName).slice(0, 60),
+    tab: _simState.tab,
+    items: JSON.parse(JSON.stringify(_simState.items)),
+    years: _simState.years,
+    mode: _simState.mode,
+    lump: _simState.lump,
+    monthly: _simState.monthly,
+    weekly: _simState.weekly,
+    savedAt: Date.now(),
+  };
+  const list = _simLoadAll();
+  list.unshift(scn);
+  _simSaveAll(list);
+  renderSimSavedBar();
+  if (typeof toast === 'function') toast(`✅ "${scn.name}" 저장됨`);
+}
+function loadSimScenario(id){
+  const list = _simLoadAll();
+  const s = list.find(x => x.id === id);
+  if (!s) return;
+  _simState.tab = s.tab;
+  _simState.items = JSON.parse(JSON.stringify(s.items));
+  _simState.years = s.years;
+  _simState.yearsCustom = ![1,3,5,10].includes(s.years);
+  _simState.mode = s.mode;
+  if (s.lump != null) _simState.lump = s.lump;
+  if (s.monthly != null) _simState.monthly = s.monthly;
+  if (s.weekly != null) _simState.weekly = s.weekly;
+  renderSimulatorPage();
+  // 자동 실행
+  setTimeout(() => runSimulation(), 120);
+}
+function deleteSimScenario(id, evt){
+  evt?.stopPropagation();
+  if (!confirm('이 시나리오를 삭제할까요?')) return;
+  const list = _simLoadAll().filter(x => x.id !== id);
+  _simSaveAll(list);
+  renderSimSavedBar();
+}
+function renderSimSavedBar(){
+  const bar = document.getElementById('simSavedBar');
+  const listEl = document.getElementById('simSavedList');
+  if (!bar || !listEl) return;
+  const all = _simLoadAll();
+  if (all.length === 0) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  listEl.innerHTML = all.map(s =>
+    `<span class="sim-saved-chip" onclick="loadSimScenario(${s.id})" title="${esc(s.name)} · ${new Date(s.savedAt).toLocaleDateString('ko-KR')}">
+      ${s.tab==='future'?'🔮':'📊'} ${esc(s.name)}
+      <span class="x" onclick="deleteSimScenario(${s.id}, event)">✕</span>
+    </span>`
+  ).join('');
+}
+window.saveSimScenario = saveSimScenario;
+window.loadSimScenario = loadSimScenario;
+window.deleteSimScenario = deleteSimScenario;
 
 function renderSimItems(){
   const el = document.getElementById('simItems');
@@ -14969,6 +15065,7 @@ function renderBacktestResult(items, r){
       <div style="font-size:12px;font-weight:700;color:var(--tx4);margin-bottom:8px">포트폴리오 가치 추이 (과거 ${r.years.toFixed(1)}년)</div>
       <canvas id="simChart" style="width:100%;max-height:260px"></canvas>
     </div>
+    <button onclick="saveSimScenario()" style="width:100%;padding:12px;margin-top:4px;border:1px solid var(--brand);border-radius:10px;background:var(--bg2);color:var(--brand);font-size:13px;font-weight:700;cursor:pointer">💾 이 시나리오 저장</button>
   `;
   _drawBacktestChart(r);
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -15036,6 +15133,7 @@ function renderSimResult(items, r){
       <div style="font-size:12px;font-weight:700;color:var(--tx4);margin-bottom:8px">미래 ${_simState.years}년 예상 평가액 추이</div>
       <canvas id="simChart" style="width:100%;max-height:260px"></canvas>
     </div>
+    <button onclick="saveSimScenario()" style="width:100%;padding:12px;margin-top:4px;border:1px solid var(--brand);border-radius:10px;background:var(--bg2);color:var(--brand);font-size:13px;font-weight:700;cursor:pointer">💾 이 시나리오 저장</button>
   `;
   _drawSimChart(r);
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
