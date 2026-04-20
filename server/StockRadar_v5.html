@@ -12793,9 +12793,14 @@ function escapeHtml(s){
 // 전역 esc — 여러 렌더러에서 공용으로 사용. 기존 함수 내부 const esc 는
 // 그대로 두어도 스코프 shadow 로 기존 동작 불변. renderRecentWidget 등
 // 지역 정의가 없던 렌더러들의 ReferenceError 해결 (2026-04-20).
-function esc(s){
+// ⚠️ 이 <script> 가 IIFE 로 감싸져 있어 단순 function 선언은 타 script
+//    에서 접근 불가. window.esc 로 명시적 전역 노출 필요.
+window.esc = function esc(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+};
+window.escapeHtml = window.escapeHtml || function escapeHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+};
 
 // 스톡이 답변 구조화 렌더러
 //  · 서버에서 오는 자유 텍스트를 문장 단위로 쪼개고, 지표/수치/강조 부분을 포맷
