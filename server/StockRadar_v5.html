@@ -13999,13 +13999,18 @@ async function renderPortfolioPage() {
     return;
   }
 
-  // 현재가 일괄 조회
+  // 현재가 + USD/KRW 환율 병렬 조회 (환율은 원화 통합 평가용)
   const priceMap = {};
+  let fxUsdKrw = 0;
   try {
     const symbols = holdings.map(h => h.stock_id).join(',');
-    const data = await api('/api/quotes?symbols=' + encodeURIComponent(symbols));
+    const [data, fx] = await Promise.all([
+      api('/api/quotes?symbols=' + encodeURIComponent(symbols)),
+      api('/api/quote/USDKRW%3DX').catch(() => null),
+    ]);
     const q = data && data.quotes ? data.quotes : {};
     Object.keys(q).forEach(sid => { priceMap[sid] = q[sid]?.price ?? 0; });
+    fxUsdKrw = (fx && fx.price) || 0;
   } catch (e) { /* 실패 시 0 */ }
 
   // 통화별 집계
@@ -14023,11 +14028,11 @@ async function renderPortfolioPage() {
     return { ...h, price, mv, cost, pl, plPct, ccy };
   });
 
-  renderPortfolioSummary(summary);
+  renderPortfolioSummary(summary, fxUsdKrw);
   renderPortfolioTable(rows, summary);
 }
 
-function renderPortfolioSummary(s) {
+function renderPortfolioSummary(s, fxRate) {
   const sumEl = document.getElementById('portfolioSummary');
   if (!sumEl) return;
   const fmt = (n, ccy) => {
@@ -14050,7 +14055,32 @@ function renderPortfolioSummary(s) {
       <div style="font-size:11px;color:var(--tx4);margin-top:4px">원금 ${fmt(data.cost, ccy)}</div>
     </div>`;
   };
-  sumEl.innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap">${card('🇺🇸 미국', s.US, 'US')}${card('🇰🇷 한국', s.KR, 'KR')}</div>`;
+
+  // 통합 평가 카드 (원화 환산) — KR+US 둘 다 있을 때 의미 있음. 환율 없으면 생략
+  let unifiedCard = '';
+  const fx = Number(fxRate) || 0;
+  const bothCcy = s.KR.count > 0 && s.US.count > 0;
+  if (fx > 0 && bothCcy) {
+    const totalMv   = s.KR.mv   + s.US.mv   * fx;
+    const totalCost = s.KR.cost + s.US.cost * fx;
+    const pl = totalMv - totalCost;
+    const plPct = totalCost > 0 ? (pl / totalCost * 100) : 0;
+    const up = pl >= 0;
+    const col = up ? 'var(--up, #e53935)' : 'var(--dn, #1e88e5)';
+    const totalCount = s.KR.count + s.US.count;
+    const krw = (n) => '₩' + Math.round(n).toLocaleString('ko-KR');
+    unifiedCard = `<div class="card" style="padding:20px;background:var(--blue-bg);border:1px solid var(--brand);border-radius:14px;margin-bottom:12px">
+      <div style="font-size:12px;color:var(--tx4);font-weight:700;margin-bottom:8px">💰 통합 평가 (원화 환산) · ${totalCount}종목</div>
+      <div style="font-size:26px;font-weight:900;color:var(--tx);margin-bottom:8px">${krw(totalMv)}</div>
+      <div style="display:flex;gap:14px;font-size:14px;font-weight:700">
+        <span style="color:${col}">${up?'▲':'▼'} ${krw(Math.abs(pl))}</span>
+        <span style="color:${col}">${up?'+':''}${plPct.toFixed(2)}%</span>
+      </div>
+      <div style="font-size:11px;color:var(--tx4);margin-top:6px">원금 ${krw(totalCost)} · 환율 ${krw(fx)}/$1</div>
+    </div>`;
+  }
+
+  sumEl.innerHTML = unifiedCard + `<div style="display:flex;gap:12px;flex-wrap:wrap">${card('🇺🇸 미국', s.US, 'US')}${card('🇰🇷 한국', s.KR, 'KR')}</div>`;
 }
 
 function renderPortfolioTable(rows, summary) {
