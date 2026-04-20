@@ -1485,6 +1485,107 @@ const callGemini = async (prompt, opts = {}) => {
   throw lastErr || new Error('Gemini: all models failed');
 };
 
+// ════════════════════════════════════════════════
+//  GET /api/history?symbol=xxx&period=1y|3y|5y|10y — 과거 일봉 시세
+//  KR 6자리: 네이버 siseJson (startTime/endTime 기반)
+//  US: Yahoo chart/v8 (현재 chart 엔드포인트는 통과 중)
+//  응답: { ok, symbol, period, source, bars:[{t,o,h,l,c,v}] }  t=epoch sec
+//  캐시 6h (과거 데이터는 매일 소폭 갱신이라 긴 TTL OK)
+// ════════════════════════════════════════════════
+const PERIOD_MAP = { '1y': 1, '3y': 3, '5y': 5, '10y': 10 };
+
+// 네이버 siseJson 응답 파서 — 유효 JSON 이 아닌 JS literal 형태
+// 예: [["20210420", 81900, 82500, 81600, 82000, 12345678, 53.21], ...]
+function _parseNaverHistory(text) {
+  const rows = [];
+  const re = /\[\s*"(\d{8})"\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const [, d, o, h, l, c, v] = m;
+    const year = +d.slice(0, 4), mon = +d.slice(4, 6) - 1, day = +d.slice(6, 8);
+    rows.push({
+      t: Math.floor(Date.UTC(year, mon, day) / 1000),
+      o: +o, h: +h, l: +l, c: +c, v: +v,
+    });
+  }
+  return rows;
+}
+
+async function fetchKrHistory(symbol, years) {
+  const end = new Date();
+  const start = new Date(end.getTime() - years * 365.25 * 24 * 3600 * 1000);
+  const fmt = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  const url = `https://api.finance.naver.com/siseJson.naver?symbol=${encodeURIComponent(symbol)}&requestType=1&startTime=${fmt(start)}&endTime=${fmt(end)}&timeframe=day`;
+  const r = await fetch(url, { headers: { 'Referer': 'https://finance.naver.com/', 'User-Agent': 'Mozilla/5.0' } });
+  if (!r.ok) throw new Error(`naver ${r.status}`);
+  const text = await r.text();
+  return _parseNaverHistory(text);
+}
+
+async function fetchUsHistory(symbol, years) {
+  const rangeMap = { 1: '1y', 3: '3y', 5: '5y', 10: '10y' };
+  const range = rangeMap[years] || '5y';
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${range}`;
+  const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!r.ok) throw new Error(`yahoo ${r.status}`);
+  const j = await r.json();
+  const res = j?.chart?.result?.[0];
+  if (!res) throw new Error('yahoo: no data');
+  const ts = res.timestamp || [];
+  const q = res.indicators?.quote?.[0] || {};
+  const bars = [];
+  for (let i = 0; i < ts.length; i++) {
+    const c = q.close?.[i];
+    if (c == null || !isFinite(c) || c <= 0) continue;
+    bars.push({
+      t: ts[i],
+      o: q.open?.[i] ?? null,
+      h: q.high?.[i] ?? null,
+      l: q.low?.[i] ?? null,
+      c,
+      v: q.volume?.[i] ?? 0,
+    });
+  }
+  return bars;
+}
+
+app.get('/api/history', async (req, res) => {
+  try {
+    const symbol = String(req.query.symbol || '').trim().toUpperCase();
+    const period = String(req.query.period || '5y').toLowerCase();
+    const years = PERIOD_MAP[period];
+    if (!symbol) return res.status(400).json({ ok: false, error: 'SYMBOL_REQUIRED' });
+    if (!years)  return res.status(400).json({ ok: false, error: 'INVALID_PERIOD', allowed: Object.keys(PERIOD_MAP) });
+
+    const cacheKey = `history:${symbol}:${period}`;
+    const cached = getCached(cacheKey, 6 * 60 * 60 * 1000);
+    if (cached) return res.json({ ...cached, cached: true });
+
+    const isKr = /^\d{6}$/.test(symbol);
+    const bars = isKr
+      ? await fetchKrHistory(symbol, years)
+      : await fetchUsHistory(symbol, years);
+
+    if (!bars.length) return res.status(502).json({ ok: false, error: 'NO_DATA' });
+
+    const payload = {
+      ok: true,
+      symbol,
+      period,
+      source: isKr ? 'naver' : 'yahoo',
+      bars,
+      count: bars.length,
+      firstDate: new Date(bars[0].t * 1000).toISOString().slice(0, 10),
+      lastDate:  new Date(bars[bars.length - 1].t * 1000).toISOString().slice(0, 10),
+    };
+    setCached(cacheKey, payload);
+    res.json(payload);
+  } catch (e) {
+    console.warn('[history] failed', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════
 //  POST /api/portfolio/ocr — 포트폴리오 스크린샷 OCR (Gemini Vision)
 //  · 증권사 앱 캡처 이미지에서 {name, quantity, avg_price} 배열 추출
