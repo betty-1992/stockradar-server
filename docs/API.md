@@ -20,7 +20,12 @@
 | 시세/뉴스/AI | `server/index.js` | `docs/research/api-specs.md` |
 | 인증 (회원가입/로그인/OAuth) | `server/auth.js` | 동 |
 | 포트폴리오 (holdings) | `server/auth.js` | `GET/POST/DELETE /api/auth/holdings` |
+| 포트폴리오 (거래 이력) | `server/auth.js` | `GET/POST /api/auth/transactions`, `DELETE /api/auth/transactions/:id` — v12, 평균원가법·실현손익 자동 계산 |
+| 포트폴리오 OCR | `server/index.js` | `POST /api/portfolio/ocr` — Gemini Vision 으로 증권사 앱 캡처 → 종목 배열 추출 + stocks 테이블 매칭 (12MB) |
+| 시뮬레이터 — 과거 시세 | `server/index.js` | `GET /api/history?symbol=xxx&period=1y/3y/5y/10y` — KR 네이버, US Yahoo chart. 캐시 6h |
+| 시뮬레이터 — AI 해설 | `server/index.js` | `POST /api/ai-scenario` — 시나리오 입력·결과 → 스톡이 해설 (callGemini 재사용) |
 | 어드민 | `server/admin.js` | 글쓰기 draft, 사용량 로그 등 |
+| 어드민 — 운영 | `server/admin.js` | `GET /api/admin/ops/dbinfo` · `GET /api/admin/ops/backup` (DB 스냅샷 다운로드) · `POST /api/admin/script/start` (Railway 서버에서 수집 스크립트 실행) |
 
 ---
 
@@ -28,8 +33,10 @@
 
 | 서비스 | 용도 | 주의사항 |
 |--------|------|---------|
-| Yahoo Finance | KR + US 종목 수집 (비공식 quoteSummary) · 실시간 시세 (quote/chart) | cookies+crumb 세션 재사용 필수, 429 백오프. Phase 2 수집은 `lib/yahoo-fetch.js` 공통 모듈 |
-| Gemini | AI 글쓰기/분석 | `callGemini()` 공통 함수 경유 |
+| **네이버 금융** | KR 실시간 시세 (`polling.finance.naver.com`) · 과거 일봉 (`api.finance.naver.com/siseJson.naver`) | 한국 종목 기본 데이터 소스 (2026-04-20 부터). 멀티 심볼 `?/{code1,code2,...}` 100개/호출 지원. `siseJson` 응답은 JS literal 배열이라 정규식 파싱 |
+| **FinanceDataReader** (Python) | KR 전종목 유니버스 CSV 생성 (KOSPI·KOSDAQ·ETF) | 1회 실행 후 `server/scripts/data/kr-universe.csv`·`kr-etfs.csv` 로 repo commit. 런타임 의존 없음 |
+| Yahoo Finance | US 실시간 시세 + US/KR 과거 일봉 (`chart/v8`) · **현재 `quoteSummary` 는 차단 지속** (Phase 2 수집 보류) | `chart` 엔드포인트는 통과. cookies+crumb 세션 재사용은 Phase 2 전용 |
+| **Gemini** (text + vision) | AI 글쓰기/분석 · 시뮬레이터 해설 · **포트폴리오 OCR** (multimodal) | `callGemini(prompt, {images})` 공통 함수. `_geminiOnce` 가 `inline_data` 지원 |
 | Resend | 이메일 발송 | `email.js` 에서 처리 |
 
 ~~FMP~~ — 2026-04-18 이후 미사용. Legacy v3 전체 403, `/stable/` 경로는 Starter 플랜에서 재무지표 심볼 게이트. `fetch-us-stocks.js` Yahoo 로 전환됨 (`docs/DECISIONS.md`).

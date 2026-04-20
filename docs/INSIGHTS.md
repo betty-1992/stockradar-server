@@ -5,16 +5,19 @@
 
 ---
 
-## V2 예정 기능
+## V2 기능 상태 (2026-04-20 기준)
 
-| 기능 | 설명 |
-|------|------|
-| 포트폴리오 환율 통합 | KR/US 통화 환율 적용 통합 평가금액 |
-| 거래 이력 | 매수/매도 히스토리 (`transactions` 테이블) |
-| 실현 손익 집계 | 매도 시 실현손익 계산 (평균원가법) |
-| 백테스트 | 스크리너 필터 조건으로 과거 수익률 시뮬레이션 |
-| 매수 타이밍 알림 | 즐겨찾기 종목 52주 하락률+PEG 조건 이메일 알림 |
-| 스크리너 필터 고도화 | PEG/ROIC/PSR/3Y CAGR/FCF/베타 필터 추가 |
+| 기능 | 상태 | 비고 |
+|------|------|------|
+| 포트폴리오 환율 통합 | ✅ 완료 | `/api/quote/USDKRW=X` · 통합 평가 카드 + 각 행 원화 병기 |
+| 거래 이력 | ✅ 완료 | DB v12 `transactions` · POST/GET/DELETE `/api/auth/transactions` |
+| 실현 손익 집계 | ✅ 완료 | 매도 시 `realized_pl = (price − avg) × qty` 자동 기록 |
+| 이미지 OCR 자동 등록 | ✅ 완료 | Gemini Vision · `POST /api/portfolio/ocr` · ticker↔name 교차 검증 |
+| 시뮬레이터 (미래 예상 + 과거 검증) | ✅ 완료 | Phase 1~3 · AI 해설 포함 |
+| 시나리오 저장 | ✅ 완료 (localStorage) | 서버 동기화는 유저 생긴 뒤 검토 |
+| 시나리오 비교 (Phase 4) | ⏳ 미착수 | 저장된 2~3개 나란히 차트/표 |
+| 매수 타이밍 알림 | ⏳ 미착수 | 즐겨찾기 52주 하락률+PEG 조건 이메일 |
+| 스크리너 필터 고도화 | ⏳ 미착수 | PEG/ROIC/PSR/3Y CAGR/FCF/베타 필터 추가 |
 
 ---
 
@@ -78,3 +81,19 @@
 - **FMP 무료 쿼터의 한계**: `company-screener`/`sp500-constituent`/`profile-bulk` 전부 402 — 상용 데이터는 유료 구독 전제
 - **Yahoo Finance IP rate-limit**: crumb 엔드포인트가 공격적으로 차단 → 세션 재사용 + 디스크 캐시가 필수
 - **큐레이션 원칙**: 사람이 직접 넣은 데이터(is_curated=1)는 어떤 자동 수집도 덮어쓰지 말 것 — 큐레이터 의도 최우선
+
+### 2026-04-20 관찰
+
+- **Yahoo 한국 소형주 데이터 부실**: 코스닥 소형주는 volume=0, timestamp 며칠 전 값, 평가금액 왜곡 빈번 (예: 미래에셋벤처투자 Yahoo +19% 오탐 vs 네이버 -1.73%). KR 은 네이버 polling API 로 전환 필수
+- **네이버 멀티 심볼 배치**: `/api/realtime/domestic/stock/{code1,code2,...}` 100개/요청 가능, 실측 0.06초. 수십개 심볼 각자 호출하는 것보다 10~20배 빠름
+- **Yahoo IP 광범위 차단**: quoteSummary 는 한국 IP 풀·모바일 NAT·Railway(미국) 전부 차단. chart/v8 엔드포인트는 통과 — 과거 시세 수집은 가능
+- **FinanceDataReader > pykrx (KR 유니버스)**: pykrx 는 KRX 공식 API 의존이라 IP 차단 시 0개 반환. FDR 은 Naver 등 폴백 있어 안정적. 단 실시간 시세는 여전히 네이버 polling 직접 호출이 낫음
+- **한국 증권사 앱 OCR 함정**:
+  - 평가금액(수량×평단)을 평단으로 오인 (숫자 크기가 평단 X 수량 수준이면 의심)
+  - 미국 종목의 **원화 환산 평단**을 달러값으로 오인 (예: SCHD "$30.69 / ≈ ₩45,706" 병기 → 45.7 달러로 입력)
+  - "TIGER 미국S&P500" 같은 국내 상장 ETF를 미국 종목으로 오인 → 브랜드 프리픽스 화이트리스트로 방어
+- **Gemini 해설 기본 경향**: 입력 수치를 단순 반복·나열하는 경향이 강함. "⛔ 금지/✅ 좋은 예" + "[관찰→해석→시사점]" 구조 + 각도 5개 강제 + 볼드 과용 금지 지시까지 해야 인사이트 있는 답변 생성
+- **브라우저 캐시의 완고함**: HTTP `Cache-Control: no-store` 만으로 부족 — `<meta http-equiv>` 이중 선언 + `pageshow.persisted` 감지 `location.reload()` 까지 해야 Safari bfcache 우회
+- **Railway 볼륨 확인은 런타임 엔드포인트로**: `/api/admin/ops/dbinfo` 가 `DB_PATH` + `DATA_DIR` env + inode 를 반환 — 배포마다 유실 여부를 한 줄 명령으로 검증 가능
+- **IIFE 안의 `function foo(){}` 은 전역 X**: 여러 `<script>` 블록이 있고 그중 하나가 IIFE 래핑이면, 그 안에서 선언한 함수는 다른 스크립트에서 접근 불가. `window.foo = function...` 명시가 안전
+- **HTML flex 컨테이너 안의 `<style>` 태그**: 일부 브라우저가 flex item 으로 처리해 보이지 않는 빈 공간 차지 → 레이아웃 밀림. `<style>` 은 반드시 head 또는 flex 컨테이너 밖

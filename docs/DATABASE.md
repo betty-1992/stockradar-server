@@ -16,7 +16,7 @@
 
 ---
 
-## 현재 버전: v11
+## 현재 버전: v12
 
 | 버전 | 내용 |
 |------|------|
@@ -24,6 +24,7 @@
 | v9 | `user_holdings` 테이블 (포트폴리오) — 복합 PK (user_id, stock_id) + upsert |
 | v10 | `stocks` + `stock_curation` 테이블 (종목 마스터 DB, PK=symbol, FK CASCADE) |
 | v11 | `stocks.peg` / `stocks.fcf` 컬럼 추가 (ALTER TABLE, idempotent) |
+| v12 | `transactions` 테이블 (거래 이력 + 실현손익) — 2026-04-20 |
 
 ---
 
@@ -38,11 +39,44 @@
 | `stocks` | 종목 마스터 | v10 — PK=symbol |
 | `stock_curation` | 큐레이션 메타 | v10 — is_curated=1 은 수집기 덮어쓰기 차단 |
 | `email_verifications` | 이메일 인증 토큰 | 미사용 (`MEMORY.md`) |
-| `transactions` | 거래 이력 | **V2 예정** (MEMORY.md / INSIGHTS.md) |
+| `transactions` | 거래 이력 + 실현손익 | v12 — 평균원가법. 매수 시 평단 재계산, 매도 시 평단 유지 + `realized_pl` |
 
 ---
 
 ## 데이터 수집 정책
 
 - **is_curated=1**: identity + 재무지표 모두 완전 보호 (upsert 스킵)
-- **source 필드**: `curation` / `fmp` / `yahoo` 구분
+- **source 필드**: `curation` / `fmp` / `yahoo` / `krx` / `krx-etf` 구분
+- **기동 시 자동 복구** (`db.js` 2026-04-20):
+  - `seedStocksIfEmpty()` — stocks 비어있으면 `seed-stocks.js` 자동 실행 (307건)
+  - `expandKrUniverseIfNeeded()` — KR 주식 < 1,000 이면 `fetch-krx-universe.js`, KR ETF < 500 이면 `fetch-kr-etfs.js` 자동 실행 → 총 2,708 주식 + 874 ETF
+
+## v12 transactions 테이블 스키마
+
+```
+CREATE TABLE transactions (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL,
+  stock_id    TEXT NOT NULL,
+  side        TEXT NOT NULL CHECK (side IN ('buy','sell')),
+  quantity    REAL NOT NULL,
+  price       REAL NOT NULL,
+  traded_at   INTEGER NOT NULL,
+  realized_pl REAL,                   -- sell 시 (price - avg) × qty
+  memo        TEXT,
+  created_at  INTEGER NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_transactions_user       ON transactions(user_id, traded_at DESC);
+CREATE INDEX idx_transactions_user_stock ON transactions(user_id, stock_id, traded_at);
+```
+
+**로직** (`server/auth.js` `/api/auth/transactions`):
+- **POST**: 트랜잭션 원자 처리. 매수 시 `user_holdings` 평단 재계산, 매도 시 평단 유지 + realized_pl 기록. 전량 매도 시 holdings 삭제. 보유량 초과 매도는 400.
+- **DELETE**: 거래 삭제 후 해당 종목 **모든 거래 시간순 재생** 으로 holdings 재구성 (안전한 정정).
+
+## 영속성 보장 — 3중 방어 (2026-04-20)
+
+1. Railway 볼륨 `/data/data.db` 마운트 확인 (env `DATA_DIR=/data`)
+2. `GET /api/admin/ops/backup` — admin 설정 페이지 "DB 스냅샷 다운로드" 버튼. `better-sqlite3.backup()` WAL-safe
+3. 기동 시 자동 seed/확장 (위 정책)
