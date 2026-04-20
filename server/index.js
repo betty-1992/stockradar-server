@@ -239,7 +239,76 @@ app.get('/api/quote/:symbol', async (req, res) => {
 //   4) 모든 값은 숫자 검증(isFinite && >0)을 통과해야 반영.
 //   5) 가격/등락률은 과다 소수점 제거 (USD 0.01, KRW 1원 단위로 반올림).
 // ════════════════════════════════════════════════════════════════
+// ─── 네이버 금융 polling API — KR 전용 SSOT ─────────────────
+//  2026-04-20: Yahoo 는 한국 코스닥 소형주 실시간 커버리지 부실 (volume=0,
+//  timestamp stale, 과거 체결로 등락률 오탐). KR 6자리 심볼은 네이버로 우회.
+//  응답 스키마는 Yahoo fetchYahooQuote 출력과 동일하게 맞춤 (프론트 무변경).
+const fetchNaverKrQuote = async (rawSym) => {
+  const cacheKey = `quote:naver:${rawSym}`;
+  const cached = getCached(cacheKey, 60 * 1000);
+  if (cached) return cached;
+
+  const url = `https://polling.finance.naver.com/api/realtime/domestic/stock/${encodeURIComponent(rawSym)}`;
+  const r = await fetch(url, {
+    headers: {
+      'Referer': 'https://finance.naver.com/',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+      'Accept': 'application/json',
+    },
+  });
+  if (!r.ok) throw new Error(`naver ${r.status}`);
+  const json = await r.json();
+  const d = json?.datas?.[0];
+  if (!d) throw new Error('naver: no data');
+
+  // "1,234,500" 또는 숫자 → number. 빈값/실패 → null.
+  const numN = (s) => {
+    if (s == null) return null;
+    const n = Number(String(s).replace(/,/g, ''));
+    return isFinite(n) ? n : null;
+  };
+
+  const price = numN(d.closePrice);
+  const change = numN(d.compareToPreviousClosePrice);
+  const changePct = numN(d.fluctuationsRatio);
+  const prevClose = (price != null && change != null) ? price - change : null;
+  const exchCode = d.stockExchangeType?.code === 'KS' ? 'KS' : 'KQ';
+  const exchName = d.stockExchangeType?.code === 'KS' ? 'KOSPI' : 'KOSDAQ';
+
+  const out = {
+    symbol: `${rawSym}.${exchCode}`,
+    rawSymbol: rawSym,
+    name: (d.stockName || rawSym).trim(),
+    price,
+    previousClose: prevClose,
+    change,
+    changePercent: changePct,
+    currency: 'KRW',
+    marketState: d.marketStatus || null,  // OPEN | CLOSE
+    exchange: exchName,
+    dayHigh: numN(d.highPrice),
+    dayLow: numN(d.lowPrice),
+    volume: numN(d.accumulatedTradingVolume),
+    fiftyTwoWeekHigh: null, // 네이버 폴링 API 미지원 — 별도 요청 필요 (추후)
+    fiftyTwoWeekLow: null,
+    timestamp: Math.floor(Date.now() / 1000),
+    source: 'naver',
+  };
+  setCached(cacheKey, out);
+  return out;
+};
+
 const fetchYahooQuote = async (rawSym) => {
+  // KR 6자리 숫자 심볼은 네이버로 우회 (Yahoo 한국 시세 품질 문제)
+  if (/^\d{6}$/.test(rawSym)) {
+    try {
+      return await fetchNaverKrQuote(rawSym);
+    } catch (e) {
+      // 네이버 실패 시 기존 Yahoo 로 폴백 (데이터라도 반환)
+      console.warn(`[quote] naver fallback to yahoo for ${rawSym}: ${e.message}`);
+    }
+  }
+
   // 한국 종목은 KS/KQ 자동 판별. 미국 등은 그대로.
   const { yahooSym: sym, primedJson } = await resolveKrSymbol(rawSym);
   const cacheKey = `quote:${sym}`;
