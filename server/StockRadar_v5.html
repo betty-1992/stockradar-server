@@ -14455,10 +14455,18 @@ function renderSimulatorPage(){
       <!-- 탭 상세 설명 -->
       <div id="simTabHint" style="padding:12px 14px;background:var(--blue-bg);border-left:3px solid var(--brand);border-radius:8px;font-size:12px;color:var(--tx2);line-height:1.6"></div>
 
-      <!-- 저장된 시나리오 -->
-      <div id="simSavedBar" style="display:none;padding:10px 14px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:12px;color:var(--tx4);font-weight:700">📂 저장된 시나리오</span>
-        <div id="simSavedList" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
+      <!-- 저장된 시나리오 (아코디언) -->
+      <div id="simSavedWrap" style="display:none">
+        <button type="button" onclick="toggleSimSavedPanel()" id="simSavedToggle"
+          style="width:100%;padding:11px 14px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--tx);font-weight:700">
+          <span>📂 저장된 시나리오 <span id="simSavedCount" style="color:var(--tx4);font-weight:600"></span></span>
+          <span id="simSavedCaret" style="font-size:12px;color:var(--tx4);transition:transform .15s">▾</span>
+        </button>
+        <div id="simSavedPanel" style="display:none;margin-top:-4px;border:1px solid var(--bdr);border-top:none;border-radius:0 0 10px 10px;background:var(--bg2);overflow:hidden">
+          <input type="text" id="simSavedSearch" placeholder="이름 검색..." oninput="renderSimSavedBar()"
+            style="width:100%;padding:10px 14px;border:none;border-bottom:1px solid var(--bdr);background:var(--bg);color:var(--tx);font-size:12.5px;box-sizing:border-box">
+          <div id="simSavedList" style="max-height:280px;overflow-y:auto"></div>
+        </div>
       </div>
 
       <!-- 1) 투자 방식 + 금액 -->
@@ -14515,10 +14523,11 @@ function renderSimulatorPage(){
       .sim-tab-btn.on{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-color:transparent;box-shadow:0 3px 12px rgba(99,102,241,.35)}
       .sim-tab-btn.on .sim-tab-desc{color:rgba(255,255,255,.88)}
       .sim-tab-btn:not(.on):hover{background:var(--bg2);color:var(--tx)}
-      .sim-saved-chip{padding:5px 12px;border-radius:14px;background:var(--bg);border:1px solid var(--bdr);cursor:pointer;font-size:11.5px;display:inline-flex;gap:6px;align-items:center}
-      .sim-saved-chip:hover{background:var(--surf);border-color:var(--brand)}
-      .sim-saved-chip .x{color:var(--tx4);cursor:pointer;padding:0 2px}
-      .sim-saved-chip .x:hover{color:var(--dn)}
+      .sim-saved-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bdr);cursor:pointer}
+      .sim-saved-row:last-child{border-bottom:none}
+      .sim-saved-row:hover{background:var(--surf)}
+      .sim-saved-row .del{padding:4px 8px;border:none;border-radius:6px;background:transparent;color:var(--tx4);cursor:pointer;font-size:14px}
+      .sim-saved-row .del:hover{background:var(--bdr);color:var(--dn)}
       .sim-year-btn{min-width:64px;padding:8px 12px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--tx);font-weight:700;font-size:12.5px;cursor:pointer}
       .sim-year-btn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
       .sim-mode-btn{flex:1;min-width:80px;padding:9px 10px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--tx);font-weight:700;font-size:12.5px;cursor:pointer}
@@ -14654,19 +14663,60 @@ function deleteSimScenario(id, evt){
   _simSaveAll(list);
   renderSimSavedBar();
 }
+function toggleSimSavedPanel(){
+  const p = document.getElementById('simSavedPanel');
+  const c = document.getElementById('simSavedCaret');
+  if (!p || !c) return;
+  const open = p.style.display === 'none';
+  p.style.display = open ? 'block' : 'none';
+  c.style.transform = open ? 'rotate(180deg)' : 'rotate(0)';
+}
+window.toggleSimSavedPanel = toggleSimSavedPanel;
+
 function renderSimSavedBar(){
-  const bar = document.getElementById('simSavedBar');
+  const wrap = document.getElementById('simSavedWrap');
   const listEl = document.getElementById('simSavedList');
-  if (!bar || !listEl) return;
+  const cntEl = document.getElementById('simSavedCount');
+  if (!wrap || !listEl) return;
   const all = _simLoadAll();
-  if (all.length === 0) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
-  listEl.innerHTML = all.map(s =>
-    `<span class="sim-saved-chip" onclick="loadSimScenario(${s.id})" title="${esc(s.name)} · ${new Date(s.savedAt).toLocaleDateString('ko-KR')}">
-      ${s.tab==='future'?'🔮':'📊'} ${esc(s.name)}
-      <span class="x" onclick="deleteSimScenario(${s.id}, event)">✕</span>
-    </span>`
-  ).join('');
+  if (all.length === 0) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  if (cntEl) cntEl.textContent = `· ${all.length}개`;
+
+  const q = (document.getElementById('simSavedSearch')?.value || '').trim().toLowerCase();
+  const filtered = q ? all.filter(s => (s.name||'').toLowerCase().includes(q)) : all;
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--tx4);font-size:12px">일치하는 시나리오가 없어요</div>`;
+    return;
+  }
+
+  const fmtDate = (ts) => {
+    const d = new Date(ts), now = Date.now();
+    const diff = (now - ts) / 86400000;
+    if (diff < 1) return '오늘';
+    if (diff < 2) return '어제';
+    if (diff < 7) return `${Math.floor(diff)}일 전`;
+    return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+  };
+  const modeLabel = (m) => m === 'lump' ? '일시' : m === 'monthly' ? '월' : '주';
+
+  listEl.innerHTML = filtered.map(s => {
+    const icon = s.tab === 'future' ? '🔮' : '📊';
+    const amt = s.mode === 'lump' ? s.lump : s.mode === 'monthly' ? s.monthly : s.weekly;
+    const stocks = (s.items || []).map(x => x.name || x.symbol).slice(0, 3).join(', ') + ((s.items||[]).length > 3 ? ' 외' : '');
+    return `<div class="sim-saved-row" onclick="loadSimScenario(${s.id})">
+      <div style="font-size:18px">${icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
+        <div style="font-size:10.5px;color:var(--tx4);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${s.years}년 · ${modeLabel(s.mode)} ${amt ? '₩' + Number(amt).toLocaleString('ko-KR') : ''} · ${esc(stocks || '—')}
+        </div>
+      </div>
+      <div style="font-size:10.5px;color:var(--tx4);white-space:nowrap">${fmtDate(s.savedAt)}</div>
+      <button class="del" onclick="deleteSimScenario(${s.id}, event)" title="삭제">🗑</button>
+    </div>`;
+  }).join('');
 }
 window.saveSimScenario = saveSimScenario;
 window.loadSimScenario = loadSimScenario;
