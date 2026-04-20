@@ -9146,7 +9146,8 @@ async function openDetail(id){
   const isKR = /^\d{6}$/.test(id);
   document.getElementById('naverBtn').style.display = isKR ? '' : 'none';
   document.getElementById('yahooBtn').style.display = ''; // 항상 표시
-  curStock.naverUrl = `https://finance.naver.com/item/main.naver?code=${id}`;
+  // 네이버 금융이 NXT(대체거래소) 탭을 기본으로 열어줘서 mkt=krx 강제 (2026-04-20)
+  curStock.naverUrl = `https://finance.naver.com/item/main.naver?code=${id}&mkt=krx`;
   const yahooSym = d.yahooSym || (isKR ? `${id}.KS` : id);
   curStock.yahooUrl = `https://finance.yahoo.com/quote/${encodeURIComponent(yahooSym)}`;
 
