@@ -14423,6 +14423,7 @@ window.renderPortfolioPage = renderPortfolioPage;
 //  미래 n년 복리 추정 (낙관/중립/비관). 일시금 또는 월적립 지원.
 // ═══════════════════════════════════════════════════════════════
 let _simState = {
+  tab: 'future',          // 'future' | 'past'
   items: [],              // [{symbol, name, weight}]  — weight % 합=100
   years: 5,
   yearsCustom: false,
@@ -14439,6 +14440,18 @@ function renderSimulatorPage(){
   if (!el) return;
   el.innerHTML = `
     <div style="max-width:980px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:14px">
+
+      <!-- 탭 -->
+      <div class="card" style="padding:6px;display:flex;gap:4px">
+        <button class="sim-tab-btn ${_simState.tab==='future'?'on':''}" onclick="setSimTab('future')">
+          🔮 미래 예상
+          <div style="font-size:10.5px;font-weight:600;color:var(--tx4);margin-top:2px">앞으로 얼마 될지 대략 예측</div>
+        </button>
+        <button class="sim-tab-btn ${_simState.tab==='past'?'on':''}" onclick="setSimTab('past')">
+          🧪 과거 모의투자
+          <div style="font-size:10.5px;font-weight:600;color:var(--tx4);margin-top:2px">진짜 이렇게 샀다면 지금 얼마?</div>
+        </button>
+      </div>
 
       <!-- 1) 투자 방식 + 금액 -->
       <div class="card" style="padding:18px 20px">
@@ -14474,7 +14487,9 @@ function renderSimulatorPage(){
       </div>
 
       <!-- 실행 -->
-      <button onclick="runSimulation()" id="simRunBtn" style="width:100%;padding:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:15px;font-weight:800;cursor:pointer">🔮 예상 수익 계산하기</button>
+      <button onclick="runSimulation()" id="simRunBtn" style="width:100%;padding:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:15px;font-weight:800;cursor:pointer">
+        <span id="simRunBtnLabel">🔮 예상 수익 계산하기</span>
+      </button>
       <div id="simErr" style="font-size:12px;color:var(--dn);margin-top:-4px;display:none"></div>
 
       <!-- 결과 -->
@@ -14486,6 +14501,9 @@ function renderSimulatorPage(){
       </div>
     </div>
     <style>
+      .sim-tab-btn{flex:1;padding:10px 12px;border-radius:8px;border:none;background:transparent;color:var(--tx2);font-weight:700;font-size:13px;cursor:pointer;text-align:center}
+      .sim-tab-btn.on{background:var(--bg2);color:var(--tx);box-shadow:0 1px 0 var(--bdr) inset}
+      .sim-tab-btn:not(.on):hover{color:var(--tx)}
       .sim-year-btn{min-width:64px;padding:8px 12px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--tx);font-weight:700;font-size:12.5px;cursor:pointer}
       .sim-year-btn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
       .sim-mode-btn{flex:1;min-width:80px;padding:9px 10px;border-radius:8px;border:1px solid var(--bdr);background:var(--bg2);color:var(--tx);font-weight:700;font-size:12.5px;cursor:pointer}
@@ -14543,6 +14561,20 @@ function setSimMode(m){
   _renderSimAmountInput();
 }
 window.setSimMode = setSimMode;
+
+function setSimTab(t){
+  _simState.tab = t;
+  document.querySelectorAll('.sim-tab-btn').forEach((b, i) => {
+    const tab = i === 0 ? 'future' : 'past';
+    b.classList.toggle('on', tab === t);
+  });
+  const btnLbl = document.getElementById('simRunBtnLabel');
+  if (btnLbl) btnLbl.textContent = t === 'future' ? '🔮 예상 수익 계산하기' : '🧪 과거 모의투자 실행';
+  // 결과 영역 초기화 (탭 전환 시 이전 결과 제거)
+  const res = document.getElementById('simResult');
+  if (res) { res.innerHTML = ''; res.style.display = 'none'; }
+}
+window.setSimTab = setSimTab;
 
 function renderSimItems(){
   const el = document.getElementById('simItems');
@@ -14673,7 +14705,7 @@ async function runSimulation(){
   const amt = _simState.mode === 'lump' ? _simState.lump : _simState.mode === 'monthly' ? _simState.monthly : _simState.weekly;
   if (!(amt > 0)) { err.textContent='투자금을 입력해주세요'; err.style.display='block'; return; }
 
-  btn.disabled = true; btn.textContent = '계산 중... (10~20초)';
+  btn.disabled = true; btn.innerHTML = '<span>계산 중... (10~20초)</span>';
   try {
     const years = _simState.years;
     const valid = _simState.items;
@@ -14683,15 +14715,22 @@ async function runSimulation(){
     const bad = hist.findIndex(h => !h?.ok || !h.bars?.length);
     if (bad >= 0) throw new Error(`${valid[bad].symbol} 시세 조회 실패`);
 
-    const result = _computeScenario(valid, hist, years, _simState.mode, amt);
-    _simState.lastResult = result;
-    renderSimResult(valid, result);
+    if (_simState.tab === 'past') {
+      const result = _computeBacktest(valid, hist, _simState.mode, amt);
+      _simState.lastResult = result;
+      renderBacktestResult(valid, result);
+    } else {
+      const result = _computeScenario(valid, hist, years, _simState.mode, amt);
+      _simState.lastResult = result;
+      renderSimResult(valid, result);
+    }
   } catch(e){
     err.textContent = '오류: ' + e.message;
     err.style.display = 'block';
   } finally {
     btn.disabled = false;
-    btn.textContent = '🔮 예상 수익 계산하기';
+    const label = _simState.tab === 'past' ? '🧪 과거 모의투자 실행' : '🔮 예상 수익 계산하기';
+    btn.innerHTML = `<span id="simRunBtnLabel">${label}</span>`;
   }
 }
 window.runSimulation = runSimulation;
@@ -14749,6 +14788,216 @@ function _computeScenario(items, histories, years, mode, amount){
   // 8) 투입 총액
   const invested = mode === 'lump' ? amount : mode === 'monthly' ? amount * months : amount * years * 52;
   return { cagr, mdd, nav, proj, invested, totalAmount: invested, stepsPerYear, mode, amount };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  과거 모의투자 — 실제 가격으로 정수 주(KR) / 소수점(US) 매수 시뮬
+//  잔돈은 현금 잔고에 누적, 다음 매수 주기 배분액에 합산하지 않음 (현실 모델)
+//  최종 평가 = Σ(누적주수 × 최종가) + 현금잔고
+// ═══════════════════════════════════════════════════════════════
+function _computeBacktest(items, histories, mode, amount){
+  // 종목별 bars 보관 — 각자 영업일 다를 수 있음
+  const byItem = histories.map((h, i) => ({
+    symbol: items[i].symbol,
+    isKr: /^\d{6}$/.test(items[i].symbol),
+    weight: (+items[i].weight||0) / 100,
+    bars: h.bars,     // [{t,o,h,l,c,v}]
+  }));
+
+  // 모든 종목 공통 시작일 = 각자 가장 늦은 시작일
+  const commonStartTs = Math.max(...byItem.map(x => x.bars[0].t));
+  // 공통 끝일 = 가장 이른 끝일
+  const commonEndTs   = Math.min(...byItem.map(x => x.bars[x.bars.length-1].t));
+
+  // 가장 긴 종목 bar 기준으로 날짜 이터레이션
+  const primaryBars = byItem.reduce((a,b) => a.bars.length >= b.bars.length ? a : b).bars
+    .filter(b => b.t >= commonStartTs && b.t <= commonEndTs);
+
+  // 각 종목별 "해당 날짜 또는 그 이전 마지막 영업일" 가격 찾기 (바이너리 서치 대용 — 커서)
+  const cursors = byItem.map(() => 0);
+  const priceOn = (idx, t) => {
+    const bars = byItem[idx].bars;
+    while (cursors[idx] + 1 < bars.length && bars[cursors[idx] + 1].t <= t) cursors[idx]++;
+    return bars[cursors[idx]]?.c;
+  };
+
+  // 매수 주기 판단
+  const periodDays = mode === 'weekly' ? 7 : mode === 'monthly' ? 30 : 0;
+
+  // 보유 상태
+  const qty = byItem.map(() => 0);     // 종목별 누적 수량
+  let cash = 0;                        // 남은 현금 (잔돈 누적)
+  let invested = 0;                    // 누적 배분(투입) 금액
+  const navSeries = [];                // {t, v} - 시점별 포트폴리오 가치
+
+  let lastBuyTs = 0;
+  for (const pb of primaryBars) {
+    const t = pb.t;
+    let doBuy = false;
+    if (mode === 'lump') {
+      if (lastBuyTs === 0) doBuy = true;
+    } else {
+      if (lastBuyTs === 0 || (t - lastBuyTs) >= periodDays * 86400 - 3600) doBuy = true;
+    }
+    if (doBuy) {
+      invested += amount;
+      // 종목별 배분 매수
+      for (let i = 0; i < byItem.length; i++) {
+        const alloc = amount * byItem[i].weight;
+        const price = priceOn(i, t);
+        if (!(price > 0)) continue;
+        let shares;
+        if (byItem[i].isKr) {
+          shares = Math.floor(alloc / price);  // 국내: 정수 주
+        } else {
+          shares = alloc / price;               // 미국: 소수점 주
+        }
+        const actualCost = shares * price;
+        qty[i] += shares;
+        cash += (alloc - actualCost);           // 잔돈 → 현금 누적
+      }
+      lastBuyTs = t;
+    }
+    // 해당 시점 포트폴리오 가치 계산
+    let pv = cash;
+    for (let i = 0; i < byItem.length; i++) {
+      const p = priceOn(i, t);
+      pv += qty[i] * (p || 0);
+    }
+    navSeries.push({ t, v: pv, invested });
+  }
+
+  // 최종 평가
+  const last = navSeries[navSeries.length - 1];
+  const pnl = last.v - invested;
+  const pnlPct = invested > 0 ? (pnl / invested) : 0;
+  // CAGR (실제 평가액 기준)
+  const yrs = (navSeries[navSeries.length-1].t - navSeries[0].t) / (365.25 * 24 * 3600);
+  const cagr = (mode === 'lump' && yrs > 0 && invested > 0)
+    ? Math.pow(last.v / invested, 1/yrs) - 1
+    : null; // 적립식은 단순 CAGR 의미 달라서 별도 IRR 필요 — 여기선 생략
+
+  // 종목별 최종 수량/평가
+  const holdings = byItem.map((b, i) => {
+    const lastPrice = b.bars[b.bars.length - 1].c;
+    const value = qty[i] * lastPrice;
+    return {
+      symbol: b.symbol,
+      name: items[i].name,
+      isKr: b.isKr,
+      qty: qty[i],
+      lastPrice,
+      value,
+      weight: b.weight * 100,
+    };
+  });
+
+  return {
+    mode, amount,
+    startTs: navSeries[0].t,
+    endTs: navSeries[navSeries.length-1].t,
+    buyCount: Math.round(invested / amount),
+    invested,
+    finalValue: last.v,
+    pnl,
+    pnlPct,
+    cash,
+    cagr,
+    navSeries,
+    holdings,
+    years: yrs,
+  };
+}
+
+function renderBacktestResult(items, r){
+  const el = document.getElementById('simResult');
+  if (!el) return;
+  el.style.display = '';
+  const krw = (n) => '₩' + Math.round(n).toLocaleString('ko-KR');
+  const pct = (x) => (x*100).toFixed(2) + '%';
+  const up = r.pnl >= 0;
+  const col = up ? 'var(--up, #e53935)' : 'var(--dn, #1e88e5)';
+  const fmtD = (ts) => new Date(ts * 1000).toISOString().slice(0, 10);
+  const modeLabel = r.mode === 'lump' ? '일시금' : r.mode === 'monthly' ? '매월' : '매주';
+
+  const holdingsRows = r.holdings.map(h => `
+    <tr style="border-bottom:1px solid var(--bdr)">
+      <td style="padding:8px 10px">
+        <div style="font-weight:700;font-size:12.5px">${esc(h.name || h.symbol)}</div>
+        <div style="font-size:10.5px;color:var(--tx4)">${h.symbol} ${h.isKr?'🇰🇷':'🇺🇸'} · 비중 ${h.weight.toFixed(0)}%</div>
+      </td>
+      <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${h.isKr ? Math.round(h.qty).toLocaleString() : h.qty.toFixed(4)}주</td>
+      <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--tx4)">${h.isKr?'₩':'$'}${h.lastPrice.toLocaleString()}</td>
+      <td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700">${h.isKr?'₩':'$'}${Math.round(h.value).toLocaleString()}</td>
+    </tr>`).join('');
+
+  el.innerHTML = `
+    <div class="card" style="padding:18px 20px;margin-bottom:12px">
+      <div style="font-size:11.5px;color:var(--tx4);margin-bottom:6px">
+        🧪 ${fmtD(r.startTs)} ~ ${fmtD(r.endTs)} · ${modeLabel} ${krw(r.amount)} × ${r.buyCount}회 매수
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px">
+        <div style="padding:12px;background:var(--bg2);border:1px solid var(--bdr);border-radius:10px">
+          <div style="font-size:11px;color:var(--tx4);margin-bottom:4px">누적 투입 금액</div>
+          <div style="font-size:17px;font-weight:900">${krw(r.invested)}</div>
+        </div>
+        <div style="padding:12px;background:var(--blue-bg);border:1px solid var(--brand);border-radius:10px">
+          <div style="font-size:11px;color:var(--tx4);margin-bottom:4px">현재 평가 금액</div>
+          <div style="font-size:17px;font-weight:900">${krw(r.finalValue)}</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding:12px;background:var(--bg2);border-radius:8px;display:flex;gap:14px;flex-wrap:wrap;align-items:baseline;font-size:13px;font-weight:700">
+        <span style="color:${col}">${up?'▲':'▼'} ${krw(Math.abs(r.pnl))}</span>
+        <span style="color:${col}">${up?'+':''}${pct(r.pnlPct)}</span>
+        ${r.cagr != null ? `<span style="color:var(--tx4);font-size:11.5px;font-weight:600">연평균(CAGR) ${pct(r.cagr)}</span>` : ''}
+        <span style="color:var(--tx4);font-size:11.5px;font-weight:600;margin-left:auto">현금잔고 ${krw(r.cash)}</span>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">
+      <div style="padding:12px 14px;font-size:12px;font-weight:700;color:var(--tx4);border-bottom:1px solid var(--bdr)">종목별 최종 보유</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <thead><tr style="background:var(--bg2);color:var(--tx4);font-weight:700">
+          <th style="padding:8px 10px;text-align:left">종목</th>
+          <th style="padding:8px 10px;text-align:right">수량</th>
+          <th style="padding:8px 10px;text-align:right">현재가</th>
+          <th style="padding:8px 10px;text-align:right">평가액</th>
+        </tr></thead>
+        <tbody>${holdingsRows}</tbody>
+      </table>
+    </div>
+    <div class="card" style="padding:12px 14px">
+      <div style="font-size:12px;font-weight:700;color:var(--tx4);margin-bottom:8px">포트폴리오 가치 추이 (과거 ${r.years.toFixed(1)}년)</div>
+      <canvas id="simChart" style="width:100%;max-height:260px"></canvas>
+    </div>
+  `;
+  _drawBacktestChart(r);
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function _drawBacktestChart(r){
+  const ctx = document.getElementById('simChart');
+  if (!ctx || typeof Chart === 'undefined') return;
+  if (_simChart) { try { _simChart.destroy(); } catch(_){} }
+  // 너무 많으면 샘플링 (최대 ~180 포인트)
+  const src = r.navSeries;
+  const step = Math.max(1, Math.floor(src.length / 180));
+  const sampled = src.filter((_, i) => i % step === 0 || i === src.length - 1);
+  const labels = sampled.map(s => new Date(s.t * 1000).toISOString().slice(0, 7));
+  _simChart = new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'누적 투입', data: sampled.map(s => s.invested), borderColor:'var(--tx4)', borderDash:[4,4], backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0 },
+        { label:'포트폴리오 가치', data: sampled.map(s => s.v), borderColor:'var(--brand)', backgroundColor:'rgba(99,102,241,.10)', borderWidth:2, pointRadius:0, tension:.1, fill:true },
+      ],
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend: { labels:{ boxWidth:12, font:{size:11} } }, tooltip:{ callbacks:{ label:(c)=>` ${c.dataset.label}: ₩${Math.round(c.parsed.y).toLocaleString('ko-KR')}` } } },
+      scales: { y:{ ticks:{ callback:(v)=>'₩'+Math.round(v/10000).toLocaleString('ko-KR')+'만' } }, x:{ ticks:{ autoSkip:true, maxRotation:0 } } },
+    },
+  });
 }
 
 function renderSimResult(items, r){
