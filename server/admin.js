@@ -1081,6 +1081,39 @@ router.post('/script/stop', (req, res) => {
   }
 });
 
+// ─── GET /api/admin/ops/backup — 전체 DB 스냅샷 다운로드 ─────────────
+//  better-sqlite3 의 backup() API 로 WAL 체크포인트 포함 안전 스냅샷 생성 후
+//  파일 스트림으로 응답. 완료/에러 시 임시 파일 정리.
+//  호출은 requireAdmin 으로 보호됨. 감사 로그에 action='admin_db_backup' 기록.
+router.get('/ops/backup', async (req, res) => {
+  const osMod = require('os');
+  const pathMod = require('path');
+  const tmpFile = pathMod.join(osMod.tmpdir(), `sr-backup-${Date.now()}-${Math.random().toString(36).slice(2,8)}.db`);
+  try {
+    await db.backup(tmpFile);  // WAL-safe 스냅샷 (동시 write 안전)
+    const ts = new Date().toISOString().replace(/[:T]/g, '-').replace(/\..+$/, '').replace(/-/g,'').slice(0, 13);
+    const filename = `stockradar-${ts}.db`;
+    logAudit({
+      userId: req.user.id,
+      action: 'admin_db_backup',
+      target: filename,
+      meta: { sizeBytes: fs.statSync(tmpFile).size },
+      ip: clientIp(req),
+    });
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    const stream = fs.createReadStream(tmpFile);
+    stream.pipe(res);
+    const cleanup = () => { fs.unlink(tmpFile, () => {}); };
+    stream.on('close', cleanup);
+    stream.on('error', (err) => { cleanup(); console.warn('[backup] stream error', err); });
+  } catch (e) {
+    try { fs.unlinkSync(tmpFile); } catch(_){}
+    console.warn('[backup] failed', e);
+    if (!res.headersSent) res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ─── GET /api/admin/ops/dbinfo — DB 경로·볼륨 진단 ─────────────
 //  Railway 볼륨 마운트 여부 확인용. DB_PATH 가 /app/... 이면 컨테이너
 //  내부(배포마다 초기화 위험), /data/... 같이 볼륨이면 영속성 OK.
