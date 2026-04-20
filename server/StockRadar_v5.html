@@ -11793,10 +11793,15 @@ async function loadPrices(){
   setLoadingStatus(true, `서버에서 ${ids.length}개 종목 시세 로딩 중...`);
   let loaded = 0;
 
-  // 50개씩 배치로 잘게 쪼개서 청크마다 즉시 화면에 반영 → 점진적으로 데이터가 채워짐
-  const BATCH = 50;
-  for(let i=0; i<ids.length; i+=BATCH){
-    const chunk = ids.slice(i, i+BATCH);
+  // 2026-04-20: KR 유니버스 2898개로 확장되면서 기존 BATCH=50 × 순차 → 2분 소요.
+  // 서버 /api/quotes 는 KR 을 네이버 멀티 심볼 API 로 배치 처리(100단위)하므로
+  // 프론트 청크를 300으로 키우고 3병렬로 돌리면 총 6~10초 수렴.
+  const BATCH = 300;
+  const PARALLEL = 3;
+  const chunks = [];
+  for(let i=0; i<ids.length; i+=BATCH) chunks.push(ids.slice(i, i+BATCH));
+
+  const fetchChunk = async (chunk) => {
     try{
       const res = await fetch(`${SERVER_URL}/api/quotes?symbols=${chunk.join(',')}`);
       const d = await res.json();
@@ -11816,18 +11821,23 @@ async function loadPrices(){
           low52:      q.fiftyTwoWeekLow || 0,
           drop,
           name:       q.name       || m.nm,
-          yahooSym:   q.symbol     || rawId, // 예: "293490.KQ", "AAPL"
+          yahooSym:   q.symbol     || rawId,
         };
         loaded++;
       });
-    } catch(e){ console.warn('서버 시세 청크 실패', i, e.message); }
-    // 청크마다 즉시 반영 → 사용자가 데이터가 채워지는 걸 볼 수 있음
+    } catch(e){ console.warn('서버 시세 청크 실패', e.message); }
+  };
+
+  for(let p=0; p<chunks.length; p+=PARALLEL){
+    const group = chunks.slice(p, p+PARALLEL);
+    await Promise.all(group.map(fetchChunk));
+    // 그룹마다 즉시 렌더링 반영
     rebuildStocksFromLive();
     renderHome();
     applyFilters();
-    setLoadingStatus(true, `시세 로딩 중... ${Math.min(i+BATCH, ids.length)}/${ids.length}개`);
+    const done = Math.min((p+PARALLEL)*BATCH, ids.length);
+    setLoadingStatus(true, `시세 로딩 중... ${Math.min(done, ids.length)}/${ids.length}개`);
   }
-
   setLoadingStatus(false);
   if(loaded > 0) toast(`✅ ${loaded}개 종목 시세 업데이트`);
 }
